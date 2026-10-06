@@ -95,6 +95,12 @@ def scene(tmp_path):
     monkey.setattr(static_map, "ground_mask", is_ground)
     monkey.setattr(static_map, "BEVScene", lambda *_: SimpleNamespace(
         gains={}, camera=SimpleNamespace(cache_clear=lambda: None)))
+    # Exposure and orthophoto have their own tests (test_sim_map_photo.py).
+    monkey.setattr(sim_layout, "camera_exposure", lambda *_: 1.0)
+    monkey.setattr("topeye.sim.actor_color.actor_colors",
+                   lambda *_: {"track-car": [200, 10, 10]})
+    monkey.setattr(sim_layout, "ground_photo", lambda adapter, scene, bounds, *_: np.zeros(
+        (*sim_layout.raster_shape(bounds), 3), np.uint8))
     yield adapter, frame, box, tmp_path / "out"
     monkey.undo()
 
@@ -136,6 +142,7 @@ def test_layout_actor_in_world(scene):
     np.testing.assert_allclose(key["center"], [10.0, 5.0 + 8.0, -1.0], atol=1e-9)
     assert key["yaw"] == pytest.approx(0.3 + np.pi / 2)
     assert actor["size"] == [4.0, 2.0, 1.6] and actor["label"] == "car"
+    assert actor["color"] == [200, 10, 10]
 
 
 def test_layout_selftest_uses_reference_projection(scene):
@@ -328,3 +335,16 @@ def test_viewer_server_serves_page_and_sim_files_only(tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_compose_ground_photo_keeps_camera_only_on_road():
+    photo = np.zeros((2, 3, 3), np.uint8)
+    photo[:, :2] = [200, 10, 10]
+    drivable = np.array([[255, 0, 255], [255, 255, 0]], np.uint8)
+    paint = np.zeros((2, 3), np.uint8)
+    paint[1, 2] = 255
+    out = sim_layout.compose_ground_photo(photo, drivable, paint)
+    assert out[0, 0].tolist() == [200, 10, 10]   # road + camera colour
+    assert out[0, 1].tolist() == [120, 120, 120]  # off-road streak replaced by kerb
+    assert out[0, 2].tolist() == [58, 58, 58]     # road without camera colour
+    assert out[1, 2].tolist() == [235, 235, 235]  # paint on procedural ground

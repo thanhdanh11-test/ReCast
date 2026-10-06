@@ -15,6 +15,7 @@ import time
 import tomllib
 import traceback
 import zlib
+from itertools import pairwise
 from pathlib import Path
 
 import bpy
@@ -46,8 +47,93 @@ SCHEMA = {
          "cameras": list, "resolution_scale": (int, float), "weather": dict, "traffic": dict},
     "weather": {"preset": str, "fog_density": (int, float), "wetness": (int, float),
                 "paint_fade": (int, float), "rain_drop_rate": (int, float)},
-    "traffic": {"mode": str, "color_randomization": bool},
+    "traffic": {"mode": str, "color_randomization": bool, "density": (int, float),
+                "speed_scale": (int, float), "speed_jitter": (int, float),
+                "lane_change_rate": (int, float), "aggressiveness": (int, float),
+                "pedestrians": (int, float), "keep_parked": bool, "seed": int},
 }
+
+
+# Schema 2 uses CARLA units at the file boundary, then the existing render units.
+WEATHER_RANGES = {"cloudiness": (0, 100), "precipitation": (0, 100),
+    "precipitation_deposits": (0, 100), "wind_intensity": (0, 100),
+    "sun_azimuth_angle": (0, 360), "sun_altitude_angle": (-90, 90),
+    "fog_density": (0, 100), "fog_distance": (0, math.inf),
+    "wetness": (0, 100), "paint_fade": (0, 1)}
+WEATHER_BASE = {"cloudiness": 0.0, "precipitation": 0.0, "precipitation_deposits": 0.0,
+    "wind_intensity": 0.0, "sun_azimuth_angle": 30.0, "sun_altitude_angle": 45.0,
+    "fog_density": 0.0, "fog_distance": 0.0, "wetness": 0.0, "paint_fade": 0.0}
+WEATHER_PRESETS = {
+    "day": dict(WEATHER_BASE),
+    "night": {**WEATHER_BASE, "sun_altitude_angle": -30.0},
+    "rain": {**WEATHER_BASE, "cloudiness": 80.0, "precipitation": 60.0,
+             "precipitation_deposits": 40.0, "wind_intensity": 30.0, "wetness": 80.0,
+             "fog_density": 10.0},
+    "fog": {**WEATHER_BASE, "cloudiness": 70.0, "fog_density": 40.0, "wetness": 30.0},
+    "dusk": {**WEATHER_BASE, "sun_altitude_angle": 5.0, "sun_azimuth_angle": 270.0},
+}
+LIDAR_DEFAULTS = {"atmosphere_attenuation_rate": 0.004, "dropoff_general_rate": 0.13,
+    "dropoff_intensity_limit": 0.8, "dropoff_zero_intensity": 0.4, "noise_stddev": 0.0}
+LIDAR_RANGES = {key: (0, math.inf if key in ("atmosphere_attenuation_rate", "noise_stddev")
+                       else 1) for key in LIDAR_DEFAULTS}
+TRAFFIC_RANGES_V2 = {"distance_to_leading": (0.5, 10), "speed_difference_percent": (-50, 80),
+    "random_lanechange_percent": (0, 100), "max_accel": (0.5, 6),
+    "max_decel": (1, 9), "max_lateral_accel": (1, 8)}
+
+
+def numeric_ranges(table, ranges, section):
+    for key, value in table.items():
+        if key not in ranges:
+            raise InputError(f"Unknown {section} key {key}")
+        low, high = ranges[key]
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or not low <= value <= high):
+            raise InputError(f"{section}.{key} must be finite in [{low}, {high}]")
+
+
+def normalize_weather(weather):
+    preset = weather.get("preset", "day")
+    if preset not in WEATHER_PRESETS:
+        raise InputError(f"Unknown weather preset {preset}")
+    numeric_ranges({k: v for k, v in weather.items() if k != "preset"}, WEATHER_RANGES, "weather")
+    w = {**WEATHER_PRESETS[preset], **weather, "preset": preset}
+    return {**w, "fog_density": 0.001 * w["fog_density"],
+            "wetness": max(w["wetness"], w["precipitation"]) / 100,
+            "rain_drop_rate": 0.0015 * w["precipitation"]}
+
+
+def is_night(scenario):
+    weather = scenario["weather"]
+    return (weather["sun_altitude_angle"] < 0 if scenario.get("schema", 1) == 2
+            else PRESETS[weather["preset"]]["night"])
+
+
+def puddle_threshold(coverage):
+    return float(np.interp(coverage, np.linspace(0, 1, 11),
+        [0, 0.14497, 0.26715, 0.36759, 0.4467, 0.5, 0.5533, 0.63241, 0.73285, 0.85503, 1]))
+
+
+def puddle_value(x, y):
+    # Smooth deterministic noise, shared by render shader and ray-hit mask.
+    return (math.sin(0.37 * x) * math.sin(0.53 * y) + 1) / 2
+
+
+def lidar_return(reflectivity, distance, lidar, weather, rng, *, ground=False, puddle=False):
+    intensity = reflectivity * math.exp(-lidar["atmosphere_attenuation_rate"] * distance)
+    probability = (lidar["dropoff_zero_intensity"] if intensity == 0 else
+                   0.0 if intensity > lidar["dropoff_intensity_limit"] else
+                   lidar["dropoff_general_rate"])
+    if rng.random() < probability:
+        return None
+    if rng.random() < weather["rain_drop_rate"]:
+        return None
+    if rng.random() > math.exp(-2 * weather["fog_density"] * distance):
+        return None
+    if puddle and rng.random() < 0.8:
+        return None
+    if ground:
+        intensity *= 1 - 0.5 * weather["wetness"]
+    return distance + rng.normal(0, lidar["noise_stddev"]), 255 * intensity
 
 
 class InputError(Exception):
@@ -62,6 +148,7 @@ def parse_args():
     parser.add_argument("--layout", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--scenario", type=Path)
+    parser.add_argument("--actors", type=Path)
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--no-render", action="store_true")
     parser.add_argument("--no-lidar", action="store_true")
@@ -89,8 +176,20 @@ def load_scenario(path, layout):
         data = tomllib.loads(path.read_text())
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise InputError(f"Cannot read scenario {path}: {exc}") from exc
-    for section, fields in SCHEMA.items():
+    schema = data.get("schema", 1)
+    if type(schema) is not int or schema not in (1, 2):
+        raise InputError("schema must be 1 or 2")
+    fields_by_section = {key: dict(value) for key, value in SCHEMA.items()}
+    fields_by_section[""]["schema"] = int
+    if schema == 2:
+        fields_by_section[""]["lidar"] = dict
+        fields_by_section["weather"] = {"preset": str, **{key: (int, float) for key in WEATHER_RANGES}}
+        fields_by_section["lidar"] = {key: (int, float) for key in LIDAR_DEFAULTS}
+    fields_by_section["traffic"].update({key: (int, float) for key in TRAFFIC_RANGES_V2})
+    for section, fields in fields_by_section.items():
         table = data if not section else data.get(section, {})
+        if not isinstance(table, dict):
+            raise InputError(f"Scenario [{section}] must be a table")
         for key, value in table.items():
             if key not in fields:
                 raise InputError(f"Unknown scenario key [{section or 'root'}].{key}")
@@ -100,17 +199,25 @@ def load_scenario(path, layout):
                 raise InputError(f"Invalid type for {key}")
     weather = dict(data.get("weather", {}))
     preset = weather.get("preset", "day")
-    if preset not in PRESETS:
+    if preset not in (WEATHER_PRESETS if schema == 2 else PRESETS):
         raise InputError(f"Unknown weather preset {preset}")
-    weather = {"preset": preset, "fog_density": PRESETS[preset]["fog_density"],
-               "wetness": PRESETS[preset]["wetness"], "paint_fade": 0.0,
+    weather = {"preset": preset, "fog_density": PRESETS.get(preset, PRESETS["day"])["fog_density"],
+               "wetness": PRESETS.get(preset, PRESETS["day"])["wetness"], "paint_fade": 0.0,
                "rain_drop_rate": 0.0, **weather}
+    if schema == 2:
+        weather = normalize_weather(data.get("weather", {}))
+        numeric_ranges(data.get("lidar", {}), LIDAR_RANGES, "lidar")
+    numeric_ranges({k: v for k, v in data.get("traffic", {}).items()
+                    if k in TRAFFIC_RANGES_V2}, TRAFFIC_RANGES_V2, "traffic")
     traffic = {"mode": "replay", "color_randomization": True, **data.get("traffic", {})}
     scenario = {"name": data.get("name", ""), "seed": data.get("seed", 0),
                 "engine": data.get("engine", "eevee"), "samples": data.get("samples", 16),
                 "frames": data.get("frames", []), "cameras": data.get("cameras", []),
                 "resolution_scale": float(data.get("resolution_scale", 1.0)),
                 "weather": weather, "traffic": traffic}
+    if schema == 2:
+        scenario["schema"] = 2
+        scenario["lidar"] = {**LIDAR_DEFAULTS, **data.get("lidar", {})}
     checks = [
         (bool(scenario["name"]) and all(c.isalnum() or c in "_-" for c in scenario["name"]),
          "name"),
@@ -121,11 +228,20 @@ def load_scenario(path, layout):
         (0 <= weather["wetness"] <= 1, "weather.wetness"),
         (0 <= weather["paint_fade"] <= 1, "weather.paint_fade"),
         (0 <= weather["rain_drop_rate"] <= 1, "weather.rain_drop_rate"),
-        (traffic["mode"] == "replay", "traffic.mode"),
+        (traffic["mode"] in ("replay", "generated"), "traffic.mode"),
     ]
+    for key, (low, high) in {"density": (0, 3), "speed_scale": (0.5, 2),
+                             "speed_jitter": (0, 0.5), "lane_change_rate": (0, 1),
+                             "aggressiveness": (0, 1), "pedestrians": (0, 3)}.items():
+        if key in traffic:
+            checks.append((low <= traffic[key] <= high, f"traffic.{key}"))
     for ok, key in checks:
         if not ok:
             raise InputError(f"Scenario value out of range: {key}")
+    if any(type(frame) is not int for frame in scenario["frames"]):
+        raise InputError("Scenario frames must contain integers")
+    if any(type(camera) is not str for camera in scenario["cameras"]):
+        raise InputError("Scenario cameras must contain strings")
     indices = {frame["index"] for frame in layout["frames"]}
     if any(frame not in indices for frame in scenario["frames"]):
         raise InputError("Scenario frames not in layout")
@@ -351,6 +467,29 @@ def ground_material(directory, layout, weather):
                     socket(multiply.outputs, "Result", "RGBA"), white)
     links.new(color, bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = 0.85 - 0.75 * weather["wetness"]
+    deposits = weather.get("precipitation_deposits", 0) / 100
+    if deposits > 0:
+        geometry = nodes.new("ShaderNodeNewGeometry")
+        separate = nodes.new("ShaderNodeSeparateXYZ")
+        links.new(geometry.outputs["Position"], separate.inputs["Vector"])
+        def math_node(operation, a, b=None):
+            node = nodes.new("ShaderNodeMath")
+            node.operation = operation
+            for index, item in enumerate((a, b) if b is not None else (a,)):
+                if isinstance(item, (int, float)):
+                    node.inputs[index].default_value = item
+                else:
+                    links.new(item, node.inputs[index])
+            return node.outputs[0]
+        sx = math_node("SINE", math_node("MULTIPLY", separate.outputs["X"], 0.37))
+        sy = math_node("SINE", math_node("MULTIPLY", separate.outputs["Y"], 0.53))
+        noise = math_node("MULTIPLY", math_node("ADD", math_node("MULTIPLY", sx, sy), 1), 0.5)
+        mask = math_node("MULTIPLY", math_node("LESS_THAN", noise, puddle_threshold(deposits)), drivable)
+        roughness = math_node("ADD", math_node("MULTIPLY", mask,
+                              0.03 - bsdf.inputs["Roughness"].default_value),
+                              bsdf.inputs["Roughness"].default_value)
+        links.new(roughness, bsdf.inputs["Roughness"])
+        bsdf.inputs["Metallic"].default_value = 0.15
     return material
 
 
@@ -389,8 +528,177 @@ def set_ground_uv(obj, bounds):
     layer.data.foreach_set("uv", np.column_stack((u, v)).ravel())
 
 
-def build_actors(layout, scenario):
-    night = PRESETS[scenario["weather"]["preset"]]["night"]
+def select_library_asset(manifest, actor, seed):
+    """Closest shape among same-class assets respecting the 1.3 distortion cap."""
+    target = np.asarray(actor["size"], dtype=float)
+    if target.shape != (3,) or not np.isfinite(target).all() or (target <= 0).any():
+        raise InputError(f"Invalid actor size: {actor['track']}")
+    candidates = []
+    for asset in manifest:
+        if asset["class"] != actor["label"]:
+            continue
+        native = np.asarray(asset["native_size"], dtype=float)
+        if native.shape != (3,) or not np.isfinite(native).all() or (native <= 0).any():
+            raise InputError(f"Invalid native_size for {asset['asset_id']}")
+        scale = target / native
+        if scale.max() / scale.min() <= 1.3 + 1e-9:
+            shape = np.log(scale)
+            candidates.append((float(np.linalg.norm(shape - shape.mean())), asset, scale))
+    if not candidates:
+        return None, None
+    best = min(item[0] for item in candidates)
+    tied = sorted((item for item in candidates if abs(item[0] - best) < 1e-9),
+                  key=lambda item: item[1]["asset_id"])
+    rng = random.Random(seed ^ zlib.crc32(actor["track"].encode()))
+    _, asset, scale = rng.choice(tied)
+    return asset, scale
+
+
+def load_library_manifest():
+    directory = Path(__file__).resolve().parents[3] / "assets"
+    path = directory / "library_manifest.json"
+    if not path.is_file():
+        return [], directory
+    try:
+        manifest = json.loads(path.read_text())
+        if not isinstance(manifest, list):
+            raise TypeError("manifest must be a list")
+        ids = set()
+        for asset in manifest:
+            if not isinstance(asset["asset_id"], str) or not asset["asset_id"]:
+                raise ValueError("asset_id must be a non-empty string")
+            native = np.asarray(asset["native_size"], dtype=float)
+            if native.shape != (3,) or not np.isfinite(native).all() or (native <= 0).any():
+                raise ValueError("native_size must contain three positive finite dimensions")
+            if not isinstance(asset["file"], str):
+                raise TypeError("file must be a string")
+            if asset["asset_id"] in ids:
+                raise ValueError("duplicate asset_id")
+            ids.add(asset["asset_id"])
+            if asset["license"] not in ("CC0", "CC-BY"):
+                raise ValueError("license must be CC0 or CC-BY")
+            if asset["license"] == "CC-BY" and not asset.get("attribution"):
+                raise ValueError("CC-BY requires attribution")
+            if asset["forward_axis"] != "+X" or asset["up_axis"] not in ("Z", "+Z"):
+                raise ValueError("assets must be normalized to +X forward, Z up")
+            if type(asset.get("animated", False)) is not bool:
+                raise TypeError("animated must be bool")
+            if asset.get("paint_material") is not None and not isinstance(asset["paint_material"], str):
+                raise TypeError("paint_material must be a name or null")
+            if asset["class"] == "pedestrian" and asset.get("animated"):
+                for key in ("walk_speed_mps", "cycle_frames", "fps"):
+                    value = asset[key]
+                    if (isinstance(value, bool) or not isinstance(value, (int, float))
+                            or not math.isfinite(value) or value <= 0):
+                        raise ValueError(f"{key} must be positive and finite")
+                if not isinstance(asset["walk_action"], str) or not asset["walk_action"]:
+                    raise ValueError("walk_action must name a Blender action")
+                if asset.get("idle_action") is not None and not isinstance(asset["idle_action"], str):
+                    raise TypeError("idle_action must be a name or null")
+        return manifest, directory
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise InputError(f"Invalid library manifest: {exc}") from exc
+
+
+def import_library_actor(asset, scale, directory, name, color, night):
+    """Preserve rigs and local transforms under an unscaled box-coordinate root."""
+    relative = Path(asset["file"])
+    path = (directory / relative).resolve()
+    library = (directory / "library").resolve()
+    if not path.is_file():
+        path = (library / relative).resolve()
+    if relative.is_absolute() or not path.is_relative_to(library):
+        raise InputError(f"Asset path outside library: {asset['file']}")
+    if not path.is_file():
+        raise InputError(f"Missing library asset: {path}")
+    if path.suffix == ".blend":
+        with bpy.data.libraries.load(str(path), link=False) as (source, loaded):
+            action_names = list(source.actions)
+            loaded.objects = source.objects
+            loaded.actions = source.actions
+        objects = [obj for obj in loaded.objects if obj is not None]
+        actions = {name: action for name, action in zip(action_names, loaded.actions, strict=True)
+                   if action}
+        for obj in objects:
+            bpy.context.scene.collection.objects.link(obj)
+    elif path.suffix == ".glb":
+        previous = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=str(path))
+        objects = list(set(bpy.data.objects) - previous)
+        actions = {}
+    else:
+        raise InputError(f"Unsupported library asset: {path.suffix}")
+    root = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(root)
+    scaled = bpy.data.objects.new(name + "_scale", None)
+    bpy.context.scene.collection.objects.link(scaled)
+    scaled.parent = root
+    scaled.scale = scale
+    for obj in objects:
+        if obj.parent not in objects:
+            obj.parent = scaled
+        if obj.type == "LIGHT":
+            obj.data = obj.data.copy()
+            if not night:
+                obj.data.energy = 0
+        if obj.type != "MESH":
+            continue
+        for slot in obj.material_slots:
+            if slot.material is None:
+                continue
+            material = slot.material.copy()
+            slot.link = "OBJECT"
+            slot.material = material
+            for node in material.node_tree.nodes if material.use_nodes else ():
+                if node.type != "BSDF_PRINCIPLED":
+                    continue
+                paint_name = asset.get("paint_material")
+                if color is not None and paint_name and (material.name == paint_name
+                        or (material.name.startswith(paint_name + ".")
+                            and material.name.rsplit(".", 1)[-1].isdigit())):
+                    socket = node.inputs.get("Base Color")
+                    for link in list(socket.links):
+                        material.node_tree.links.remove(link)
+                    socket.default_value = (*color, 1.0)
+                lower = material.name.lower()
+                strength = node.inputs.get("Emission Strength")
+                if strength and ("headlight" in lower or "taillight" in lower):
+                    strength.default_value = (20.0 if "headlight" in lower else 8.0) if night else 0.0
+    if not any(obj.type == "MESH" for obj in objects):
+        raise InputError(f"Library asset has no mesh: {asset['asset_id']}")
+    if asset["class"] == "pedestrian" and asset.get("animated"):
+        if path.suffix == ".glb":
+            actions = {obj.animation_data.action.name: obj.animation_data.action
+                       for obj in objects if obj.animation_data and obj.animation_data.action}
+            for key in ("walk_action", "idle_action"):
+                name = asset.get(key)
+                if name and name not in actions:
+                    matches = [action for original, action in actions.items()
+                               if original.startswith(name + ".")
+                               and original.rsplit(".", 1)[-1].isdigit()]
+                    if len(matches) == 1:
+                        actions[name] = matches[0]
+        walk = actions.get(asset["walk_action"])
+        idle = actions.get(asset.get("idle_action"))
+        if walk is None:
+            raise InputError(f"Missing walk action: {asset['asset_id']}")
+        if asset.get("idle_action") and idle is None:
+            raise InputError(f"Missing idle action: {asset['asset_id']}")
+        # Each imported rig gets its own actions and evaluation time.
+        for obj in objects:
+            if obj.type == "ARMATURE" or (obj.animation_data and obj.animation_data.action):
+                obj.animation_data_create()
+                obj.animation_data.action = walk.copy()
+                obj["library_walk_action"] = obj.animation_data.action.name
+                obj["library_idle_action"] = idle.copy().name if idle else ""
+                obj["library_walk_speed"] = asset["walk_speed_mps"] * float(scale[2])
+                obj["library_cycle_frames"] = asset["cycle_frames"]
+                obj["library_fps"] = asset["fps"]
+    return root
+
+
+def build_actors(layout, scenario, observed_colors=None):
+    night = is_night(scenario)
     glass = principled("glass", (0.01, 0.01, 0.012), roughness=0.05, metallic=0.2)
     tyre = principled("tyre", (0.015, 0.015, 0.015), roughness=0.8)
     head = principled("headlight", (0.9, 0.9, 0.85), emission=(1.0, 0.95, 0.85),
@@ -398,13 +706,42 @@ def build_actors(layout, scenario):
     tail = principled("taillight", (0.5, 0.02, 0.02), emission=(1.0, 0.02, 0.02),
                       strength=8.0 if night else 0.0)
     grey = principled("body_grey", (0.4, 0.4, 0.4), roughness=0.4)
+    manifest, library_dir = load_library_manifest()
+    if observed_colors is None:
+        observed_colors = [a["color"] for a in layout["actors"] if "color" in a
+                           and a.get("origin", "recorded") != "generated"]
     actors = []
     for index, actor in enumerate(layout["actors"]):
         rng = random.Random(scenario["seed"] ^ zlib.crc32(actor["track"].encode()))
+        actor.setdefault("origin", "generated" if actor["track"].startswith("gen:") else "recorded")
+        asset, scale = select_library_asset(manifest, actor, scenario["seed"])
+        color = actor.get("color")
+        if actor["origin"] == "generated" and observed_colors and actor["label"] != "pedestrian":
+            color = rng.choice(observed_colors)
+            actor["color"] = list(color)
+        if color is not None and (not isinstance(color, list) or len(color) != 3
+                or any(type(v) is not int or not 0 <= v <= 255 for v in color)):
+            raise InputError(f"Invalid actor color: {actor['track']}")
+        rgb = None if color is None else tuple((v / 255 / 12.92 if v / 255 <= 0.04045
+                  else ((v / 255 + 0.055) / 1.055) ** 2.4) for v in color)
+        if asset is not None and actor["label"] not in ("barrier", "traffic_cone"):
+            obj = import_library_actor(asset, scale, library_dir, f"actor_{index:04d}",
+                                       rgb if actor["label"] != "pedestrian" else None, night)
+            actor.update(appearance="library", asset_id=asset["asset_id"])
+            obj["track"] = actor["track"]
+            timestamps = {f["index"]: f["timestamp_us"] / 1e6 for f in layout["frames"]}
+            for key in actor["keys"]:
+                obj[f"time_{key['frame']}"] = timestamps[key["frame"]]
+            actors.append((obj, actor, {key["frame"]: key for key in actor["keys"]}))
+            continue
+        actor["appearance"] = "procedural"
+        actor.pop("asset_id", None)
         if actor["label"] == "pedestrian":
             body = principled(f"ped_{index}", (rng.uniform(0.05, 0.6),) * 3, roughness=0.9)
         elif actor["label"] in ("barrier", "traffic_cone"):
             body = principled(f"obstacle_{index}", (0.8, 0.3, 0.05), roughness=0.6)
+        elif rgb is not None:
+            body = principled(f"paint_{index}", rgb, roughness=0.35, metallic=0.3)
         elif scenario["traffic"]["color_randomization"]:
             body = principled(f"paint_{index}", rng.choice(CAR_COLORS), roughness=0.35,
                               metallic=0.3)
@@ -429,7 +766,60 @@ def place_actors(actors, frame):
             obj.location = key["center"]
             obj.rotation_euler = (0.0, 0.0, key["yaw"])
             obj.hide_render = False
+        for child in obj.children_recursive:
+            child.hide_render = obj.hide_render
+            if key is not None and "library_walk_action" in child:
+                timeline = sorted(keys.values(), key=lambda item: obj[f"time_{item['frame']}"])
+                distance = 0.0
+                speed = 0.0
+                for previous, current in pairwise(timeline):
+                    dt = obj[f"time_{current['frame']}"] - obj[f"time_{previous['frame']}"]
+                    step = float(np.linalg.norm(np.asarray(current["center"][:2])
+                                                - previous["center"][:2]))
+                    if current["frame"] <= frame:
+                        distance += step
+                    if current["frame"] == frame or (previous is timeline[0]
+                                                      and previous["frame"] == frame):
+                        speed = step / max(dt, 1e-6)
+                walking = speed >= 0.2
+                name = child["library_walk_action"] if walking else child["library_idle_action"]
+                for track in list(child.animation_data.nla_tracks):
+                    child.animation_data.nla_tracks.remove(track)
+                child.animation_data.action = bpy.data.actions.get(name) if name else None
+                action = child.animation_data.action
+                if action is None and child.type == "ARMATURE":
+                    for bone in child.pose.bones:
+                        bone.matrix_basis = Matrix.Identity(4)
+                if action:
+                    start = float(action.frame_range[0])
+                    phase = distance / child["library_walk_speed"] * child["library_fps"]
+                    evaluation_frame = start + phase % child["library_cycle_frames"] if walking else start
+                    # NLA time remapping permits independent actor phases in one scene.
+                    child.animation_data.action = None
+                    track = child.animation_data.nla_tracks.new()
+                    strip = track.strips.new("library_pose", 0, action)
+                    strip.use_animated_time = True
+                    strip.strip_time = evaluation_frame
     bpy.context.view_layer.update()
+
+
+def actor_heading_checks(actors, frame):
+    """Compare the placed native +X axis to the recorded/generated box yaw."""
+    checks = {}
+    for obj, actor, keys in actors:
+        key = keys.get(frame)
+        if (key is None or obj.hide_render
+                or actor["label"] not in VEHICLES | {"motorcycle", "bicycle"}):
+            continue
+        forward = np.asarray(obj.matrix_world)[:2, 0]
+        placed = math.atan2(float(forward[1]), float(forward[0]))
+        difference = placed - key["yaw"]
+        error = math.degrees(math.atan2(math.sin(difference), math.cos(difference)))
+        checks[actor["track"]] = {"asset_id": actor.get("asset_id"),
+                                  "box_yaw_rad": key["yaw"],
+                                  "placed_forward_rad": placed,
+                                  "error_deg": round(error, 6)}
+    return checks
 
 
 def fog_volume(bounds, density):
@@ -453,7 +843,15 @@ def fog_volume(bounds, density):
 
 def setup_world(layout, scenario):
     weather = scenario["weather"]
-    preset = PRESETS[weather["preset"]]
+    preset = dict(PRESETS.get(weather["preset"], PRESETS["day"]))
+    if scenario.get("schema", 1) == 2:
+        cloud = max(weather["cloudiness"], weather["precipitation"]) / 100
+        night = is_night(scenario)
+        preset["night"] = night
+        preset["sun"] = 0 if night else 4 * (1 - 0.8 * weather["cloudiness"] / 100)
+        preset["world"] = ((0.01, 0.012, 0.02) if night else
+                           tuple((1 - cloud) * c + cloud * 0.4 for c in (0.55, 0.7, 0.9)))
+        # fog_distance is a web preview control; Blender's volume is homogeneous.
     world = bpy.data.worlds.new("world")
     bpy.context.scene.world = world
     world.use_nodes = True
@@ -467,7 +865,14 @@ def setup_world(layout, scenario):
         sun.energy = preset["sun"]
         sun.angle = math.radians(preset["sun_angle"])
         obj = bpy.data.objects.new("sun", sun)
-        obj.rotation_euler = (math.radians(45), 0.0, math.radians(30))
+        if scenario.get("schema", 1) == 2:
+            altitude, azimuth = map(math.radians, (weather["sun_altitude_angle"],
+                                                  weather["sun_azimuth_angle"]))
+            direction = Vector((math.cos(altitude) * math.cos(azimuth),
+                                math.cos(altitude) * math.sin(azimuth), math.sin(altitude)))
+            obj.rotation_euler = (-direction).to_track_quat('-Z', 'Y').to_euler()
+        else:
+            obj.rotation_euler = (math.radians(45), 0.0, math.radians(30))
         bpy.context.scene.collection.objects.link(obj)
     if preset["night"]:
         positions = [Vector(np.asarray(f["T_world_lidar"])[:3, 3]) for f in layout["frames"]]
@@ -489,7 +894,7 @@ def setup_world(layout, scenario):
 
 
 def ego_headlight(scenario):
-    if not PRESETS[scenario["weather"]["preset"]]["night"]:
+    if not is_night(scenario):
         return None
     light = bpy.data.lights.new("ego_headlight", "SPOT")
     light.energy = 3000.0
@@ -530,12 +935,19 @@ def actor_tree(actors):
     for obj, actor, _ in actors:
         if obj.hide_render:
             continue
-        matrix = obj.matrix_world
-        start = len(vertices)
-        vertices += [matrix @ v.co for v in obj.data.vertices]
-        for polygon in obj.data.polygons:
-            faces.append([start + i for i in polygon.vertices])
-            owner.append(actor["track"])
+        for mesh in [obj, *obj.children_recursive]:
+            if mesh.type != "MESH":
+                continue
+            evaluated = mesh.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            data = evaluated.to_mesh()
+            try:
+                start = len(vertices)
+                vertices += [evaluated.matrix_world @ v.co for v in data.vertices]
+                for polygon in data.polygons:
+                    faces.append([start + i for i in polygon.vertices])
+                    owner.append(actor["track"])
+            finally:
+                evaluated.to_mesh_clear()
     return (BVHTree.FromPolygons(vertices, faces) if faces else None), owner
 
 
@@ -577,7 +989,7 @@ def visibility(camera, actors, trees, owner, fog_density=0.0):
     return result
 
 
-def lidar_scan(frame, layout, scenario, trees, paint, bounds):
+def lidar_scan(frame, layout, scenario, trees, paint, bounds, *, drivable=None):
     spec = layout["lidar"]
     weather = scenario["weather"]
     T = np.asarray(frame["T_world_lidar"])
@@ -598,18 +1010,31 @@ def lidar_scan(frame, layout, scenario, trees, paint, bounds):
         if hit is None:
             continue
         kind, location, _, distance = hit
-        drop = weather["rain_drop_rate"] + (1 - math.exp(-2 * weather["fog_density"] * distance))
-        if rng.random() < drop:
-            continue
-        distance += rng.normal(0, 0.02 + 0.5 * weather["fog_density"])
-        world = np.asarray(origin) + direction * distance
+        value = 0.0
         if kind == "ground":
             u = int((location.x - bounds["xmin"]) / layout["ground"]["tex_res_m"])
             v = int((location.y - bounds["ymin"]) / layout["ground"]["tex_res_m"])
             value = paint[v, u] if 0 <= v < paint.shape[0] and 0 <= u < paint.shape[1] else 0
-            intensity = (20 + 200 * value * fade) * wet
+        if scenario.get("schema", 1) == 2:
+            reflectivity = 0.1 + 0.8 * value * fade if kind == "ground" else (
+                0.5 if kind == "actor" else 0.3)
+            puddle = (kind == "ground" and (drivable is None or
+                      (0 <= v < drivable.shape[0] and 0 <= u < drivable.shape[1] and drivable[v, u] > 0))
+                      and puddle_value(location.x, location.y)
+                      < puddle_threshold(weather["precipitation_deposits"] / 100))
+            returned = lidar_return(reflectivity, distance, scenario["lidar"], weather, rng,
+                                    ground=kind == "ground", puddle=puddle)
+            if returned is None:
+                continue
+            distance, intensity = returned
         else:
-            intensity = 40.0 if kind == "actor" else 30.0
+            drop = weather["rain_drop_rate"] + (1 - math.exp(-2 * weather["fog_density"] * distance))
+            if rng.random() < drop:
+                continue
+            distance += rng.normal(0, 0.02 + 0.5 * weather["fog_density"])
+            intensity = ((20 + 200 * value * fade) * wet if kind == "ground" else
+                         40.0 if kind == "actor" else 30.0)
+        world = np.asarray(origin) + direction * distance
         points.append((*world, intensity, n // spec["azimuth_steps"]))
     if not points:
         return np.empty((0, 5), "<f4")
@@ -651,10 +1076,49 @@ def selftest(layout, out):
     return 0 if errors and result["max_err_px"] < SELFTEST_MAX_PX else 1
 
 
-def run(layout_path, scenario_path, out, render, lidar, save_blend):
+def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=None):
     directory = layout_path.parent
     layout = load_layout(layout_path)
+    observed_colors = [a["color"] for a in layout["actors"] if "color" in a
+                       and a.get("origin", "recorded") != "generated"]
     scenario = load_scenario(scenario_path, layout)
+    if actors_path is not None:
+        try:
+            actors = json.loads(actors_path.read_text())
+        except (OSError, ValueError) as exc:
+            raise InputError(f"Cannot read actors {actors_path}: {exc}") from exc
+        if not isinstance(actors, list):
+            raise InputError("Actors must be a list")
+        tracks = set()
+        indices = {frame["index"] for frame in layout["frames"]}
+        try:
+            for actor in actors:
+                track = actor["track"]
+                if not isinstance(track, str) or not track or track in tracks:
+                    raise ValueError("track must be unique and nonempty")
+                tracks.add(track)
+                if actor["label"] not in {"car", "truck", "bus", "trailer", "construction_vehicle",
+                                          "pedestrian", "motorcycle", "bicycle", "barrier",
+                                          "traffic_cone"}:
+                    raise ValueError("unsupported actor label")
+                size = np.asarray(actor["size"], dtype=float)
+                if size.shape != (3,) or not np.isfinite(size).all() or (size <= 0).any():
+                    raise ValueError("size must contain three positive finite values")
+                keyed = set()
+                for key in actor["keys"]:
+                    if key["frame"] not in indices or key["frame"] in keyed:
+                        raise ValueError("actor frame must be unique and in layout")
+                    keyed.add(key["frame"])
+                    center = np.asarray(key["center"], dtype=float)
+                    if center.shape != (3,) or not np.isfinite(center).all():
+                        raise ValueError("center must contain three finite values")
+                    if not np.isfinite(float(key["yaw"])):
+                        raise ValueError("yaw must be finite")
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InputError(f"Invalid actors: {exc}") from exc
+        layout["actors"] = actors
+    elif scenario["traffic"]["mode"] == "generated":
+        raise InputError("Generated traffic requires --actors")
     frames = [f for f in layout["frames"]
               if not scenario["frames"] or f["index"] in scenario["frames"]]
     names = scenario["cameras"] or sorted(layout["frames"][0]["cameras"])
@@ -666,7 +1130,8 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend):
     ground.data.materials.append(ground_material(directory, layout, scenario["weather"]))
     static = import_ply(directory / layout["static"]["mesh"], "static")
     static.data.materials.append(static_material(static))
-    actors = build_actors(layout, scenario)
+    actors = build_actors(layout, scenario, observed_colors)
+    (out / "actors.json").write_text(json.dumps(layout["actors"], allow_nan=False))
     setup_world(layout, scenario)
     setup_render(scenario)
     headlight = ego_headlight(scenario)
@@ -677,12 +1142,15 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend):
     static_trees = {"ground": BVHTree.FromObject(ground, depsgraph),
                     "static": BVHTree.FromObject(static, depsgraph)}
     paint = load_paint(directory, layout)
+    drivable = load_paint(directory, {"ground": {"paint": layout["ground"]["drivable"]}})
 
     failed = False
     timings = {"render_s": {}, "lidar_s": {}}
     for frame in frames:
         index = frame["index"]
         place_actors(actors, index)
+        print(f"HEADING_CHECK frame={index} {json.dumps(actor_heading_checks(actors, index))}",
+              flush=True)
         tree, owner = actor_tree(actors)
         trees = {**static_trees, "actor": tree}
         if headlight is not None:
@@ -713,7 +1181,7 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend):
         visibility_path.write_text(json.dumps(seen))
         if lidar:
             started = time.perf_counter()
-            points = lidar_scan(frame, layout, scenario, trees, paint, bounds)
+            points = lidar_scan(frame, layout, scenario, trees, paint, bounds, drivable=drivable)
             path = out / "lidar" / f"{index:06d}.bin"
             path.parent.mkdir(parents=True, exist_ok=True)
             points.tofile(path)
@@ -737,7 +1205,7 @@ def main():
         if args.scenario is None:
             raise InputError("--scenario is required unless --selftest")
         return run(args.layout, args.scenario, args.out, not args.no_render, not args.no_lidar,
-                   args.save_blend)
+                   args.save_blend, args.actors)
     except InputError as exc:
         print(f"INPUT ERROR: {exc}", file=sys.stderr)
         return 2

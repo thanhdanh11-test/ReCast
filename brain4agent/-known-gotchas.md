@@ -41,3 +41,13 @@ Tổng hợp các lỗi khó, các lưu ý dị biệt hoặc cách workaround �
 - **Raster `semantic_prior` của nuScenes:** hàng 0 ứng với y global lớn nhất (`row = (H·0,1 − gy)/0,1`). Kiểm bằng quỹ đạo ego: tỷ lệ nằm trên vùng đi được phải ≥ 0,9 (scene-0061 đạt 1,0). Test phải dùng dải đường **lệch tâm**; dải nằm đối xứng quanh tâm ảnh thì lật trục cũng không phát hiện được.
 - **Label trong sương:** ray-cast không thấy sương, nên phải nhân thêm độ truyền qua `exp(−density·d) ≥ 0,2`. Nếu không, YOLO sẽ học nhận vật mà mắt người không thấy.
 - Trên M3 Pro, EEVEE render 0,2–0,6 s/ảnh 1600×900 và LiDAR 32×1080 tia (BVHTree) chạy khoảng 0,2 s/frame. Layout scene-0061 mất khoảng 9 s.
+- **mpsplat (gsplat trên Metal) v0.1.0** (2026-10-06):
+  - `packed=True` báo NotImplementedError.
+  - `render_mode` nhiều kênh (`RGB+ED`, `RGB+D`) chậm khoảng 35 lần (3,8 s so với 0,1 s mỗi bước).
+  - Cách vòng: render depth bằng lượt 3 kênh riêng với màu = z camera, chia cho alpha; kết quả giống hệt.
+  - Cài bằng uv vào venv riêng `backend/.tools/mpsplat/.venv` (Python 3.13, torch 2.14).
+- **mpsplat:** projection backward tính 1/z³ cho điểm nằm sau camera, sinh NaN và làm sập toàn bộ Gaussian (render ra ảnh xám phẳng). Phải đặt opacity = 0 và gán hình học an toàn cho z < near trước khi gọi kernel.
+- **open3d 0.20:**
+  - Poisson đa luồng bị lỗi "Failed to close loop" (lỗi race). Dùng `n_threads=1`.
+  - Wheel cần `brew install libusb`.
+- **PyTorch MPS:** gradient của `avg_pool2d` có overlap sai dấu. SSIM phải dùng `conv2d`.

@@ -62,3 +62,11 @@
 - Lỗi gặp và đã sửa: gai mặt đất 49 m do trần cầu vượt · vạch sơn bắt nhầm mảng bê tông · World volume EEVEE ra ảnh đen · label vật đã chìm trong sương.
 - Chờ: người dùng duyệt `planning/02_.../evidence/s3/compare_*.jpg` → bump v2.0.0. Chưa commit (toàn repo vẫn untracked).
 - 2026-10-06 S4 (Orca `run_89d456daffb6`, Codex ×2 song song): Q1 static_map + Q2 ground_surface ✅. Người điều phối đo lại: pytest 135, Chamfer 0,173 m, phủ vùng đường 1,0. Còn yếu: màu tối (67/255), dạng khối, nhà bị cụt, static.ply 32 MB.
+- 2026-10-06 S5 (Orca run_b69ee72875c5, Codex ×3): traffic/web/map ✅; sửa xe đỗ biến mất (tổng quãng đường do box rung → độ dịch chuyển thực). pytest 216. Viewer có bảng môi trường và giao thông.
+- 2026-10-06 tối:
+  - M0 splat dừng (17,87 dB).
+  - S10: dựng ≤ 15 phút đạt (784 giây, 19,31 dB, vẫn mờ).
+  - S8: mẫu thư viện đạt nhận diện ngày 0,50 (car/ped), chưa đạt 0,8.
+  - S9 mesh dán ảnh bị loại (9,1 dB).
+  - Codex chạm giới hạn 5 giờ lúc 20:30 rồi được nối lại; Orca restart 2 lần.
+  - Người dùng muốn: không train lâu, ≤ 15 phút, xe/người dùng mẫu thư viện, không upload.

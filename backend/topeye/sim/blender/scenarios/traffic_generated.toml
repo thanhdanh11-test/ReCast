@@ -1,0 +1,22 @@
+name = "traffic_generated"
+seed = 0
+engine = "eevee"
+samples = 16
+frames = [0]
+cameras = ["CAM_FRONT"]
+resolution_scale = 0.25
+
+[weather]
+preset = "day"
+
+[traffic]
+mode = "generated"
+color_randomization = true
+density = 2.0
+speed_scale = 1.0
+speed_jitter = 0.15
+lane_change_rate = 1.0
+aggressiveness = 0.3
+pedestrians = 1.0
+keep_parked = true
+seed = 0

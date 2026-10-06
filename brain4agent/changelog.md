@@ -11,6 +11,14 @@ Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên 
 ### Added
 - `backend/topeye/sim/` gồm `camera.py`, `layout.py`, `labels.py`, `cli.py` (`topeye-sim-layout`, `topeye-sim-render`), `blender/build_scene.py` và 4 scenario (day, night, rain, fog).
 - `NuScenesAdapter.scene_origin()` và `scene_map()`; `bev.box_mask(pad=0.3)`; `Config.blender_bin`; `scripts/sim_evidence.py`; `docs/sim.md`.
+- S6–S10 (2026-10-06):
+  - Splat train trên Mac (mpsplat; đã chặn lỗi NaN) dừng ở 17,87 dB.
+  - `topeye-sim-build` dựng môi trường ≤ 15 phút (đo 784 giây; splat theo đồng hồ, ảnh 12 Hz, mô hình bầu trời; 19,31 dB).
+  - Tham số scenario schema 2 chuẩn CARLA (thời tiết, LiDAR dropoff 0,13, xe kinematic).
+  - Xe/người dùng mẫu thư viện CC0/CC-BY (25 mẫu), màu thật đo từ ảnh, gắn cờ `appearance: library`.
+  - Cổng nhận diện `backend/eval/recognize.py`: ngày xe con 0,50, người 0,50 (cổng 0,8 chưa đạt).
+  - POC mesh dán ảnh bị loại (9,1 dB).
+- S5: `sim/traffic.py` (giao thông sinh có seed, IDM, chuyển làn, kiểm OBB/ego/đường), `sim/map_photo.py` (splat 3DGS cho Spark, orthophoto mặt đường), web viewer chỉnh môi trường/giao thông/render qua API localhost.
 - S4 nâng chất lượng map: `sim/static_map.py` (đủ sweep, box nội suy, voxel 0,2 m, lọc ≥ 3 sweep) và `sim/ground_surface.py` (mặt đất kín vùng đường). PLY chuyển sang nhị phân. Chamfer 0,173 m.
 - `topeye-sim-view`: web viewer map 3D (three.js, localhost:8770).
 - POC scene-0061: selftest camera 0,00027 px; Chamfer LiDAR 0,242 m; pytest 108; chờ người dùng duyệt bằng mắt.

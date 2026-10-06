@@ -8,7 +8,8 @@ File này chứa danh sách các tính năng, mục tiêu sắp tới và tình 
   - G-POC: đo bằng máy đã ✅ local, **chờ người dùng duyệt bằng mắt** các ảnh `evidence/s3/compare_*.jpg`.
   - Sau duyệt: bump v2.0.0.
 - [ ] **Gate G-sim (đợt sau):** sinh dữ liệu nhiều scene × nhiều preset, train YOLO theo 2 nhánh real vs real+sim, đo trên ảnh thật đêm/mưa (`scene-1077`, `scene-1094`, `scene-1100`). Đạt khi tập đêm tăng ≥ +3 mAP và tập ngày không tụt quá 1 điểm.
-- [ ] **Biến số giao thông:** POC hiện chỉ có `traffic.mode = "replay"`. Cần thêm dời làn, đổi tốc độ, thêm/bớt xe, cắt làn, kèm kiểm tra va chạm.
+- [ ] **Giao thông dày hơn:** `density` đang nhân theo số xe chạy thật trong scene (scene-0061 chỉ có 2 xe), nên mật độ 3 mới ra 6 xe. Cần đổi sang mật độ tuyệt đối (xe/100 m làn).
+- [ ] Đưa giờ trong ngày (hướng mặt trời) vào contract scenario và Blender.
 - [ ] Pipeline fusion kiểu YOLO-LiDAR-Fusion trên adapter của ta (baseline đo mAP 3D).
 
 ## Tương lai (Upcoming)
@@ -32,6 +33,8 @@ File này chứa danh sách các tính năng, mục tiêu sắp tới và tình 
 - [x] ~~Bowl view / adaptive bowl~~: đã loại (REVIEW.md).
 
 ## Đã hoàn thành (Done)
+- [x] **S6–S10 (2026-10-06):** dựng môi trường ≤ 15 phút (784 giây, splat 19,31 dB nhưng mờ); mẫu thư viện xe/người (nhận diện ngày 0,50); tham số chuẩn CARLA; cổng nhận diện. Còn mở: nhận diện ≥ 0,8 (cần mẫu chi tiết hơn); ghép nền splat vào render Blender.
+- [x] **S5 web + giao thông + map đẹp (2026-10-06, Codex ×3 qua Orca):** bộ sinh giao thông có seed (0 va chạm), web chỉnh môi trường/giao thông/render, splat Spark 618k, ảnh mặt đường thật 75%. pytest 216.
 - [x] **Nâng chất lượng map S4 (2026-10-06, Codex ×2 qua Orca):** đủ 382 sweep, voxel 0,2 m, mặt đất phủ 100% vùng đường, Chamfer 0,242 → 0,173 m.
 - [x] **POC real-to-sim scene-0061 (2026-10-06):**
   - Layout 9,2 s; selftest camera 0,00027 px.

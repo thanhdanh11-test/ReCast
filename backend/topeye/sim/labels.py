@@ -68,9 +68,13 @@ def yolo_lines(boxes, calib, visibility):
 def write_labels(scene_dir, run_dir):
     scene_dir, run_dir = Path(scene_dir), Path(run_dir)
     layout = json.loads((scene_dir / "layout.json").read_text())
+    if (run_dir / "actors.json").is_file():
+        layout["actors"] = json.loads((run_dir / "actors.json").read_text())
     run = json.loads((run_dir / "run.json").read_text()) if (run_dir / "run.json").is_file() else {}
     scale = run.get("scenario", {}).get("resolution_scale", 1.0)
     tracks = {actor["track"] for actor in layout["actors"]}
+    metadata = {actor["track"]: {key: actor[key] for key in ("appearance", "origin", "asset_id")
+                                if key in actor} for actor in layout["actors"]}
     atomic_write(run_dir / "labels" / "classes.txt", ("\n".join(CLASSES) + "\n").encode())
     summary = {"frames": 0, "boxes_2d": 0, "dropped": 0, "missing_visibility": []}
     frames = run.get("frames") or [item["index"] for item in layout["frames"]]
@@ -81,7 +85,8 @@ def write_labels(scene_dir, run_dir):
         boxes = actor_boxes_lidar(layout, frame)
         write_json(run_dir / "labels3d" / f"{frame:06d}.json", {"frame": frame, "boxes": [
             {"track": track, "label": box.label, "cx": box.cx, "cy": box.cy, "cz": box.cz,
-             "l": box.l, "w": box.w, "h": box.h, "yaw": box.yaw} for track, box in boxes]})
+             "l": box.l, "w": box.w, "h": box.h, "yaw": box.yaw,
+             **metadata[track]} for track, box in boxes]})
         path = run_dir / "visibility" / f"{frame:06d}.json"
         if not path.is_file():
             logger.error("Missing visibility for frame %d", frame)

@@ -15,7 +15,8 @@ from topeye.core.geometry import project
 from topeye.core.ground import cell_quantile, ground_mask
 from topeye.sim.camera import blender_camera
 from topeye.sim.ground_surface import ground_surface
-from topeye.sim.static_map import static_points, static_voxels
+from topeye.sim.map_photo import export_splat, ground_photo
+from topeye.sim.static_map import camera_exposure, static_points, static_voxels
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,39 @@ def drivable_coverage(grid, bounds, drivable, res_m=GROUND_RES_M):
     return round(float(np.isfinite(grid.ravel()[road]).mean()), 4) if road.any() else 1.0
 
 
+def in_voxels(xyz, keys, voxel_m):
+    """Mask of points whose voxel key is in keys."""
+    keys = np.asarray(keys, np.int64)
+    if not len(keys) or not len(xyz):
+        return np.zeros(len(xyz), bool)
+    point_keys = np.floor(xyz / voxel_m).astype(np.int64)
+    void = np.dtype((np.void, 3 * 8))
+    return np.isin(np.ascontiguousarray(point_keys).view(void).ravel(),
+                   np.ascontiguousarray(keys).view(void).ravel())
+
+
+def compose_ground_photo(photo, drivable, paint):
+    """Camera texels on drivable ground only; procedural road/kerb plus paint elsewhere.
+
+    Off-road texels are walls/vegetation flattened onto the ground (fan streaks), so the
+    real photo is trusted only where the map says road.
+    """
+    road = drivable > 0
+    base = np.where(road, 58, 120).astype(np.float32)
+    marks = np.clip((paint.astype(np.float32) / 255 - 0.3) / 0.3, 0, 1)
+    procedural = base + (235 - base) * marks
+    result = np.repeat(procedural[..., None], 3, axis=2)
+    real = road & photo.any(axis=2)
+    result[real] = photo[real]
+    return np.clip(result, 0, 255).astype(np.uint8)
+
+
+def drivable_coverage_rgb(photo, drivable):
+    """Fraction of drivable texels (0.1 m) that received a camera colour."""
+    road = drivable > 0
+    return round(float(photo[road].any(axis=1).mean()), 4) if road.any() else 1.0
+
+
 def png_height(path):
     with open(path, "rb") as stream:
         header = stream.read(24)
@@ -261,8 +295,8 @@ def build_layout(adapter, scene, out_dir, frames=None):
         raise ValueError(f"No keyframes selected for {scene}")
     origin = adapter.scene_origin(scene)
 
-    static_xyz, static_rgb, static_sweep = static_points(adapter, scene,
-                                                         ego_radius_m=EGO_RADIUS_M)
+    static_xyz, static_rgb, static_sweep, static_range = static_points(
+        adapter, scene, ego_radius_m=EGO_RADIUS_M, return_range=True)
 
     ground, skipped = [], 0
     for sweep in adapter.sweep_frames(scene):
@@ -297,10 +331,23 @@ def build_layout(adapter, scene, out_dir, frames=None):
     vertices, quads = heightfield_mesh(grid, bounds)
     write_ply(out_dir / "ground.ply", vertices, quads)
     in_bounds = ((static_xyz[:, :2] >= low) & (static_xyz[:, :2] <= high)).all(axis=1)
-    keys, colors = static_voxels(static_xyz[in_bounds], static_rgb[in_bounds],
-                                 static_sweep[in_bounds], VOXEL_M, MIN_SWEEPS)
+    xyz, rgb, sweep, distance = (static_xyz[in_bounds], static_rgb[in_bounds],
+                                 static_sweep[in_bounds], static_range[in_bounds])
+    keys, raw_colors = static_voxels(xyz, rgb, sweep, VOXEL_M, MIN_SWEEPS, range_m=distance)
+    exposure = camera_exposure(adapter, scene, raw_colors)
+    keys, colors = static_voxels(xyz, rgb, sweep, VOXEL_M, MIN_SWEEPS, range_m=distance,
+                                 exposure=exposure)
     vertices, quads, face_colors = voxel_mesh(keys, colors)
     write_ply(out_dir / "static.ply", vertices, quads, face_colors)
+
+    # Splat layer for the web viewer: only points inside kept (>= MIN_SWEEPS) voxels.
+    kept = in_voxels(xyz, keys, VOXEL_M) & (rgb >= 0).all(axis=1)
+    lifted = np.clip(rgb[kept] * exposure, 0, 255)
+    splats = export_splat(xyz[kept], lifted, out_dir / "static_splat.ply")
+    photo = ground_photo(adapter, scene, bounds, grid, TEX_RES_M, GROUND_RES_M)
+    composed = compose_ground_photo(photo, drivable, paint)
+    atomic_write(out_dir / "ground_photo.png",
+                 cv2.imencode(".png", cv2.cvtColor(composed, cv2.COLOR_RGB2BGR))[1].tobytes())
     on_drivable = float(np.mean(sample_raster(drivable, bounds, trajectory[:, :2]) > 0))
 
     layout = {
@@ -314,6 +361,7 @@ def build_layout(adapter, scene, out_dir, frames=None):
         "ground": {"mesh": "ground.ply", "res_m": GROUND_RES_M, "paint": "ground_paint.png",
                    "drivable": "ground_drivable.png", "tex_res_m": TEX_RES_M},
         "static": {"mesh": "static.ply", "voxel_m": VOXEL_M, "min_sweeps": MIN_SWEEPS},
+        "photo": {"splat": "static_splat.ply", "ground": "ground_photo.png"},
         "lidar": LIDAR,
         "frames": [{"index": frame.index, "timestamp_us": frame.lidar_ts_us,
                     "T_world_lidar": frame.T_world_lidar.tolist(),
@@ -323,8 +371,20 @@ def build_layout(adapter, scene, out_dir, frames=None):
         "checks": {"ego_on_drivable": on_drivable, "skipped_sweeps": skipped,
                    "static_sweeps_used": len(np.unique(static_sweep)),
                    "static_voxels": len(keys),
+                   "static_exposure": round(float(exposure), 4),
+                   "static_brightness": round(float(colors.mean()), 2) if len(colors) else 0.0,
+                   "splats": int(splats),
+                   "ground_photo_coverage": drivable_coverage_rgb(photo, drivable),
                    "ground_drivable_coverage": drivable_coverage(grid, bounds, drivable),
                    "build_s": round(perf_counter() - started, 2)},
     }
+    # S8 §3: dominant paint colour measured from real pixels (vehicles only; None = unseen).
+    # Imported here: actor_color -> labels -> layout would otherwise be circular.
+    from topeye.sim.actor_color import actor_colors
+
+    colors = actor_colors(adapter, scene, layout)
+    for actor in layout["actors"]:
+        if colors.get(actor["track"]) is not None:
+            actor["color"] = colors[actor["track"]]
     write_json(out_dir / "layout.json", layout)
     return layout

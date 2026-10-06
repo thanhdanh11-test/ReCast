@@ -10,7 +10,7 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
                font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   #view { position: fixed; inset: 0; }
-  #panel { position: fixed; top: 12px; left: 12px; width: 280px; padding: 12px 14px;
+  #panel { position: fixed; top: 12px; left: 12px; width: 300px; max-height: calc(100vh - 48px); overflow: auto; padding: 12px 14px;
            background: var(--panel); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.4); }
   #panel h1 { font-size: 15px; margin: 0 0 6px; }
   #panel .muted { color: var(--muted); }
@@ -24,6 +24,13 @@
   #legend span::before { content: ""; display: inline-block; width: 10px; height: 10px;
                          margin-right: 5px; border-radius: 2px; background: var(--c); }
   #status { margin-top: 8px; color: var(--muted); white-space: pre-line; }
+  details { border-top: 1px solid #374253; margin-top: 10px; padding-top: 8px; }
+  summary { cursor: pointer; font-weight: 600; }
+  input[type=number], select { background: #2a3340; color: var(--text); border: 1px solid #526070; }
+  button:disabled { opacity: .45; cursor: default; }
+  #gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+  #gallery img { width: 100%; }
+  #jobStatus, #checks { white-space: pre-wrap; overflow-wrap: anywhere; }
   #error { color: #ff8080; white-space: pre-line; }
 </style>
 </head>
@@ -37,22 +44,67 @@
   <label><input type="checkbox" id="showGround" checked> Mặt đường (vạch sơn từ LiDAR)</label>
   <label><input type="checkbox" id="showStatic" checked> Nhà / cây (voxel)</label>
   <label><input type="checkbox" id="showActors" checked> Xe / người</label>
+  <label style="margin-left: 16px;"><input type="checkbox" id="useLibraryActors" checked> Mẫu thư viện / Khối hộp</label>
   <label><input type="checkbox" id="showEgo" checked> Quỹ đạo ego</label>
   <div class="row"><span>LiDAR mô phỏng</span><select id="run"><option value="">tắt</option></select></div>
   <div class="row"><button id="follow">Về xe ego</button><button id="top">Nhìn từ trên</button></div>
+  <details open><summary>Môi trường</summary>
+    <label>Thời tiết <select id="preset"><option value="day">Ngày</option><option value="night">Đêm</option><option value="rain">Mưa</option><option value="fog">Sương</option><option value="dusk">Hoàng hôn</option></select></label>
+    <label>Mây <input id="cloudiness" type="range" min="0" max="100" step="1" value="0"></label>
+    <label>Góc cao mặt trời (°) <input id="sun_altitude_angle" type="range" min="-90" max="90" step="1" value="45"></label>
+    <label>Phương vị mặt trời (°) <input id="sun_azimuth_angle" type="range" min="0" max="360" step="1" value="30"></label>
+    <label>Mật độ sương (%) <input id="fog_density" type="range" min="0" max="100" step="1" value="0"></label>
+    <label>Sương bắt đầu (m) <input id="fog_distance" type="range" min="0" max="200" step="1" value="0"></label>
+    <label>Mưa (%) <input id="precipitation" type="range" min="0" max="100" step="1" value="0"></label>
+    <label>Vũng nước (%) <input id="precipitation_deposits" type="range" min="0" max="100" step="1" value="0"></label>
+    <label>Gió (%) <input id="wind_intensity" type="range" min="0" max="100" step="1" value="0"></label>
+    <label>Ướt đường (%) <input id="wetness" type="range" min="0" max="100" step="1" value="0"></label>
+    <label><input id="rainEnabled" type="checkbox">Vệt mưa</label>
+    <label>Vạch mờ <input id="paint_fade" type="range" min="0" max="1" step="0.01" value="0"></label>
+  </details>
+  <details><summary>Giao thông</summary>
+    <label>Chế độ <select id="mode"><option value="replay">Phát lại</option><option value="generated">Sinh mới</option></select></label>
+    <label>Mật độ <input id="density" type="range" min="0" max="3" step="0.1" value="1"></label>
+    <label>Tốc độ <input id="speed_scale" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+    <label>Biến thiên tốc độ <input id="speed_jitter" type="range" min="0" max="0.5" step="0.01" value="0.15"></label>
+    <label>Chuyển làn <input id="lane_change_rate" type="range" min="0" max="1" step="0.01" value="0.2"></label>
+    <label>Mức quyết liệt <input id="aggressiveness" type="range" min="0" max="1" step="0.01" value="0.3"></label>
+    <label>Người đi bộ <input id="pedestrians" type="range" min="0" max="3" step="0.1" value="1"></label>
+    <label>Cách xe trước (m) <input id="distance_to_leading" type="range" min="0.5" max="10" step="0.1" value="2.5"></label>
+    <label>Chậm hơn giới hạn (%) <input id="speed_difference_percent" type="range" min="-50" max="80" step="1" value="0"></label>
+    <label>Chuyển làn ngẫu nhiên (%) <input id="random_lanechange_percent" type="range" min="0" max="100" step="1" value="0"></label>
+    <label>Gia tốc tối đa (m/s²) <input id="max_accel" type="range" min="0.5" max="6" step="0.1" value="3"></label>
+    <label>Phanh tối đa (m/s²) <input id="max_decel" type="range" min="1" max="9" step="0.1" value="6"></label>
+    <label>Gia tốc ngang tối đa (m/s²) <input id="max_lateral_accel" type="range" min="1" max="8" step="0.1" value="4"></label>
+    <label><input id="keep_parked" type="checkbox" checked>Giữ xe đỗ</label>
+    <label>Seed <input id="seed" type="number" step="1" value="0"></label>
+    <button id="generate">Sinh giao thông</button><div id="checks" aria-live="polite"></div>
+  </details>
+  <details><summary>Render Blender</summary>
+    <label>Tên scenario <input id="scenarioName" value="web-preview" pattern="[a-z0-9_-]+"></label>
+    <button id="render">Render frame đang xem · 6 camera</button>
+    <div id="jobStatus" aria-live="polite"></div><div id="gallery"></div>
+  </details>
+  <details><summary>Lớp nền</summary>
+    <label><select id="background"><option value="voxel">Voxel</option><option value="splat" disabled>Ảnh thật (splat)</option></select></label>
+    <label><input id="photoGround" type="checkbox" disabled>Mặt đường ảnh thật</label>
+  </details>
   <div id="legend"></div>
   <div id="status">Đang tải…</div>
   <div id="error"></div>
 </div>
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/" } }
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.3.1/spark.module.js" } }
 </script>
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PLYLoader } from "three/addons/loaders/PLYLoader.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 
 const COLORS = { car: "#4f8ef7", truck: "#f7a64f", bus: "#c04ff7", trailer: "#a8743c",
   construction_vehicle: "#f7e14f", pedestrian: "#ff4f6d", motorcycle: "#4ff7c8",
@@ -70,7 +122,8 @@ const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 2000);
 camera.up.set(0, 0, 1);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-world.add(new THREE.HemisphereLight("#dfe8ff", "#30343a", 1.6));
+const ambient = new THREE.HemisphereLight("#dfe8ff", "#30343a", 1.6);
+world.add(ambient);
 const sun = new THREE.DirectionalLight("#ffffff", 1.6);
 sun.position.set(40, -30, 80);
 world.add(sun);
@@ -113,9 +166,11 @@ function pixels(image) {
   return context.getImageData(0, 0, image.width, image.height);
 }
 
-async function groundTexture(layout) {
-  const [drivable, paint] = await Promise.all([
+let roadImages;
+async function groundTexture(layout, fade = 0) {
+  roadImages ||= Promise.all([
     loadImage(`${scene}/${layout.ground.drivable}`), loadImage(`${scene}/${layout.ground.paint}`)]);
+  const [drivable, paint] = await roadImages;
   const road = pixels(drivable), marks = pixels(paint);
   const canvas = document.createElement("canvas");
   canvas.width = road.width;
@@ -124,7 +179,7 @@ async function groundTexture(layout) {
   for (let i = 0; i < out.data.length; i += 4) {
     const base = road.data[i] > 0 ? 58 : 120;
     const t = Math.min(Math.max((marks.data[i] / 255 - 0.3) / 0.3, 0), 1);
-    const value = base + (235 - base) * t;
+    const value = base + (235 - base) * t * (1 - fade);
     out.data[i] = value; out.data[i + 1] = value; out.data[i + 2] = value + (road.data[i] ? 4 : -10);
     out.data[i + 3] = 255;
   }
@@ -132,6 +187,28 @@ async function groundTexture(layout) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return texture;
+}
+
+async function puddleTexture(layout, coverage, roughness) {
+  roadImages ||= Promise.all([
+    loadImage(`${scene}/${layout.ground.drivable}`), loadImage(`${scene}/${layout.ground.paint}`)]);
+  const road = pixels((await roadImages)[0]);
+  const out = new Uint8Array(road.width*road.height*4);
+  const quantiles = [0,.14497,.26715,.36759,.4467,.5,.5533,.63241,.73285,.85503,1];
+  const q = Math.min(9, Math.floor(coverage*10));
+  const threshold = THREE.MathUtils.lerp(quantiles[q],quantiles[q+1],coverage*10-q);
+  for (let v=0; v<road.height; v++) for (let u=0; u<road.width; u++) {
+    const x = layout.bounds.xmin + (u+.5)*layout.ground.tex_res_m;
+    const y = layout.bounds.ymax - (v+.5)*layout.ground.tex_res_m;
+    const noise = (Math.sin(.37*x)*Math.sin(.53*y)+1)/2;
+    const index = (v*road.width+u)*4;
+    const value = Math.round(255*(road.data[index] && noise < threshold ? .03 : roughness));
+    out.set([value,value,value,255], index);
+  }
+  const texture = new THREE.DataTexture(out, road.width, road.height);
+  texture.flipY = true;
+  texture.needsUpdate = true;
   return texture;
 }
 
@@ -164,18 +241,190 @@ async function loadStatic(layout) {
     roughness: 0.9, flatShading: true }));
 }
 
-function buildActors(layout) {
-  // One instanced draw call for every actor: unit box scaled to l,w,h per instance.
+const CRC_TABLE = new Uint32Array(256);
+for (let i = 0; i < 256; i++) {
+  let c = i;
+  for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+  CRC_TABLE[i] = c;
+}
+
+function crc32(str) {
+  let crc = -1;
+  const utf8 = new TextEncoder().encode(str);
+  for (let i = 0; i < utf8.length; i++) {
+    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ utf8[i]) & 0xff];
+  }
+  return (crc ^ -1) >>> 0;
+}
+
+/**
+ * Select a 3D library asset for an actor matching SPEC-S8 §2.
+ * Rules (SPEC-S8 §2):
+ * 1. Filter assets of the same class (asset.class === actor.label).
+ * 2. Calculate anisotropic scale = target / native_size for each axis (l, w, h).
+ * 3. Enforce distortion cap: max(scale) / min(scale) <= 1.3 (+ 1e-9).
+ * 4. Rank candidates by closest shape ratio: norm(log(scale) - mean(log(scale))).
+ * 5. Break ties deterministically: sort candidates by asset_id, then select pseudo-randomly
+ *    using (crc32(actor.track) ^ seed).
+ * Returns { asset, scale } or null if no valid candidate exists.
+ */
+function selectLibraryAsset(manifest, actor, seed = 0) {
+  const target = actor?.size;
+  if (!Array.isArray(target) || target.length !== 3 || target.some((v) => !Number.isFinite(v) || v <= 0)) {
+    return null;
+  }
+  const candidates = [];
+  for (const item of manifest) {
+    if (item.class !== actor.label) continue;
+    const native = item.native_size;
+    if (!Array.isArray(native) || native.length !== 3 || native.some((v) => !Number.isFinite(v) || v <= 0)) {
+      continue;
+    }
+    const scale = [target[0] / native[0], target[1] / native[1], target[2] / native[2]];
+    const maxScale = Math.max(...scale);
+    const minScale = Math.min(...scale);
+    if (maxScale / minScale <= 1.3 + 1e-9) {
+      const shape = scale.map(Math.log);
+      const mean = (shape[0] + shape[1] + shape[2]) / 3;
+      const dist = Math.hypot(shape[0] - mean, shape[1] - mean, shape[2] - mean);
+      candidates.push({ dist, asset: item, scale });
+    }
+  }
+  if (candidates.length === 0) return null;
+  let best = Infinity;
+  for (const c of candidates) if (c.dist < best) best = c.dist;
+  const tied = candidates.filter((c) => Math.abs(c.dist - best) < 1e-9);
+  tied.sort((a, b) => a.asset.asset_id.localeCompare(b.asset.asset_id));
+  const track = String(actor.track || "");
+  const hash = (crc32(track) ^ (Number(seed) || 0)) >>> 0;
+  let t = (hash + 0x6D2B79F5) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  const idx = ((t ^ (t >>> 14)) >>> 0) % tied.length;
+  return { asset: tied[idx].asset, scale: tied[idx].scale };
+}
+
+const gltfLoader = new GLTFLoader();
+const gltfCache = new Map();
+
+async function loadGlb(file) {
+  const glbFile = file.replace(/\.blend$/, ".glb");
+  const url = `/assets/${glbFile}`;
+  if (!gltfCache.has(url)) {
+    gltfCache.set(url, gltfLoader.loadAsync(url));
+  }
+  return await gltfCache.get(url);
+}
+
+async function attachLibraryModels(actorDataList, libraryGroup, frameTimes) {
+  await Promise.all(actorDataList.map(async (item) => {
+    if (!item.selection) return;
+    try {
+      const { asset, scale } = item.selection;
+      const gltf = await loadGlb(asset.file);
+      const root = new THREE.Group();
+      const scaleGroup = new THREE.Group();
+      scaleGroup.scale.set(scale[0], scale[1], scale[2]);
+      root.add(scaleGroup);
+      const modelWrapper = new THREE.Group();
+      modelWrapper.rotation.x = Math.PI / 2;
+      scaleGroup.add(modelWrapper);
+      const model = SkeletonUtils.clone(gltf.scene);
+      modelWrapper.add(model);
+
+      if (asset.paint_material && item.actor.color && Array.isArray(item.actor.color) && item.actor.color.length === 3) {
+        const col = item.actor.color;
+        model.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            const newMats = mats.map((m) => {
+              if (m.name === asset.paint_material || m.name.startsWith(asset.paint_material + ".")) {
+                const clone = m.clone();
+                clone.color.setRGB(col[0] / 255, col[1] / 255, col[2] / 255, THREE.SRGBColorSpace);
+                return clone;
+              }
+              return m;
+            });
+            child.material = Array.isArray(child.material) ? newMats : newMats[0];
+          }
+        });
+      }
+
+      let mixer = null;
+      let walkAction = null;
+      let idleAction = null;
+      if (asset.animated && gltf.animations && gltf.animations.length > 0) {
+        mixer = new THREE.AnimationMixer(model);
+        const walkClip = gltf.animations.find((c) => c.name === asset.walk_action);
+        const idleClip = gltf.animations.find((c) => c.name === asset.idle_action);
+        if (walkClip) walkAction = mixer.clipAction(walkClip);
+        if (idleClip) idleAction = mixer.clipAction(idleClip);
+      }
+
+      const speeds = new Map();
+      const keys = item.rawKeys;
+      for (let k = 0; k < keys.length; k++) {
+        const key = keys[k];
+        let speed = 0;
+        if (keys.length > 1) {
+          const prev = k > 0 ? keys[k - 1] : keys[0];
+          const curr = k > 0 ? keys[k] : keys[1];
+          const tPrev = frameTimes.get(prev.frame) ?? 0;
+          const tCurr = frameTimes.get(curr.frame) ?? 1;
+          const dt = Math.max(tCurr - tPrev, 1e-6);
+          const dist = Math.hypot(curr.center[0] - prev.center[0], curr.center[1] - prev.center[1]);
+          speed = dist / dt;
+        }
+        const hScale = item.size[2] / asset.native_size[2];
+        const playSpeed = asset.walk_speed_mps ? speed / (asset.walk_speed_mps * hScale) : 1;
+        speeds.set(key.frame, { speed, playSpeed: Math.max(0.1, playSpeed), walking: speed >= 0.2 });
+      }
+
+      root.visible = false;
+      root.position.set(0, 0, -1000);
+      libraryGroup.add(root);
+
+      item.model = { root, model, asset, scale, mixer, walkAction, idleAction, speeds };
+    } catch (err) {
+      console.warn(`Fallback to box for ${item.actor.track}:`, err);
+      item.model = null;
+    }
+  }));
+}
+
+function buildActors(layout, manifest = [], frameTimes = new Map()) {
   const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshStandardMaterial({ roughness: 0.5 }), layout.actors.length);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+
+  const lamps = new THREE.InstancedMesh(new THREE.BoxGeometry(.08, .28, .16),
+    new THREE.MeshStandardMaterial({color:"#fff0bd", emissive:"#ffe0a0", emissiveIntensity:2}),
+    layout.actors.length * 2);
+  lamps.frustumCulled = false;
+  mesh.userData.lamps = lamps;
+  mesh.userData.labels = layout.actors.map((a) => a.label);
+
+  const libraryGroup = new THREE.Group();
+  const group = new THREE.Group();
+  group.add(mesh, lamps, libraryGroup);
+
   const actors = layout.actors.map((actor, i) => {
     mesh.setColorAt(i, new THREE.Color(COLORS[actor.label] || "#cccccc"));
-    return { size: actor.size, keys: new Map(actor.keys.map((key) => [key.frame, key])) };
+    const selection = selectLibraryAsset(manifest, actor, 0);
+    return {
+      actor,
+      selection,
+      size: actor.size,
+      keys: new Map(actor.keys.map((key) => [key.frame, key])),
+      rawKeys: actor.keys,
+      model: null,
+    };
   });
-  mesh.instanceColor.needsUpdate = true;
-  mesh.frustumCulled = false;
-  return { group: mesh, actors, mesh };
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+  const loading = attachLibraryModels(actors, libraryGroup, frameTimes);
+  return { group, actors, mesh, libraryGroup, loading };
 }
 
 function buildEgo(layout) {
@@ -198,12 +447,24 @@ const state = { frame: 0, playing: false, lidar: null, run: "" };
 
 async function main() {
   if (!scene) throw new Error("Thiếu ?scene=<tên scene> trên URL");
-  const layout = await json(`${scene}/layout.json`);
+  const metadata = await json(`/api/scene/${encodeURIComponent(scene)}`);
+  const layout = metadata.layout;
   $("title").textContent = `${layout.scene} · ${layout.map ? layout.map.location : "no map"}`;
+
+  let libraryManifest = [];
+  try {
+    libraryManifest = await json("/assets/library_manifest.json");
+  } catch (err) {
+    console.warn("Could not load /assets/library_manifest.json:", err);
+    libraryManifest = [];
+  }
+  const frameTimes = new Map(layout.frames.map((f) => [f.index, f.timestamp_us / 1e6]));
+
   status("Đang tải mặt đường và nhà…");
   const [ground, statics] = await Promise.all([loadGround(layout), loadStatic(layout)]);
   world.add(ground, statics);
-  const { group: actorGroup, actors, mesh: actorMesh } = buildActors(layout);
+  let { group: actorGroup, actors, mesh: actorMesh, libraryGroup, loading: actorLoading } =
+    buildActors(layout, libraryManifest, frameTimes);
   const { group: egoGroup, ego } = buildEgo(layout);
   world.add(actorGroup, egoGroup);
 
@@ -213,16 +474,14 @@ async function main() {
     span.textContent = label;
     $("legend").appendChild(span);
   }
-  for (const run of ["day", "night", "rain", "fog"]) {
-    const response = await fetch(`${scene}/runs/${run}/run.json`);
-    if (!response.ok) continue;
-    const info = await response.json();
+  function addRun(info) {
+    if ([...$("run").options].some(o => o.value === info.name)) return;
     const option = document.createElement("option");
-    option.value = run;
-    option.textContent = `${run} (frame ${info.frames.join(",")})`;
-    option.dataset.frames = JSON.stringify(info.frames);
+    option.value = info.name;
+    option.textContent = `${info.name} (frame ${info.frames.join(",")})`;
     $("run").appendChild(option);
   }
+  metadata.runs.forEach(addRun);
 
   const frames = layout.frames;
   $("frame").max = frames.length - 1;
@@ -251,27 +510,86 @@ async function main() {
     return ` · LiDAR ${state.run}: ${count} điểm`;
   }
 
+  const activeMixers = [];
+
   async function setFrame(index) {
     state.frame = index;
     $("frame").value = index;
     $("frameLabel").textContent = `${index}/${frames.length - 1}`;
     const frame = frames[index];
     let visible = 0;
+    let libraryVisible = 0;
+    let boxVisible = 0;
+    const useLibrary = $("useLibraryActors") ? $("useLibraryActors").checked : true;
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), z = new THREE.Vector3(0, 0, 1);
-    actors.forEach(({ size, keys }, i) => {
+
+    activeMixers.length = 0;
+
+    actors.forEach((item, i) => {
+      const { size, keys, model } = item;
       const key = keys.get(frame.index);
       if (key) visible++;
-      m.compose(new THREE.Vector3(...(key ? key.center : [0, 0, -1000])),
-        q.setFromAxisAngle(z, key ? key.yaw : 0),
-        key ? new THREE.Vector3(...size) : new THREE.Vector3(0, 0, 0));
-      actorMesh.setMatrixAt(i, m);
+
+      const hasLibraryModel = useLibrary && model !== null;
+      if (hasLibraryModel) {
+        if (key) {
+          libraryVisible++;
+          model.root.visible = true;
+          model.root.position.set(...key.center);
+          model.root.rotation.set(0, 0, key.yaw);
+
+          if (model.mixer) {
+            activeMixers.push(model.mixer);
+            const speedInfo = model.speeds.get(frame.index) || { walking: false, playSpeed: 1 };
+            if (speedInfo.walking && model.walkAction) {
+              if (model.idleAction) model.idleAction.stop();
+              model.walkAction.timeScale = speedInfo.playSpeed;
+              model.walkAction.play();
+            } else if (model.idleAction) {
+              if (model.walkAction) model.walkAction.stop();
+              model.idleAction.timeScale = 1.0;
+              model.idleAction.play();
+            } else if (model.walkAction) {
+              model.walkAction.timeScale = 0;
+              model.walkAction.play();
+            }
+            model.mixer.update(0);
+          }
+        } else {
+          model.root.visible = false;
+          model.root.position.set(0, 0, -1000);
+        }
+
+        m.compose(new THREE.Vector3(0, 0, -1000), q, new THREE.Vector3(0, 0, 0));
+        actorMesh.setMatrixAt(i, m);
+        actorMesh.userData.lamps.setMatrixAt(i * 2, m);
+        actorMesh.userData.lamps.setMatrixAt(i * 2 + 1, m);
+      } else {
+        if (model) {
+          model.root.visible = false;
+          model.root.position.set(0, 0, -1000);
+        }
+        if (key) boxVisible++;
+        m.compose(new THREE.Vector3(...(key ? key.center : [0, 0, -1000])),
+          q.setFromAxisAngle(z, key ? key.yaw : 0),
+          key ? new THREE.Vector3(...size) : new THREE.Vector3(0, 0, 0));
+        actorMesh.setMatrixAt(i, m);
+        for (let side = 0; side < 2; side++) {
+          const vehicle = ["car","truck","bus","trailer","construction_vehicle","motorcycle"].includes(actorMesh.userData.labels[i]);
+          const p = key ? new THREE.Vector3(size[0]/2, (side ? 1 : -1)*size[1]*.32, -size[2]*.15)
+            .applyQuaternion(q).add(new THREE.Vector3(...key.center)) : new THREE.Vector3(0,0,-1000);
+          m.compose(p, q, new THREE.Vector3().setScalar(key && vehicle ? 1 : 0));
+          actorMesh.userData.lamps.setMatrixAt(i*2 + side, m);
+        }
+      }
     });
     actorMesh.instanceMatrix.needsUpdate = true;
+    actorMesh.userData.lamps.instanceMatrix.needsUpdate = true;
     const T = frame.T_world_lidar;
     ego.position.set(T[0][3], T[1][3], T[2][3] - 1.1);
     ego.rotation.set(0, 0, Math.atan2(T[1][0], T[0][0]) + Math.PI / 2);
     const lidar = await showLidar();
-    status(`Frame ${frame.index} · ${visible} xe/người${lidar}`);
+    status(`Frame ${frame.index} · ${visible} xe/người (${libraryVisible} mẫu thư viện, ${boxVisible} khối hộp)${lidar}`);
     redraw();
   }
 
@@ -294,7 +612,15 @@ async function main() {
   });
   toggle("showGround", ground);
   toggle("showStatic", statics);
-  toggle("showActors", actorGroup);
+  $("showActors").addEventListener("change", () => {
+    actorGroup.visible = $("showActors").checked;
+    paths.visible = $("showActors").checked;
+    redraw();
+  });
+  $("useLibraryActors").addEventListener("change", () => {
+    setFrame(state.frame);
+    redraw();
+  });
   toggle("showEgo", egoGroup);
   $("play").addEventListener("click", () => {
     state.playing = !state.playing;
@@ -304,11 +630,235 @@ async function main() {
     if (state.playing) setFrame((state.frame + 1) % frames.length);
   }, 500);
 
+  // Preview effects share the existing scene, meshes and demand-driven renderer.
+  const street = new THREE.Group(), paths = new THREE.Group();
+  world.add(street, paths);
+  frames.filter((_, i) => i % Math.max(1, Math.ceil(frames.length / 16)) === 0)
+    .slice(0, 16).forEach(f => {
+      const T = f.T_world_lidar;
+      const lamp = new THREE.PointLight("#ffd9a0", 30, 18, 2);
+      lamp.position.set(T[0][3] + 4, T[1][3], T[2][3] + 3);
+      street.add(lamp);
+    });
+  const count = 20000, rainData = new Float32Array(count * 6);
+  const b = layout.bounds;
+  for (let i = 0; i < count; i++) {
+    const x = b.xmin + Math.random() * (b.xmax - b.xmin);
+    const y = b.ymin + Math.random() * (b.ymax - b.ymin);
+    const z = Math.random() * 30;
+    rainData.set([x,y,z,x+.1,y,z+.8], i*6);
+  }
+  const rainGeometry = new THREE.BufferGeometry();
+  rainGeometry.setAttribute("position", new THREE.BufferAttribute(rainData, 3));
+  const rain = new THREE.LineSegments(rainGeometry,
+    new THREE.LineBasicMaterial({color: "#c5d8ee", transparent: true, opacity: .4}));
+  world.add(rain);
+  let photoTexture = null, splat = null, paintVersion = 0;
+  const splatOption = $("background").querySelector('[value="splat"]');
+  splatOption.disabled = !metadata.files.includes("static_splat.ply");
+  splatOption.title = splatOption.disabled ? "Chưa có static_splat.ply" : "Điểm LiDAR tô màu";
+  $("background").title = splatOption.title;
+  $("photoGround").disabled = !metadata.files.includes("ground_photo.png");
+  $("photoGround").title = $("photoGround").disabled ? "Chưa có ground_photo.png" : "Ảnh thật ban ngày";
+  if (!$("photoGround").disabled) {
+    photoTexture = await new THREE.TextureLoader().loadAsync(`${scene}/ground_photo.png`);
+    photoTexture.colorSpace = THREE.SRGBColorSpace;
+    $("photoGround").checked = true;
+  }
+  const reflectionTarget = new THREE.WebGLCubeRenderTarget(128);
+  const reflection = new THREE.CubeCamera(.1, 300, reflectionTarget);
+  const weatherKeys = ["cloudiness","precipitation","precipitation_deposits","wind_intensity",
+    "sun_altitude_angle","sun_azimuth_angle","fog_density","fog_distance","wetness","paint_fade"];
+  const weather = () => Object.fromEntries(weatherKeys
+    .map(id => [id, Number($(id).value)]));
+  const traffic = () => ({mode: $("mode").value, keep_parked: $("keep_parked").checked,
+    seed: Number($("seed").value), ...Object.fromEntries(["density","speed_scale","speed_jitter",
+    "lane_change_rate","aggressiveness","pedestrians","distance_to_leading","speed_difference_percent",
+    "random_lanechange_percent","max_accel","max_decel","max_lateral_accel"].map(id => [id, Number($(id).value)]))});
+  async function environment() {
+    const w = weather(), altitude = THREE.MathUtils.degToRad(w.sun_altitude_angle);
+    const azimuth = THREE.MathUtils.degToRad(w.sun_azimuth_angle);
+    const night = w.sun_altitude_angle < 0;
+    const cloud = Math.max(w.cloudiness, w.precipitation) / 100;
+    world.background.set(night ? "#080f20" : "#a8cce8");
+    if (!night) world.background.lerp(new THREE.Color("#758597"), cloud);
+    world.fog = w.fog_density ? new THREE.Fog(world.background, w.fog_distance,
+      w.fog_distance + 3000 / w.fog_density) : null;
+    sun.position.set(Math.cos(altitude)*Math.cos(azimuth)*100,
+      Math.cos(altitude)*Math.sin(azimuth)*100, Math.sin(altitude)*100);
+    sun.intensity = night ? 0 : 2*(1 - .8*w.cloudiness/100);
+    sun.color.set(w.sun_altitude_angle < 15 ? "#ffbb78" : "#fff5e7");
+    ambient.intensity = night ? .15 : 1.3;
+    street.visible = night;
+    actorMesh.userData.lamps.visible = night;
+    actors.forEach((item) => {
+      if (item.model) {
+        item.model.model.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach((m) => {
+              const lower = (m.name || "").toLowerCase();
+              if (lower.includes("headlight")) {
+                m.emissive = new THREE.Color("#fff5cc");
+                m.emissiveIntensity = night ? 2.5 : 0.0;
+              } else if (lower.includes("taillight")) {
+                m.emissive = new THREE.Color("#ff2200");
+                m.emissiveIntensity = night ? 1.5 : 0.0;
+              }
+            });
+          }
+        });
+      }
+    });
+    const wetness = Math.max(w.wetness, w.precipitation) / 100;
+    ground.material.roughness = .95 - .8*wetness;
+    ground.material.color.setScalar(1 - .5*wetness);
+    rain.visible = $("rainEnabled").checked && w.precipitation > 0;
+    rainGeometry.setDrawRange(0, Math.round(count*w.precipitation/100)*2);
+    for (let i=0; i<count; i++) rainData[i*6+3] = rainData[i*6] + .8*w.wind_intensity/100;
+    rainGeometry.attributes.position.needsUpdate = true;
+    const puddles = await puddleTexture(layout, w.precipitation_deposits/100,
+      ground.material.roughness);
+    ground.material.roughnessMap?.dispose();
+    ground.material.roughness = 1;
+    ground.material.roughnessMap = puddles;
+    ground.visible = false;
+    reflection.position.copy(ground.geometry.boundingSphere?.center || new THREE.Vector3());
+    reflection.position.z += 2;
+    reflection.update(renderer, world);
+    ground.visible = $("showGround").checked;
+    ground.material.envMap = reflectionTarget.texture;
+    const version = ++paintVersion;
+    if (photoTexture && $("photoGround").checked && !night && !wetness && !w.paint_fade) {
+      ground.material.map = photoTexture;
+    } else {
+      const texture = await groundTexture(layout, w.paint_fade);
+      if (version !== paintVersion) { texture.dispose(); return; }
+      const old = ground.material.map;
+      ground.material.map = texture;
+      if (old && old !== photoTexture) old.dispose();
+    }
+    ground.material.needsUpdate = true;
+    redraw();
+  }
+  const guarded = fn => async () => {
+    try { $("error").textContent = ""; await fn(); }
+    catch (error) { $("error").textContent = error.message; }
+  };
+  [...weatherKeys,"rainEnabled","photoGround"]
+    .forEach(id => $(id).addEventListener("input", guarded(environment)));
+  $("preset").addEventListener("change", guarded(async () => {
+    const preset = $("preset").value;
+    const defaults = {cloudiness:0, precipitation:0, precipitation_deposits:0, wind_intensity:0,
+      sun_azimuth_angle:30, sun_altitude_angle:45, fog_density:0, fog_distance:0, wetness:0, paint_fade:0};
+    const presets = {day:{}, night:{sun_altitude_angle:-30},
+      rain:{cloudiness:80, precipitation:60, precipitation_deposits:40, wind_intensity:30, wetness:80, fog_density:10},
+      fog:{cloudiness:70, fog_density:40, wetness:30}, dusk:{sun_altitude_angle:5, sun_azimuth_angle:270}};
+    Object.entries({...defaults, ...presets[preset]}).forEach(([id,value]) => { $(id).value = value; });
+    $("rainEnabled").checked = preset === "rain";
+    await environment();
+  }));
+  $("background").addEventListener("change", guarded(async () => {
+    if ($("background").value === "splat" && !splat) {
+      const {SparkRenderer, SplatMesh} = await import("@sparkjsdev/spark");
+      world.add(new SparkRenderer({renderer, onDirty: redraw}));
+      splat = new SplatMesh({url: `${scene}/static_splat.ply`, onLoad: redraw});
+      world.add(splat);
+      await splat.initialized;
+    }
+    statics.visible = $("showStatic").checked && $("background").value === "voxel";
+    if (splat) splat.visible = $("showStatic").checked && $("background").value === "splat";
+    redraw();
+  }));
+  $("showStatic").addEventListener("change", () => {
+    statics.visible = $("showStatic").checked && $("background").value === "voxel";
+    if (splat) splat.visible = $("showStatic").checked && $("background").value === "splat";
+    redraw();
+  });
+  async function post(endpoint, body) {
+    const response = await fetch(endpoint, {method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(body)});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    return result;
+  }
+  $("generate").addEventListener("click", guarded(async () => {
+    $("generate").disabled = true;
+    try {
+      const result = await post("/api/traffic", {scene, params: traffic()});
+      world.remove(actorGroup);
+      for (const mesh of [actorMesh, actorMesh.userData.lamps]) {
+        mesh.geometry.dispose(); mesh.material.dispose(); mesh.dispose();
+      }
+      ({group: actorGroup, actors, mesh: actorMesh, libraryGroup, loading: actorLoading} =
+        buildActors({actors: result.actors}, libraryManifest, frameTimes));
+      actorGroup.visible = $("showActors").checked;
+      world.add(actorGroup);
+      await actorLoading;
+      while (paths.children.length) {
+        const line = paths.children[0]; paths.remove(line); line.geometry.dispose(); line.material.dispose();
+      }
+      result.actors.filter(a => a.keys.length > 1).forEach(a => paths.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(a.keys.map(k => new THREE.Vector3(...k.center))),
+        new THREE.LineBasicMaterial({color: COLORS[a.label] || "#cccccc"}))));
+      $("checks").textContent = JSON.stringify(result.checks, null, 2);
+      await setFrame(state.frame); await environment();
+      state.playing = true; $("play").textContent = "⏸";
+    } finally { $("generate").disabled = false; }
+  }));
+  $("render").addEventListener("click", guarded(async () => {
+    $("render").disabled = true;
+    const name = $("scenarioName").value;
+    try {
+      const scenario = {schema:2, name, seed: Number($("seed").value), engine:"eevee", samples:16,
+        frames:[frames[state.frame].index], cameras:[], resolution_scale:.5,
+        weather:{preset:$("preset").value, ...weather()}, traffic:{...traffic(), color_randomization:true}};
+      const {job} = await post("/api/render", {scene, scenario});
+      const poll = async () => {
+        try {
+          const result = await json(`/api/jobs/${job}`);
+          $("jobStatus").textContent = `${result.status} · ${result.exit_code ?? ""}\n${result.log_tail}`;
+          if (["queued","running"].includes(result.status)) { setTimeout(poll, 1500); return; }
+          $("render").disabled = false;
+          if (result.status !== "ok") return;
+          const info = await json(`${scene}/runs/${name}/run.json`);
+          addRun({name, ...info});
+          $("gallery").replaceChildren();
+          for (const cam of info.cameras) {
+            const image = document.createElement("img"); image.alt = cam; image.title = cam;
+            image.src = `${scene}/runs/${name}/images/${cam}/${String(info.frames[0]).padStart(6,"0")}.png?t=${Date.now()}`;
+            $("gallery").appendChild(image);
+          }
+        } catch (error) { $("error").textContent = error.message; $("render").disabled = false; }
+      };
+      await poll();
+    } catch (error) { $("render").disabled = false; throw error; }
+  }));
+  state.animateRain = time => {
+    if (!rain.visible) return;
+    rain.position.z = -(time / 1000 * 12) % 25;
+    redraw();
+  };
+  await actorLoading;
+  const urlPreset = new URLSearchParams(location.search).get("preset");
+  if (urlPreset && $("preset").querySelector(`option[value="${urlPreset}"]`)) {
+    $("preset").value = urlPreset;
+    $("preset").dispatchEvent(new Event("change"));
+  } else {
+    await environment();
+  }
   await setFrame(0);
   focusEgo(false);
 }
 
-renderer.setAnimationLoop(() => {
+const clock = new THREE.Clock();
+renderer.setAnimationLoop((time) => {
+  const delta = clock.getDelta();
+  if (state.animateRain) state.animateRain(time);
+  if (state.playing && activeMixers.length > 0) {
+    for (const mixer of activeMixers) mixer.update(delta);
+    dirty = true;
+  }
   // OrbitControls.update() returns true while damping still moves the camera.
   if (controls.update() || dirty) {
     renderer.render(world, camera);

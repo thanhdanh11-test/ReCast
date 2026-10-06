@@ -15,13 +15,16 @@ dependencies = [
 [project.scripts]
 topeye-prepare = "topeye.prepare:main"
 topeye-export-splat = "topeye.export_splat:main"
+topeye-sim-build = "topeye.sim.cli:build_main"
 topeye-sim-layout = "topeye.sim.cli:layout_main"
 topeye-sim-render = "topeye.sim.cli:render_main"
 topeye-sim-view = "topeye.sim.view:main"
+topeye-sim-gsdata = "topeye.sim.gs_data:main"
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "httpx"]
 ground = ["pypatchworkpp"]
+mesh = ["open3d"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

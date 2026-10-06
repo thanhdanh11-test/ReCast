@@ -13,7 +13,8 @@ cd backend
 ```
 - Đường dẫn Blender lấy theo thứ tự: biến môi trường `TOPEYE_BLENDER` → `blender_bin` trong `config.toml` → `/Applications/Blender.app/Contents/MacOS/Blender`.
 - `topeye-sim-render` luôn chạy selftest trước khi render. Selftest hỏng thì dừng.
-- **Xem map 3D trên web:** chạy `.venv/bin/topeye-sim-view --scene scene-0061`. Lệnh mở `http://127.0.0.1:8770/?scene=scene-0061` (three.js), xem được mặt đường + vạch sơn, voxel, xe/người theo frame, quỹ đạo ego và LiDAR mô phỏng của từng run.
+- **Giao thông sinh tự động:** trong scenario đặt `[traffic] mode = "generated"` với `density`, `speed_scale`, `speed_jitter`, `lane_change_rate`, `aggressiveness`, `pedestrians`, `keep_parked`, `seed` (xem SPEC-S5 §1). Có preset mẫu `scenarios/night_traffic.toml`. Xe đỗ thật luôn được giữ; xe sinh ra phải không chồng nhau, cách xe ego ≥ 1 m và nằm trên đường.
+- **Xem map 3D trên web:** viewer có thêm bảng Môi trường (xem trước realtime; riêng giờ trong ngày chưa áp cho Blender), bảng Giao thông (sinh và xem trực tiếp), nút Render Blender, lớp splat (Spark) và mặt đường ảnh thật. chạy `.venv/bin/topeye-sim-view --scene scene-0061`. Lệnh mở `http://127.0.0.1:8770/?scene=scene-0061` (three.js), xem được mặt đường + vạch sơn, voxel, xe/người theo frame, quỹ đạo ego và LiDAR mô phỏng của từng run.
   - Server chỉ bind `127.0.0.1` và chỉ phục vụ `backend/data/sim/` cùng trang viewer; không liệt kê thư mục.
   - Trang tải three.js từ CDN jsdelivr, nên cần có mạng.
   - Cổng bận thì CLI thoát mã 3; truyền `--port` để đổi cổng.
