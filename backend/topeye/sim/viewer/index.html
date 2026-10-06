@@ -444,6 +444,8 @@ function matrix4(rows) {
 }
 
 const state = { frame: 0, playing: false, lidar: null, run: "" };
+// Shared with the render loop below (module scope): pedestrian walk-cycle mixers.
+const activeMixers = [];
 
 async function main() {
   if (!scene) throw new Error("Thiếu ?scene=<tên scene> trên URL");
@@ -510,7 +512,6 @@ async function main() {
     return ` · LiDAR ${state.run}: ${count} điểm`;
   }
 
-  const activeMixers = [];
 
   async function setFrame(index) {
     state.frame = index;
