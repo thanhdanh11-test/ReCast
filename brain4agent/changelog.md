@@ -1,0 +1,29 @@
+# Changelog & Semantic Releases
+
+Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
+
+## [Unreleased] - 2026-10-06: Đổi mục tiêu sang Real-to-Sim (dự kiến v2.0.0, MAJOR)
+### Decided
+- Dự án đổi mục tiêu: từ web app hỗ trợ gán nhãn sang **real-to-sim miễn phí bằng Blender** ("digital cousin"). Kế hoạch 01 ⏸ dừng; kế hoạch 02 `planning/02_2026-10-05_blender-real2sim/`.
+- Model đích là kiểu YOLO-LiDAR-Fusion (YOLO 2D được train, phần 3D là hình học).
+- Ràng buộc 100% miễn phí: loại World Labs Marble API và thuê GPU. 3DGS chỉ còn là nhánh thử trên Colab/Kaggle miễn phí (Idea Vault).
+- Ranh giới `topeye` (Python 3.12) ↔ Blender (bpy, Python 3.13) chỉ qua file; không dùng BlenderProc và compositor pass.
+### Added
+- `backend/topeye/sim/` gồm `camera.py`, `layout.py`, `labels.py`, `cli.py` (`topeye-sim-layout`, `topeye-sim-render`), `blender/build_scene.py` và 4 scenario (day, night, rain, fog).
+- `NuScenesAdapter.scene_origin()` và `scene_map()`; `bev.box_mask(pad=0.3)`; `Config.blender_bin`; `scripts/sim_evidence.py`; `docs/sim.md`.
+- S4 nâng chất lượng map: `sim/static_map.py` (đủ sweep, box nội suy, voxel 0,2 m, lọc ≥ 3 sweep) và `sim/ground_surface.py` (mặt đất kín vùng đường). PLY chuyển sang nhị phân. Chamfer 0,173 m.
+- `topeye-sim-view`: web viewer map 3D (three.js, localhost:8770).
+- POC scene-0061: selftest camera 0,00027 px; Chamfer LiDAR 0,242 m; pytest 108; chờ người dùng duyệt bằng mắt.
+
+## [Unreleased] - 2026-10-03: Đánh giá khả thi (bị thay một phần bởi mục 2026-10-06)
+### Decided
+- **(2026-10-03, thay thế quyết định hướng C bên dưới) Hướng triển khai: APP RIÊNG** — người dùng chốt: không làm trên CVAT, xây app riêng vì sẽ thêm nhiều tính năng khác. Hệ quả chấp nhận: app phải tự lo hiển thị + (nếu có) sửa box/track; quan hệ với CVAT (thay thế hay xuất/nhập) còn chờ chốt.
+- Phạm vi app: **web, thay CVAT hoàn toàn**, port tính năng CVAT (MIT) khi cần. Spec: `planning/01_2026-10-03_topeye-web-mvp/`.
+### Quyết định bị thay thế
+- Kết luận tranh luận đa agent (Claude ×3, Codex, Gemini): **KHẢ THI CÓ ĐIỀU KIỆN** — xem `REVIEW.md`.
+- **Hướng triển khai: C — pipeline offline nạp vào CVAT tự host** (PCD/ảnh top view/ảnh có box chiếu sẵn → context image + annotation import). Không fork CVAT, không app riêng ở giai đoạn này; chọn lại A (fork CVAT) / D (Xtreme1) chỉ sau gate A/B. B (app riêng có sửa box) là phương án cuối.
+- Loại bowl view; calib & sync checker làm đầu tiên; auto-label đưa lên trước viewer; viewer tương tác chỉ làm sau gate A/B.
+
+## [v1.0.0] - 2026-10-03: Initial Project Scaffolding
+### Added
+- Khởi tạo kiến trúc dự án và thiết lập hệ thống Bộ Nhớ Não Bộ `brain4agent/` Đa Tầng thế hệ mới.

@@ -1,0 +1,14 @@
+name = "night"
+seed = 0
+engine = "eevee"
+samples = 16
+frames = [0]
+cameras = []
+resolution_scale = 1.0
+
+[weather]
+preset = "night"
+
+[traffic]
+mode = "replay"
+color_randomization = true

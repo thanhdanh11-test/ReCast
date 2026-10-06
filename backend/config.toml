@@ -1,0 +1,8 @@
+nusc_root = "~/cvat-day2/tools/traffic_pipeline/data/nuscenes"
+cache_root = "data/cache"
+db_path = "data/topeye.sqlite3"
+cvat_day2_detect_bin = ""
+
+[calib]
+ok_ms = 50.0
+warn_ms = 100.0

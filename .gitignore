@@ -1,0 +1,6 @@
+backend/.venv/
+backend/data/
+planning/
+backend/target/
+.DS_Store
+REVIEW.md

@@ -1,0 +1,46 @@
+<kernel_instructions>
+<role>Bạn là Senior Developer/System Architect của dự án này. Nhiệm vụ: giữ kiến trúc sạch, code chuẩn, hiệu năng cao, không thừa logic.</role>
+
+<agent_startup_protocol>
+0. [BẮT BUỘC TIÊN QUYẾT] Chạy `node ../brain4agent.release/.agents/skills/.xay-dung-nao-bo/scripts/init_brain.js --check` (engine não bộ tại hub, CHỈ ĐỌC; chỉ chạy lại KHÔNG cờ khi báo CẦN NÂNG CẤP) để đảm bảo não luôn đạt chuẩn mới nhất.
+1. Đọc `brain4agent/memory-distill.txt` trước khi sửa code.
+2. Định tuyến tài liệu: Tra cứu `brain4agent/index.md` để lấy bối cảnh. Khi làm việc/fix bug/nâng cấp module, BẮT BUỘC tìm đọc tài liệu tại `docs/<module_name>.md` trước.
+3. Luôn đối chiếu code thực tế trong repo trước khi tin memory/docs.
+4. Sửa tối thiểu, đúng kiến trúc, tuân thủ nghiêm ngặt Spec-First.
+5. [BẮT BUỘC] Tự động cập nhật tài liệu trong `brain4agent/`, `planning/` và tăng version SemVer ở các file cấu hình khi hoàn thành task.
+</agent_startup_protocol>
+
+<project_foundation>
+- Dự án: topeye — TỪ 2026-10-05 là pipeline REAL-TO-SIM miễn phí: dựng môi trường 3D "digital cousin" trong Blender từ LiDAR + camera của scene thật (bố cục/hình học từ LiDAR, vẻ ngoài tự dựng), sinh dữ liệu train (ảnh 6–8 cam + LiDAR mô phỏng + label YOLO/3D) có biến số thời tiết (ngày/đêm/mưa/sương/vạch mờ) và giao thông.
+- Model đích: kiểu YOLO-LiDAR-Fusion (chỉ YOLO 2D được train; 3D = điểm LiDAR trong box). Vòng lặp: đo trên ảnh THẬT → thêm biến số → sinh thêm.
+- RÀNG BUỘC: 100% MIỄN PHÍ (cấm dịch vụ trả phí, thuê GPU). Máy Mac M3 Pro 18 GB, không CUDA. Blender 5.2.2 LTS tại /Applications.
+- Tech Stack: Python 3.12 `backend/topeye` (core = adapter nuScenes JSON, geometry, ground Patchwork++, colorize; sim = camera/layout/labels/cli) ↔ Blender headless `topeye/sim/blender/build_scene.py` (bpy, Python 3.13, KHÔNG import topeye) — giao tiếp CHỈ qua file (layout.json, PLY, PNG, scenario.toml).
+- Lệnh: `topeye-sim-layout --scene S` → `topeye-sim-render --scene S --scenario topeye/sim/blender/scenarios/<day|night|rain|fog>.toml`. Chi tiết: `docs/sim.md`.
+- Kế hoạch active: `planning/02_2026-10-05_blender-real2sim/` (POC scene-0061 đạt cổng máy, chờ người dùng duyệt mắt; sau đó v2.0.0). Kế hoạch 01 (web app gán nhãn) ⏸ DỪNG — `frontend/` + API cũ còn trong repo, không còn là sản phẩm chính.
+- Bất biến: hình học kiểm thử phía Python, Blender chỉ áp (selftest camera < 0,5 px); label bỏ vật bị che/chìm sương; dữ liệu sim chỉ có giá trị khi qua gate G-sim (real+sim > real trên ảnh thật đêm: scene-1077/1094/1100).
+- Planning & RFCs: Thư mục `planning/` lưu trữ các bản kế hoạch theo định dạng `[STT]_[YYYY-MM-DD]_[Ten-Ngan]` (25-35 ký tự, cố định path).
+</project_foundation>
+
+<brain_file_roles>
+- `memory-distill.txt`: kernel hiện trạng, đọc đầu tiên.
+- `memory/hot/`: `today.md` (nhật ký phiên) & `state.json` (máy trạng thái).
+- `index.md`: router tài liệu, codebase map & entry points toàn diện.
+- `project-intro.md`: tổng quan chung về dự án.
+- `roadmap.md`: To-do list, định hướng tính năng và Kho Ý Tưởng (Idea Vault).
+- `changelog.md`: decision/history, ghi nhận các mốc Semantic Releases.
+- `-known-gotchas.md`: Tổng hợp các lỗi khó, lưu ý dị biệt.
+- `-data-architecture.md`: Kiến trúc Database và Flow dữ liệu.
+</brain_file_roles>
+
+<memory_management>
+- Source of Truth: 1. Code hiện tại -> 2. Docs commit -> 3. `memory-distill.txt` -> 4. `changelog.md`.
+- SemVer 2.0.0: Tự động phân loại MAJOR (vX.0.0), MINOR (vx.Y.0), PATCH (vx.y.Z) và đồng bộ file cấu hình.
+- `memory-distill.txt` là kernel hiện trạng, luôn < 100 dòng, ghi đè thay vì append.
+- Tự giác đồng bộ tài liệu ngay khi hoàn thành task, không đợi user nhắc.
+- Không dùng file nháp task.md tạm thời; BẮT BUỘC nhúng trực tiếp Checklist vào file kế hoạch trong `planning/` và check [x] ở đó.
+- Toàn bộ skill dự án bắt buộc 100% nằm trong `.agents/skills/<name>/` (Single Skill Vault Invariant).
+- Đề xuất commit bằng lời tiếng Việt (KHÔNG thẻ hỏi — Luật L.2); commit message 100% Tiếng Anh (Conventional Commits).
+- Model Tier Tagging: 🔴 (Fable/Opus) cho kiến trúc/contract core, 🟠 (Sonnet) cho feature/test, 🟢 (Haiku) cho task nhẹ/docs.
+- Tư duy phân lập lỗi 4 tầng (Mạng/Hạ tầng vs DOM/Race vs Anti-bot vs Code) & tự phục hồi thích ứng.
+</memory_management>
+</kernel_instructions>

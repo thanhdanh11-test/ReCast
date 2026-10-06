@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "topeye"
+version = "0.1.0"
+description = "LiDAR and surround-camera annotation processing core"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi", "uvicorn", "numpy", "scipy", "opencv-python-headless", "pyquaternion",
+  "sqlalchemy>=2", "alembic",
+]
+
+[project.scripts]
+topeye-prepare = "topeye.prepare:main"
+topeye-export-splat = "topeye.export_splat:main"
+topeye-sim-layout = "topeye.sim.cli:layout_main"
+topeye-sim-render = "topeye.sim.cli:render_main"
+topeye-sim-view = "topeye.sim.view:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "httpx"]
+ground = ["pypatchworkpp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
