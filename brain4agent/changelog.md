@@ -11,6 +11,10 @@ Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên 
 ### Added
 - `backend/topeye/sim/` gồm `camera.py`, `layout.py`, `labels.py`, `cli.py` (`topeye-sim-layout`, `topeye-sim-render`), `blender/build_scene.py` và 4 scenario (day, night, rain, fog).
 - `NuScenesAdapter.scene_origin()` và `scene_map()`; `bev.box_mask(pad=0.3)`; `Config.blender_bin`; `scripts/sim_evidence.py`; `docs/sim.md`.
+- S11 pilot procedural (2026-10-07):
+  - Môi trường dựng thủ tục theo bố cục LiDAR thật (17 nhà, 305 cây, 78 cột), dùng asset PBR CC0 (Poly Haven, ambientCG); bầu trời camera dùng Sky shader, HDRI chỉ để chiếu sáng.
+  - Ngày 6×39 dựng + render 1043 giây.
+  - KID 65,3 (voxel 79,8; splat 185,7; mức sàn 27,8); nhận diện 0,54 (xe con 0,39).
 - S6–S10 (2026-10-06):
   - Splat train trên Mac (mpsplat; đã chặn lỗi NaN) dừng ở 17,87 dB.
   - `topeye-sim-build` dựng môi trường ≤ 15 phút (đo 784 giây; splat theo đồng hồ, ảnh 12 Hz, mô hình bầu trời; 19,31 dB).

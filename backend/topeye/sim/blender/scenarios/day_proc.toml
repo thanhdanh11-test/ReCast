@@ -1,0 +1,26 @@
+schema = 2
+name = "day_proc"
+environment = "procedural"
+seed = 0
+engine = "eevee"
+samples = 16
+frames = []
+cameras = []
+resolution_scale = 1.0
+
+[weather]
+preset = "day"
+cloudiness = 0.0
+precipitation = 0.0
+precipitation_deposits = 0.0
+wind_intensity = 0.0
+sun_azimuth_angle = 30.0
+sun_altitude_angle = 45.0
+fog_density = 0.0
+fog_distance = 0.0
+wetness = 0.0
+paint_fade = 0.0
+
+[traffic]
+mode = "replay"
+color_randomization = true

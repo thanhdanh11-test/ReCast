@@ -33,6 +33,7 @@ File này chứa danh sách các tính năng, mục tiêu sắp tới và tình 
 - [x] ~~Bowl view / adaptive bowl~~: đã loại (REVIEW.md).
 
 ## Đã hoàn thành (Done)
+- [x] **S11 pilot procedural (2026-10-07):** 17,4 phút cho 6×39 ảnh, KID tốt nhất trong các hướng (65,3), nhận diện 0,54. Còn mở: mẫu xe chi tiết (cần tài khoản Sketchfab/BlenderKit) để đạt ≥ 0,8; đưa cảnh procedural lên web.
 - [x] **S6–S10 (2026-10-06):** dựng môi trường ≤ 15 phút (784 giây, splat 19,31 dB nhưng mờ); mẫu thư viện xe/người (nhận diện ngày 0,50); tham số chuẩn CARLA; cổng nhận diện. Còn mở: nhận diện ≥ 0,8 (cần mẫu chi tiết hơn); ghép nền splat vào render Blender.
 - [x] **S5 web + giao thông + map đẹp (2026-10-06, Codex ×3 qua Orca):** bộ sinh giao thông có seed (0 va chạm), web chỉnh môi trường/giao thông/render, splat Spark 618k, ảnh mặt đường thật 75%. pytest 216.
 - [x] **Nâng chất lượng map S4 (2026-10-06, Codex ×2 qua Orca):** đủ 382 sweep, voxel 0,2 m, mặt đất phủ 100% vùng đường, Chamfer 0,242 → 0,173 m.

@@ -1,0 +1,26 @@
+schema = 2
+name = "rain_proc"
+environment = "procedural"
+seed = 0
+engine = "eevee"
+samples = 16
+frames = [0]
+cameras = []
+resolution_scale = 1.0
+
+[weather]
+preset = "rain"
+cloudiness = 80.0
+precipitation = 60.0
+precipitation_deposits = 40.0
+wind_intensity = 30.0
+sun_azimuth_angle = 30.0
+sun_altitude_angle = 45.0
+fog_density = 10.0
+fog_distance = 0.0
+wetness = 80.0
+paint_fade = 0.0
+
+[traffic]
+mode = "replay"
+color_randomization = true

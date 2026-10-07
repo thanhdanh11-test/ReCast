@@ -183,6 +183,7 @@ def load_scenario(path, layout):
     fields_by_section[""]["schema"] = int
     if schema == 2:
         fields_by_section[""]["lidar"] = dict
+        fields_by_section[""]["environment"] = str
         fields_by_section["weather"] = {"preset": str, **{key: (int, float) for key in WEATHER_RANGES}}
         fields_by_section["lidar"] = {key: (int, float) for key in LIDAR_DEFAULTS}
     fields_by_section["traffic"].update({key: (int, float) for key in TRAFFIC_RANGES_V2})
@@ -217,6 +218,9 @@ def load_scenario(path, layout):
                 "weather": weather, "traffic": traffic}
     if schema == 2:
         scenario["schema"] = 2
+        scenario["environment"] = data.get("environment", "voxel")
+        if scenario["environment"] not in ("voxel", "procedural"):
+            raise InputError("environment must be voxel or procedural")
         scenario["lidar"] = {**LIDAR_DEFAULTS, **data.get("lidar", {})}
     checks = [
         (bool(scenario["name"]) and all(c.isalnum() or c in "_-" for c in scenario["name"]),
@@ -491,6 +495,504 @@ def ground_material(directory, layout, weather):
         links.new(roughness, bsdf.inputs["Roughness"])
         bsdf.inputs["Metallic"].default_value = 0.15
     return material
+
+
+# ---------------------------------------------------------------- procedural environment (S11)
+
+def pbr_assets():
+    root = Path(__file__).resolve().parents[3] / "assets"
+    manifest = root / "pbr_manifest.json"
+    if not manifest.exists():
+        print("PBR_FALLBACK manifest missing", flush=True)
+        return root / "pbr", []
+    try:
+        entries = json.loads(manifest.read_text())
+        if not isinstance(entries, list):
+            raise TypeError("manifest must be a list")
+        roles = {"asphalt", "sidewalk", "curb", "wall", "roof", "hdri_day", "hdri_dusk",
+                 "hdri_night", "hdri_overcast", "leaf", "bark", "pole"}
+        for entry in entries:
+            if (not isinstance(entry, dict) or not isinstance(entry.get("files"), dict)
+                    or not entry["files"] or entry.get("role") not in roles):
+                raise TypeError("PBR entry requires role and nonempty files table")
+            if entry.get("kind") not in ("material", "hdri", "texture"):
+                raise ValueError("invalid PBR asset kind")
+            if entry.get("normal_convention", "opengl") not in ("opengl", "directx"):
+                raise ValueError("invalid normal convention")
+            if entry["kind"] == "hdri" and "hdri" not in entry["files"]:
+                raise ValueError("HDRI asset requires files.hdri")
+            if entry.get("license") != "CC0":
+                raise ValueError("only CC0 assets allowed")
+            for file in entry["files"].values():
+                path = (root / "pbr" / file).resolve()
+                if not path.is_relative_to((root / "pbr").resolve()) or not path.is_file():
+                    raise ValueError(f"missing or unsafe PBR file: {file}")
+        return root / "pbr", entries
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise InputError(f"Invalid PBR manifest: {exc}") from exc
+
+
+def texture_socket(material, path, vector, *, color=False):
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    texture = nodes.new("ShaderNodeTexImage")
+    texture.image = bpy.data.images.load(str(path), check_existing=True)
+    texture.image.colorspace_settings.name = "sRGB" if color else "Non-Color"
+    links.new(vector, texture.inputs["Vector"])
+    return texture.outputs["Color"]
+
+
+def apply_pbr(material, role, assets, seed=0):
+    root, entries = assets
+    available = [a for a in entries if a["role"] == role]
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    bsdf = nodes["Principled BSDF"]
+    position = nodes.new("ShaderNodeTexCoord").outputs["UV" if role == "wall" else "Object"]
+    scale = nodes.new("ShaderNodeVectorMath")
+    scale.operation = "SCALE"
+    scale.inputs[3].default_value = 0.5
+    links.new(position, scale.inputs[0])
+    vector = scale.outputs["Vector"]
+    sockets = {}
+    if available:
+        entry = available[seed % len(available)]
+        files = dict(entry["files"])
+        if "image" in files:
+            files.setdefault("albedo", files["image"])
+        for kind in ("albedo", "roughness", "normal"):
+            if kind in files:
+                sockets[kind] = texture_socket(material, root / files[kind], vector,
+                                               color=kind == "albedo")
+        if "roughness" in sockets and role != "asphalt":
+            links.new(sockets["roughness"], bsdf.inputs["Roughness"])
+        if "normal" in sockets:
+            normal_color = sockets["normal"]
+            if entry.get("normal_convention") == "directx":
+                split = nodes.new("ShaderNodeSeparateColor")
+                links.new(normal_color, split.inputs["Color"])
+                invert = nodes.new("ShaderNodeMath")
+                invert.operation = "SUBTRACT"
+                invert.inputs[0].default_value = 1
+                links.new(split.outputs["Green"], invert.inputs[1])
+                combine = nodes.new("ShaderNodeCombineColor")
+                links.new(split.outputs["Red"], combine.inputs["Red"])
+                links.new(invert.outputs[0], combine.inputs["Green"])
+                links.new(split.outputs["Blue"], combine.inputs["Blue"])
+                normal_color = combine.outputs["Color"]
+            normal = nodes.new("ShaderNodeNormalMap")
+            links.new(normal_color, normal.inputs["Color"])
+            links.new(normal.outputs["Normal"], bsdf.inputs["Normal"])
+    else:
+        noise = nodes.new("ShaderNodeTexNoise")
+        noise.inputs["Scale"].default_value = 18
+        links.new(vector, noise.inputs["Vector"])
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs["Strength"].default_value = .25
+        bump.inputs["Distance"].default_value = .035
+        links.new(noise.outputs["Fac"], bump.inputs["Height"])
+        links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return sockets
+
+
+def procedural_ground(directory, layout, weather, assets):
+    material = ground_material(directory, layout, weather)
+    sockets = apply_pbr(material, "asphalt", assets)
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    bsdf = nodes["Principled BSDF"]
+    if "albedo" in sockets:
+        uv = nodes.new("ShaderNodeUVMap").outputs["UV"]
+        road = image_value(nodes, links, directory / layout["ground"]["drivable"], uv)
+        paint = image_value(nodes, links, directory / layout["ground"]["paint"], uv)
+        threshold = nodes.new("ShaderNodeMath")
+        threshold.operation = "GREATER_THAN"
+        threshold.inputs[1].default_value = .45
+        links.new(paint, threshold.inputs[0])
+        fade = nodes.new("ShaderNodeMath")
+        fade.operation = "MULTIPLY"
+        fade.inputs[1].default_value = 1 - weather["paint_fade"]
+        links.new(threshold.outputs[0], fade.inputs[0])
+        base = mix_rgb(nodes, links, road, (.22, .23, .21), sockets["albedo"])
+        color = mix_rgb(nodes, links, fade.outputs[0], base, (.82, .81, .73))
+        darken = nodes.new("ShaderNodeMix")
+        darken.data_type, darken.blend_type = "RGBA", "MULTIPLY"
+        socket(darken.inputs, "Factor", "VALUE").default_value = 1
+        socket(darken.inputs, "B", "RGBA").default_value = (1 - .5 * weather["wetness"],) * 3 + (1,)
+        links.new(color, socket(darken.inputs, "A", "RGBA"))
+        links.new(socket(darken.outputs, "Result", "RGBA"), bsdf.inputs["Base Color"])
+    # Preserve S7 puddle roughness; dry PBR roughness and paint have separate response.
+    if "roughness" in sockets and weather["wetness"] == 0:
+        links.new(sockets["roughness"], bsdf.inputs["Roughness"])
+    return material
+
+
+def facade_material(seed, assets, night):
+    palette = [(.55, .49, .38), (.68, .65, .56), (.36, .39, .41), (.65, .47, .34), (.8, .77, .69)]
+    material = principled(f"facade_{seed}", palette[seed % len(palette)], .8)
+    textures = apply_pbr(material, "wall", assets, seed)
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    bsdf = nodes["Principled BSDF"]
+    uv = nodes.new("ShaderNodeUVMap").outputs["UV"]
+    split = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(uv, split.inputs[0])
+    masks = []
+    for axis, spacing, low, high in (("X", 2.4, .16, .83), ("Y", 3.2, .24, .83)):
+        scale = nodes.new("ShaderNodeMath")
+        scale.operation = "DIVIDE"
+        scale.inputs[1].default_value = spacing
+        links.new(split.outputs[axis], scale.inputs[0])
+        fract = nodes.new("ShaderNodeMath")
+        fract.operation = "FRACT"
+        links.new(scale.outputs[0], fract.inputs[0])
+        lower = nodes.new("ShaderNodeMath")
+        lower.operation = "GREATER_THAN"
+        lower.inputs[1].default_value = low
+        links.new(fract.outputs[0], lower.inputs[0])
+        upper = nodes.new("ShaderNodeMath")
+        upper.operation = "LESS_THAN"
+        upper.inputs[1].default_value = high
+        links.new(fract.outputs[0], upper.inputs[0])
+        mask = nodes.new("ShaderNodeMath")
+        mask.operation = "MULTIPLY"
+        links.new(lower.outputs[0], mask.inputs[0])
+        links.new(upper.outputs[0], mask.inputs[1])
+        masks.append(mask.outputs[0])
+    window = nodes.new("ShaderNodeMath")
+    window.operation = "MULTIPLY"
+    for i, value in enumerate(masks):
+        links.new(value, window.inputs[i])
+    wall = textures.get("albedo", palette[seed % len(palette)])
+    color = mix_rgb(nodes, links, window.outputs[0], wall, (.035, .075, .095))
+    links.new(color, bsdf.inputs["Base Color"])
+    rough = nodes.new("ShaderNodeMix")
+    rough.data_type = "FLOAT"
+    links.new(window.outputs[0], socket(rough.inputs, "Factor", "VALUE"))
+    if "roughness" in textures:
+        links.new(textures["roughness"], socket(rough.inputs, "A", "VALUE"))
+    else:
+        socket(rough.inputs, "A", "VALUE").default_value = .8
+    socket(rough.inputs, "B", "VALUE").default_value = .13
+    links.new(socket(rough.outputs, "Result", "VALUE"), bsdf.inputs["Roughness"])
+    if night:
+        links.new(window.outputs[0], bsdf.inputs["Emission Strength"])
+        bsdf.inputs["Emission Color"].default_value = (.9, .62, .27, 1)
+    return material
+
+
+def environment_uv(obj):
+    """Metric planar UVs for generated concrete and bark normal-map tangents."""
+    uv = obj.data.uv_layers.new(name="SurfaceMeters")
+    for face in obj.data.polygons:
+        normal_axis = max(range(3), key=lambda i: abs(face.normal[i]))
+        axes = [i for i in range(3) if i != normal_axis]
+        for loop in face.loop_indices:
+            co = obj.data.vertices[obj.data.loops[loop].vertex_index].co
+            uv.data[loop].uv = (co[axes[0]], co[axes[1]])
+
+
+def leaf_geometry(obj, leaf_material, seed):
+    """GN distributes alpha-cut leaf cards on a measured crown mesh."""
+    group = bpy.data.node_groups.new(f"canopy_{seed}", "GeometryNodeTree")
+    group.interface.new_socket(name="Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+    group.interface.new_socket(name="Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+    nodes, links = group.nodes, group.links
+    source = nodes.new("NodeGroupInput")
+    output = nodes.new("NodeGroupOutput")
+    distribute = nodes.new("GeometryNodeDistributePointsOnFaces")
+    distribute.inputs["Density"].default_value = 24
+    distribute.inputs["Seed"].default_value = seed
+    links.new(source.outputs["Geometry"], distribute.inputs["Mesh"])
+    grid = nodes.new("GeometryNodeMeshGrid")
+    # 4x4 leaf atlas: a 70 cm card gives ~17 cm individual leaves.
+    # Its measured 16% opacity preserves crown coverage at 24 cards/m².
+    grid.inputs["Size X"].default_value = .7
+    grid.inputs["Size Y"].default_value = .7
+    material = nodes.new("GeometryNodeSetMaterial")
+    material.inputs["Material"].default_value = leaf_material
+    attribute = nodes.new("GeometryNodeStoreNamedAttribute")
+    attribute.data_type, attribute.domain = "FLOAT2", "CORNER"
+    attribute.inputs["Name"].default_value = "leaf_uv"
+    links.new(grid.outputs["Mesh"], attribute.inputs["Geometry"])
+    links.new(grid.outputs["UV Map"], attribute.inputs["Value"])
+    links.new(attribute.outputs["Geometry"], material.inputs["Geometry"])
+    instance = nodes.new("GeometryNodeInstanceOnPoints")
+    links.new(distribute.outputs["Points"], instance.inputs["Points"])
+    links.new(distribute.outputs["Rotation"], instance.inputs["Rotation"])
+    links.new(material.outputs["Geometry"], instance.inputs["Instance"])
+    scales = nodes.new("FunctionNodeRandomValue")
+    scales.data_type = "FLOAT"
+    socket(scales.inputs, "Min", "VALUE").default_value = .65
+    socket(scales.inputs, "Max", "VALUE").default_value = 1.4
+    scales.inputs["Seed"].default_value = seed
+    links.new(socket(scales.outputs, "Value", "VALUE"), instance.inputs["Scale"])
+    rotations = nodes.new("FunctionNodeRandomValue")
+    rotations.data_type = "FLOAT_VECTOR"
+    socket(rotations.inputs, "Min", "VECTOR").default_value = (-.7, -.7, -math.pi)
+    socket(rotations.inputs, "Max", "VECTOR").default_value = (.7, .7, math.pi)
+    rotations.inputs["Seed"].default_value = seed + 41
+    rotate = nodes.new("GeometryNodeRotateInstances")
+    links.new(instance.outputs["Instances"], rotate.inputs["Instances"])
+    links.new(socket(rotations.outputs, "Value", "VECTOR"), rotate.inputs["Rotation"])
+    realize = nodes.new("GeometryNodeRealizeInstances")
+    links.new(rotate.outputs["Instances"], realize.inputs["Geometry"])
+    links.new(realize.outputs["Geometry"], output.inputs["Geometry"])
+    modifier = obj.modifiers.new("leaf_cards", "NODES")
+    modifier.node_group = group
+
+
+def build_procedural(directory, layout, scenario, assets):
+    path = (directory / layout.get("photo", {}).get("procedural", "procedural.json")).resolve()
+    if not path.is_relative_to(directory.resolve()):
+        raise InputError("unsafe photo.procedural path")
+    try:
+        data = json.loads(path.read_text())
+        if data["version"] != 1 or data["scene"] != layout["scene"]:
+            raise ValueError("procedural version/scene mismatch")
+        for key in ("buildings", "vegetation", "poles", "road_edges"):
+            if not isinstance(data[key], list):
+                raise TypeError(f"{key} must be a list")
+        def finite(values):
+            if not np.isfinite(np.asarray(values, dtype=float)).all():
+                raise ValueError("non-finite procedural geometry")
+        for item in data["buildings"]:
+            polygon = np.asarray(item["polygon"], float)
+            finite([item["base_z"], item["height"]])
+            finite(polygon)
+            if polygon.ndim != 2 or polygon.shape[1] != 2 or len(polygon) < 3 or item["height"] <= 0:
+                raise ValueError("invalid footprint")
+        for kind in ("vegetation", "poles"):
+            for item in data[kind]:
+                finite([item[k] for k in ("x", "y", "z", "height")])
+                if item["height"] <= 0:
+                    raise ValueError("invalid height")
+                if kind == "vegetation":
+                    finite(item["crown_radius"])
+                    if item["crown_radius"] <= 0:
+                        raise ValueError("invalid crown radius")
+        for edge in data["road_edges"]:
+            finite(edge)
+            if np.asarray(edge).ndim != 2 or np.asarray(edge).shape[1] != 2 or len(edge) < 2:
+                raise ValueError("invalid road edge")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise InputError(f"Invalid procedural layout: {exc}") from exc
+    objects = []
+    night = is_night(scenario)
+    roof = principled("flat_roof", (.22, .24, .25), .8)
+    apply_pbr(roof, "roof", assets)
+    for i, building in enumerate(data["buildings"]):
+        polygon = building["polygon"]
+        n, z, height = len(polygon), building["base_z"], building["height"]
+        vertices = [(x, y, z + dz) for dz in (0, height) for x, y in polygon]
+        faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
+        faces += [(j, (j + 1) % n, (j + 1) % n + n, j + n) for j in range(n)]
+        obj = mesh_object(f"building_{i}", vertices, faces, [1, 1] + [0] * n,
+                          [facade_material(i + scenario["seed"], assets, night), roof])
+        uv = obj.data.uv_layers.new(name="FacadeMeters")
+        for face in obj.data.polygons:
+            if face.index < 2:
+                for loop in face.loop_indices:
+                    co = obj.data.vertices[obj.data.loops[loop].vertex_index].co
+                    uv.data[loop].uv = (co.x, co.y)
+                continue
+            a, b = polygon[face.index - 2], polygon[(face.index - 1) % n]
+            width = math.dist(a, b)
+            for loop, coords in zip(face.loop_indices, ((0, 0), (width, 0), (width, height), (0, height))):
+                uv.data[loop].uv = coords
+        objects.append(obj)
+    bark = principled("bark", (.12, .085, .045), .9)
+    bark_tex = apply_pbr(bark, "bark", assets)
+    if "albedo" in bark_tex:
+        bark.node_tree.links.new(bark_tex["albedo"], bark.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    leaf = principled("leaves", (.10, .23, .045), .85)
+    leaf_nodes, leaf_links = leaf.node_tree.nodes, leaf.node_tree.links
+    leaf_bsdf = leaf_nodes["Principled BSDF"]
+    attribute = leaf_nodes.new("ShaderNodeAttribute")
+    attribute.attribute_name = "leaf_uv"
+    offset = leaf_nodes.new("ShaderNodeVectorMath")
+    offset.operation = "SUBTRACT"
+    offset.inputs[1].default_value = (.5, .5, 0)
+    leaf_links.new(attribute.outputs["Vector"], offset.inputs[0])
+    length = leaf_nodes.new("ShaderNodeVectorMath")
+    length.operation = "LENGTH"
+    leaf_links.new(offset.outputs[0], length.inputs[0])
+    cutout = leaf_nodes.new("ShaderNodeMath")
+    cutout.operation = "LESS_THAN"
+    cutout.inputs[1].default_value = .48
+    leaf_links.new(length.outputs["Value"], cutout.inputs[0])
+    leaf_links.new(cutout.outputs[0], leaf_bsdf.inputs["Alpha"])
+    root, entries = assets
+    leaves = [a for a in entries if a["role"] == "leaf"]
+    if leaves:
+        entry = leaves[0]
+        texture = leaf.node_tree.nodes.new("ShaderNodeTexImage")
+        texture.image = bpy.data.images.load(str(root / entry["files"].get("image", entry["files"].get("albedo"))), check_existing=True)
+        leaf_links.new(attribute.outputs["Vector"], texture.inputs["Vector"])
+        tint = leaf_nodes.new("ShaderNodeHueSaturation")
+        tint.inputs["Hue"].default_value = .7
+        tint.inputs["Saturation"].default_value = .8
+        tint.inputs["Value"].default_value = .65
+        leaf_links.new(texture.outputs["Color"], tint.inputs["Color"])
+        leaf_links.new(tint.outputs["Color"], leaf_bsdf.inputs["Base Color"])
+        for kind in ("normal", "roughness"):
+            if kind not in entry["files"]:
+                continue
+            value = texture_socket(leaf, root / entry["files"][kind], attribute.outputs["Vector"])
+            if kind == "normal":
+                normal = leaf_nodes.new("ShaderNodeNormalMap")
+                normal.inputs["Strength"].default_value = .5
+                normal.uv_map = "leaf_uv"
+                leaf_links.new(value, normal.inputs["Color"])
+                leaf_links.new(normal.outputs["Normal"], leaf_bsdf.inputs["Normal"])
+            else:
+                leaf_links.new(value, leaf_bsdf.inputs["Roughness"])
+        alpha = leaf_nodes.new("ShaderNodeMath")
+        alpha.operation = "MULTIPLY"
+        leaf_links.new(texture.outputs["Alpha"], alpha.inputs[0])
+        leaf_links.new(cutout.outputs[0], alpha.inputs[1])
+        leaf_links.new(alpha.outputs[0], leaf_bsdf.inputs["Alpha"])
+        if "opacity" in entry["files"]:
+            opacity = texture_socket(leaf, root / entry["files"]["opacity"], attribute.outputs["Vector"])
+            leaf_links.new(opacity, leaf_bsdf.inputs["Alpha"])
+    for i, item in enumerate(data["vegetation"]):
+        x, y, z, h, radius = (item[k] for k in ("x", "y", "z", "height", "crown_radius"))
+        trunk = Builder()
+        trunk.cylinder((x, y, z + h * .3), .12 + radius * .045, h * .6, "z", 0)
+        trunk_obj = mesh_object(f"trunk_{i}", trunk.vertices, trunk.faces, trunk.slots, [bark])
+        environment_uv(trunk_obj)
+        objects.append(trunk_obj)
+        crown = Builder()
+        crown.sphere((0, 0, 0), 1, 0, rings=8, segments=12)
+        obj = mesh_object(f"crown_{i}", crown.vertices, crown.faces, crown.slots, [leaf])
+        obj.location = (x, y, z + h * .72)
+        obj.scale = (radius, radius, h * .28)
+        # Applying measured scale makes GN density use world square metres.
+        for vertex in obj.data.vertices:
+            vertex.co.x *= radius
+            vertex.co.y *= radius
+            vertex.co.z *= h * .28
+        rng = random.Random(i + scenario["seed"])
+        for vertex in obj.data.vertices:
+            vertex.co += Vector(tuple(rng.uniform(-.18, .18) * radius for _ in range(3)))
+        obj.scale = (1, 1, 1)
+        leaf_geometry(obj, leaf, i + scenario["seed"])
+        objects.append(obj)
+    metal = principled("street_metal", (.14, .16, .17), .35, .65)
+    lamp = principled("street_lamp", (.7, .68, .56), .3, emission=(1, .75, .4), strength=8 if night else 0)
+    for i, item in enumerate(data["poles"]):
+        x, y, z, h = (item[k] for k in ("x", "y", "z", "height"))
+        pole = Builder()
+        pole.cylinder((x, y, z + h / 2), .09, h, "z", 0)
+        pole.box((x + .45, y, z + h), (.9, .12, .12), 0)
+        pole.box((x + .8, y, z + h - .08), (.35, .22, .08), 1)
+        objects.append(mesh_object(f"pole_{i}", pole.vertices, pole.faces, pole.slots, [metal, lamp]))
+        if night:
+            light = bpy.data.lights.new(f"pole_light_{i}", "AREA")
+            light.energy, light.color, light.shape, light.size = 750, (1, .82, .57), "DISK", 1.5
+            light.use_shadow = False
+            obj = bpy.data.objects.new(light.name, light)
+            obj.location = (x + .8, y, z + h - .15)
+            bpy.context.scene.collection.objects.link(obj)
+    sidewalk = principled("sidewalk", (.4, .39, .36), .85)
+    tex = apply_pbr(sidewalk, "sidewalk", assets)
+    if "albedo" in tex:
+        sidewalk.node_tree.links.new(tex["albedo"], sidewalk.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    ground_vertices = np.array([v.co[:] for v in bpy.data.objects["ground"].data.vertices])
+    def ground_z(x, y):
+        idx = np.argmin(np.sum((ground_vertices[:, :2] - (x, y)) ** 2, axis=1))
+        return float(ground_vertices[idx, 2])
+    strip = Builder()
+    raster_path = directory / layout["ground"]["drivable"]
+    road_image = bpy.data.images.load(str(raster_path), check_existing=True)
+    w, h = road_image.size
+    pixels = np.asarray(road_image.pixels[:]).reshape(h, w, 4)[..., 0]
+    bounds = layout["bounds"]
+    def is_road(x, y):
+        u = int((x - bounds["xmin"]) / (bounds["xmax"] - bounds["xmin"]) * w)
+        v = int((y - bounds["ymin"]) / (bounds["ymax"] - bounds["ymin"]) * h)
+        return 0 <= u < w and 0 <= v < h and pixels[v, u] > .5
+    for edge in data["road_edges"]:
+        for a, b in pairwise(edge):
+            delta = np.asarray(b) - a
+            length = np.linalg.norm(delta)
+            if length < .2:
+                continue
+            normal = np.array([-delta[1], delta[0]]) / length
+            mid = (np.asarray(a) + b) / 2
+            if is_road(*(mid + normal * .8)):
+                normal *= -1
+            # Do not add curbs along the raster's artificial outer border.
+            if not is_road(*(mid - normal * .8)):
+                continue
+            outer_a, outer_b = np.asarray(a) + normal * 1.5, np.asarray(b) + normal * 1.5
+            z = ground_z(*mid)
+            verts = [(float(x), float(y), z + dz) for dz in (0, .15)
+                     for x, y in (a, b, outer_b, outer_a)]
+            strip._add(verts, [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+                               (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], 0)
+    if strip.faces:
+        curb_obj = mesh_object("curbs_sidewalk", strip.vertices, strip.faces, strip.slots, [sidewalk])
+        environment_uv(curb_obj)
+        objects.append(curb_obj)
+    print("PROCEDURAL_COUNTS " + json.dumps({"buildings": len(data["buildings"]),
+          "trees": len(data["vegetation"]), "poles": len(data["poles"])}), flush=True)
+    return objects
+
+
+def environment_tree(objects, depsgraph):
+    """One world-space BVH for all evaluated procedural meshes, including GN leaves."""
+    vertices, faces = [], []
+    for obj in objects:
+        evaluated = obj.evaluated_get(depsgraph)
+        mesh = evaluated.to_mesh()
+        try:
+            offset = len(vertices)
+            vertices.extend(evaluated.matrix_world @ vertex.co for vertex in mesh.vertices)
+            faces.extend(tuple(offset + index for index in polygon.vertices) for polygon in mesh.polygons)
+        finally:
+            evaluated.to_mesh_clear()
+    return BVHTree.FromPolygons(vertices, faces) if faces else None
+
+
+def procedural_hdri(scenario, assets):
+    root, entries = assets
+    w = scenario["weather"]
+    night = is_night(scenario)
+    role = ("hdri_night" if night else "hdri_dusk" if w["sun_altitude_angle"] < 10 else
+            "hdri_overcast" if w["cloudiness"] > 50 else "hdri_day")
+    choices = [a for a in entries if a["role"] == role]
+    world = bpy.context.scene.world
+    nodes, links = world.node_tree.nodes, world.node_tree.links
+    if choices:
+        texture = nodes.new("ShaderNodeTexEnvironment")
+        texture.image = bpy.data.images.load(str(root / choices[0]["files"]["hdri"]), check_existing=True)
+        links.new(texture.outputs["Color"], nodes["Background"].inputs["Color"])
+        nodes["Background"].inputs["Strength"].default_value = .12 if night else .7
+    # S11 amendment: photographed HDRI foreground must not become oversized scenery.
+    # Camera rays see an analytic sky; HDRI illumination and reflections are preserved.
+    camera_sky = nodes.new("ShaderNodeBackground")
+    if night:
+        camera_sky.inputs["Color"].default_value = (.005, .007, .013, 1)
+    else:
+        sky = nodes.new("ShaderNodeTexSky")
+        sky.sky_type = "MULTIPLE_SCATTERING"
+        sky.sun_elevation = math.radians(max(w["sun_altitude_angle"], .1))
+        sky.sun_rotation = math.radians(w["sun_azimuth_angle"])
+        sky.sun_disc = False
+        clouds = nodes.new("ShaderNodeMixRGB")
+        clouds.inputs[0].default_value = w["cloudiness"] / 100
+        clouds.inputs[2].default_value = (.55, .57, .6, 1)
+        links.new(sky.outputs["Color"], clouds.inputs[1])
+        links.new(clouds.outputs[0], camera_sky.inputs["Color"])
+        camera_sky.inputs["Strength"].default_value = .25
+    path = nodes.new("ShaderNodeLightPath")
+    mix = nodes.new("ShaderNodeMixShader")
+    links.new(path.outputs["Is Camera Ray"], mix.inputs[0])
+    links.new(nodes["Background"].outputs[0], mix.inputs[1])
+    links.new(camera_sky.outputs[0], mix.inputs[2])
+    links.new(mix.outputs[0], nodes["World Output"].inputs["Surface"])
+    if hasattr(bpy.context.scene.eevee, "shadow_pool_size"):
+        bpy.context.scene.eevee.shadow_pool_size = "512"
+    if hasattr(bpy.context.scene.eevee, "use_raytracing"):
+        bpy.context.scene.eevee.use_raytracing = True
+
 
 
 def static_material(obj):
@@ -874,7 +1376,7 @@ def setup_world(layout, scenario):
         else:
             obj.rotation_euler = (math.radians(45), 0.0, math.radians(30))
         bpy.context.scene.collection.objects.link(obj)
-    if preset["night"]:
+    if preset["night"] and scenario.get("environment", "voxel") != "procedural":
         positions = [Vector(np.asarray(f["T_world_lidar"])[:3, 3]) for f in layout["frames"]]
         travelled, last, side = 0.0, None, 1
         for position in positions:
@@ -1124,30 +1626,53 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=
     names = scenario["cameras"] or sorted(layout["frames"][0]["cameras"])
     out.mkdir(parents=True, exist_ok=True)
 
+    build_started = time.perf_counter()
+    procedural = scenario.get("environment", "voxel") == "procedural"
+    assets = pbr_assets() if procedural else None
     bounds = layout["bounds"]
     ground = import_ply(directory / layout["ground"]["mesh"], "ground")
     set_ground_uv(ground, bounds)
-    ground.data.materials.append(ground_material(directory, layout, scenario["weather"]))
-    static = import_ply(directory / layout["static"]["mesh"], "static")
-    static.data.materials.append(static_material(static))
+    ground.data.materials.append(procedural_ground(directory, layout, scenario["weather"], assets)
+                                 if procedural else ground_material(directory, layout, scenario["weather"]))
+    if procedural:
+        environment_objects = build_procedural(directory, layout, scenario, assets)
+    else:
+        static = import_ply(directory / layout["static"]["mesh"], "static")
+        static.data.materials.append(static_material(static))
+        environment_objects = [static]
     actors = build_actors(layout, scenario, observed_colors)
     (out / "actors.json").write_text(json.dumps(layout["actors"], allow_nan=False))
     setup_world(layout, scenario)
     setup_render(scenario)
+    if procedural:
+        procedural_hdri(scenario, assets)
     headlight = ego_headlight(scenario)
     camera = bpy.data.objects.new("camera", bpy.data.cameras.new("camera"))
     bpy.context.scene.collection.objects.link(camera)
     bpy.context.scene.camera = camera
     depsgraph = bpy.context.evaluated_depsgraph_get()
-    static_trees = {"ground": BVHTree.FromObject(ground, depsgraph),
-                    "static": BVHTree.FromObject(static, depsgraph)}
+    static_trees = {"ground": BVHTree.FromObject(ground, depsgraph)}
+    static_trees["static"] = (environment_tree(environment_objects, depsgraph) if procedural
+                              else BVHTree.FromObject(static, depsgraph))
+    build_s = time.perf_counter() - build_started
     paint = load_paint(directory, layout)
     drivable = load_paint(directory, {"ground": {"paint": layout["ground"]["drivable"]}})
 
     failed = False
     timings = {"render_s": {}, "lidar_s": {}}
+    if procedural:
+        timings["environment_build_s"] = round(build_s, 3)
     for frame in frames:
         index = frame["index"]
+        if procedural and is_night(scenario):
+            # Bound EEVEE shadow pages by casting from the nearest eight lamps;
+            # every measured pole still emits light and distant lamps stay lit.
+            ego = Vector(np.asarray(frame["T_world_lidar"])[:3, 3])
+            lamps = [obj for obj in bpy.context.scene.objects
+                     if obj.type == "LIGHT" and obj.name.startswith("pole_light_")]
+            ordered = sorted(lamps, key=lambda obj: (obj.location - ego).length_squared)
+            for i, lamp in enumerate(ordered):
+                lamp.data.use_shadow = i < 8
         place_actors(actors, index)
         print(f"HEADING_CHECK frame={index} {json.dumps(actor_heading_checks(actors, index))}",
               flush=True)

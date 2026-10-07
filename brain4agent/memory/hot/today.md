@@ -70,3 +70,4 @@
   - S9 mesh dán ảnh bị loại (9,1 dB).
   - Codex chạm giới hạn 5 giờ lúc 20:30 rồi được nối lại; Orca restart 2 lần.
   - Người dùng muốn: không train lâu, ≤ 15 phút, xe/người dùng mẫu thư viện, không upload.
+- 2026-10-07: S11 pilot procedural xong (17,4 phút; KID 65,3; nhận diện 0,54). Splat 15 phút có KID tệ nhất (185,7). Codex còn 19% hạn mức tuần (reset 11/10).

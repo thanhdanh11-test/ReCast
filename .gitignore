@@ -5,3 +5,4 @@ backend/target/
 .DS_Store
 REVIEW.md
 backend/assets/library/
+backend/assets/pbr/
