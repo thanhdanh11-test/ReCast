@@ -71,8 +71,9 @@ class SimHandler(SimpleHTTPRequestHandler):
                 runs = []
                 for path in sorted((directory / "runs").glob("*/run.json")):
                     if re.fullmatch(r"[a-z0-9_-]+", path.parent.name):
-                        runs.append({"name": path.parent.name, **json.loads(path.read_text())})
-                files = [name for name in ("static_splat.ply", "ground_photo.png")
+                        runs.append({**json.loads(path.read_text()), "name": path.parent.name,
+                                     "environment_glb": (path.parent / "environment.glb").is_file()})
+                files = [name for name in ("static_splat.ply", "trained_splat.ply", "msplat_splat.ply", "ground_photo.png")
                          if (directory / name).is_file()]
                 self.reply(200, {"layout": layout, "runs": runs, "files": files})
             elif route.startswith("/api/jobs/"):

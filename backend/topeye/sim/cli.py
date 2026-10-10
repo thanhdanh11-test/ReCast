@@ -67,7 +67,7 @@ def check_scenario(path):
     sections = {key: set(value) for key, value in SCENARIO_KEYS.items()}
     sections[""].add("schema")
     if schema == 2:
-        sections[""].update({"lidar", "environment"})
+        sections[""].update({"lidar", "environment", "region_style", "export_web_env"})
         sections["weather"] = set(WEATHER_RANGES_V2) | {"preset"}
         sections["lidar"] = set(LIDAR_RANGES)
     for section, allowed in sections.items():
@@ -81,8 +81,12 @@ def check_scenario(path):
             or not re.fullmatch(r"[a-z0-9_-]+", data["name"])):
         raise InputError("Scenario name must match [a-z0-9_-]+")
     if schema == 2:
-        if data.get("environment", "voxel") not in ("voxel", "procedural"):
-            raise InputError("environment must be voxel or procedural")
+        if type(data.get("export_web_env", True)) is not bool:
+            raise InputError("export_web_env must be bool")
+        if data.get("region_style", "sg") not in ("sg", "vn"):
+            raise InputError("region_style must be sg or vn")
+        if data.get("environment", "voxel") not in ("voxel", "procedural", "assets"):
+            raise InputError("environment must be voxel, procedural or assets")
         for key in ("seed", "samples"):
             if key in data and type(data[key]) is not int:
                 raise InputError(f"{key} must be int")

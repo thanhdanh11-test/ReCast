@@ -7,6 +7,8 @@ Uses bpy/mathutils/numpy/stdlib only; never imports topeye (00-ARCHITECTURE §3)
 """
 
 import argparse
+import copy
+import importlib.util
 import json
 import math
 import random
@@ -151,6 +153,7 @@ def parse_args():
     parser.add_argument("--actors", type=Path)
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--no-render", action="store_true")
+    parser.add_argument("--export-env-only", action="store_true")
     parser.add_argument("--no-lidar", action="store_true")
     parser.add_argument("--save-blend", type=Path)
     return parser.parse_args(argv)
@@ -184,8 +187,11 @@ def load_scenario(path, layout):
     if schema == 2:
         fields_by_section[""]["lidar"] = dict
         fields_by_section[""]["environment"] = str
+        fields_by_section[""]["export_web_env"] = bool
+        fields_by_section[""]["region_style"] = str
         fields_by_section["weather"] = {"preset": str, **{key: (int, float) for key in WEATHER_RANGES}}
         fields_by_section["lidar"] = {key: (int, float) for key in LIDAR_DEFAULTS}
+    fields_by_section["traffic"]["preset"] = str
     fields_by_section["traffic"].update({key: (int, float) for key in TRAFFIC_RANGES_V2})
     for section, fields in fields_by_section.items():
         table = data if not section else data.get(section, {})
@@ -210,6 +216,8 @@ def load_scenario(path, layout):
         numeric_ranges(data.get("lidar", {}), LIDAR_RANGES, "lidar")
     numeric_ranges({k: v for k, v in data.get("traffic", {}).items()
                     if k in TRAFFIC_RANGES_V2}, TRAFFIC_RANGES_V2, "traffic")
+    if data.get("traffic", {}).get("preset", "default") not in ("default", "vn"):
+        raise InputError("traffic.preset must be default or vn")
     traffic = {"mode": "replay", "color_randomization": True, **data.get("traffic", {})}
     scenario = {"name": data.get("name", ""), "seed": data.get("seed", 0),
                 "engine": data.get("engine", "eevee"), "samples": data.get("samples", 16),
@@ -218,9 +226,13 @@ def load_scenario(path, layout):
                 "weather": weather, "traffic": traffic}
     if schema == 2:
         scenario["schema"] = 2
+        scenario["region_style"] = data.get("region_style", "sg")
+        if scenario["region_style"] not in ("sg", "vn"):
+            raise InputError("region_style must be sg or vn")
+        scenario["export_web_env"] = data.get("export_web_env", True)
         scenario["environment"] = data.get("environment", "voxel")
-        if scenario["environment"] not in ("voxel", "procedural"):
-            raise InputError("environment must be voxel or procedural")
+        if scenario["environment"] not in ("voxel", "procedural", "assets"):
+            raise InputError("environment must be voxel, procedural or assets")
         scenario["lidar"] = {**LIDAR_DEFAULTS, **data.get("lidar", {})}
     checks = [
         (bool(scenario["name"]) and all(c.isalnum() or c in "_-" for c in scenario["name"]),
@@ -738,12 +750,12 @@ def leaf_geometry(obj, leaf_material, seed):
     modifier.node_group = group
 
 
-def build_procedural(directory, layout, scenario, assets):
+def build_procedural(directory, layout, scenario, assets, data_override=None):
     path = (directory / layout.get("photo", {}).get("procedural", "procedural.json")).resolve()
     if not path.is_relative_to(directory.resolve()):
         raise InputError("unsafe photo.procedural path")
     try:
-        data = json.loads(path.read_text())
+        data = data_override if data_override is not None else json.loads(path.read_text())
         if data["version"] != 1 or data["scene"] != layout["scene"]:
             raise ValueError("procedural version/scene mismatch")
         for key in ("buildings", "vegetation", "poles", "road_edges"):
@@ -936,19 +948,327 @@ def build_procedural(directory, layout, scenario, assets):
     return objects
 
 
-def environment_tree(objects, depsgraph):
-    """One world-space BVH for all evaluated procedural meshes, including GN leaves."""
-    vertices, faces = [], []
+def alpha_sampler(material, mesh, polygon, loops, image_cache):
+    """Compile the actual Alpha socket and interpolate its UVs at a ray hit.
+
+    Unsupported linked opacity graphs fail closed at build time rather than
+    silently producing labels which disagree with the visible material.
+    """
+    if material is None or not material.use_nodes:
+        return None
+    bsdfs = [n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED']
+    if not bsdfs:
+        raise InputError(f'Unsupported environment shader: {material.name}')
+    alpha = bsdfs[0].inputs['Alpha']
+    if not alpha.is_linked and alpha.default_value >= .5:
+        return None
+
+    def uv_values(name):
+        layer = mesh.uv_layers.get(name) if name else mesh.uv_layers.active
+        if layer:
+            return np.asarray([layer.data[i].uv[:] for i in loops])
+        attribute = mesh.attributes.get(name)
+        if attribute and attribute.domain == 'CORNER':
+            return np.asarray([attribute.data[i].vector[:] for i in loops])[:, :2]
+        raise InputError(f'Missing opacity UV {name} on {material.name}')
+
+    def compile_socket(value, depth=0):
+        if depth > 20:
+            raise InputError('Cyclic environment opacity graph')
+        if not value.is_linked:
+            constant = value.default_value
+            if hasattr(constant, '__len__'):
+                constant = np.asarray(constant[:], float)
+            return lambda weights: constant
+        link = value.links[0]
+        node, output = link.from_node, link.from_socket
+        if node.type in ('ATTRIBUTE', 'UVMAP', 'TEX_COORD'):
+            name = getattr(node, 'attribute_name', getattr(node, 'uv_map', ''))
+            if node.type == 'TEX_COORD' and output.name != 'UV':
+                raise InputError('Opacity requires UV coordinates')
+            coords = uv_values(name)
+            return lambda weights: np.append(weights @ coords, 0)
+        if node.type == 'VALUE':
+            return lambda weights: node.outputs[0].default_value
+        if node.type == 'TEX_IMAGE':
+            image = node.image
+            if image is None:
+                raise InputError('Missing opacity image')
+            key = image.as_pointer()
+            if key not in image_cache:
+                w, h = image.size
+                pixels = np.empty(w*h*4, np.float32)
+                image.pixels.foreach_get(pixels)
+                image_cache[key] = pixels.reshape(h, w, 4)
+            pixels = image_cache[key]
+            if node.inputs['Vector'].is_linked:
+                coordinates = compile_socket(node.inputs['Vector'], depth+1)
+            else:
+                coords = uv_values('')
+                coordinates = lambda weights: np.append(weights @ coords, 0)
+            def sample(weights):
+                uv = np.asarray(coordinates(weights))[:2]
+                if node.extension == 'REPEAT':
+                    uv = uv % 1
+                elif node.extension == 'CLIP' and np.any((uv < 0) | (uv > 1)):
+                    return 0.0
+                h, w = pixels.shape[:2]
+                xy = np.clip(uv, 0, 1) * [w, h] - .5
+                if node.interpolation == 'Closest':
+                    x, y = np.floor(xy+.5).astype(int)
+                    color = pixels[y % h, x % w]
+                else:
+                    x, y = np.floor(xy).astype(int)
+                    fx, fy = xy-[x, y]
+                    def pixel(i, j):
+                        return pixels[j % h, i % w] if node.extension == 'REPEAT' else pixels[np.clip(j, 0, h-1), np.clip(i, 0, w-1)]
+                    color = ((1-fx)*(1-fy)*pixel(x,y) + fx*(1-fy)*pixel(x+1,y)
+                             + (1-fx)*fy*pixel(x,y+1) + fx*fy*pixel(x+1,y+1))
+                return float(color[3] if output.name == 'Alpha' else np.dot(color[:3], [.2126, .7152, .0722]))
+            return sample
+        if node.type in ('MATH', 'VECT_MATH'):
+            args = [compile_socket(v, depth+1) for v in node.inputs[:2]]
+            operation = node.operation
+            def calculate(weights):
+                a, b = (f(weights) for f in args)
+                if operation == 'MULTIPLY':
+                    return a*b
+                if operation == 'ADD':
+                    return a+b
+                if operation == 'SUBTRACT':
+                    return a-b
+                if operation == 'LENGTH':
+                    return float(np.linalg.norm(a))
+                if operation == 'LESS_THAN':
+                    return float(a < b)
+                if operation == 'GREATER_THAN':
+                    return float(a > b)
+                raise InputError(f'Unsupported opacity operation {operation}')
+            if operation not in ('MULTIPLY', 'ADD', 'SUBTRACT', 'LENGTH', 'LESS_THAN', 'GREATER_THAN'):
+                raise InputError(f'Unsupported opacity operation {operation}')
+            return calculate
+        raise InputError(f'Unsupported opacity node {node.type}')
+    return compile_socket(alpha)
+
+
+class EnvironmentBVH:
+    """World triangles plus opacity-aware casting, shared by both sensor paths."""
+    def __init__(self, tree, records, contributions):
+        self.tree, self.records, self.contributions = tree, records, contributions
+
+    def ray_cast(self, origin, direction, distance):
+        traveled = 0.0
+        while traveled < distance:
+            location, normal, index, hit = self.tree.ray_cast(origin + direction*traveled, direction, distance-traveled)
+            if location is None:
+                return None, None, None, None
+            record = self.records[index]
+            if record is None:
+                return location, normal, index, traveled+hit
+            a, u, v, gram, sample = record
+            delta = np.asarray(location[:])-a
+            dot = np.array([delta @ u, delta @ v])
+            w1, w2 = gram @ dot
+            if sample(np.array([1-w1-w2, w1, w2])) >= .5:
+                return location, normal, index, traveled+hit
+            traveled += hit + 1e-5
+        return None, None, None, None
+
+
+class InstancedEnvironmentBVH:
+    """Exact mesh BVHs shared across instances, with world-space broad phase."""
+    def __init__(self, instances, contributions):
+        self.instances, self.contributions = instances, contributions
+        self.low = np.asarray([i[3] for i in instances])
+        self.high = np.asarray([i[4] for i in instances])
+
+    def ray_cast(self, origin, direction, distance):
+        o, d = np.asarray(origin), np.asarray(direction)
+        parallel = np.abs(d) < 1e-15
+        safe_d = np.where(parallel, 1., d)
+        a, b = (self.low-o)/safe_d, (self.high-o)/safe_d
+        near, far = np.minimum(a, b), np.maximum(a, b)
+        near[:, parallel], far[:, parallel] = -np.inf, np.inf
+        outside = np.any(parallel & ((o < self.low) | (o > self.high)), axis=1)
+        enter, leave = np.maximum(0., near.max(1)), far.min(1)
+        candidates = np.flatnonzero(~outside & (leave >= enter) & (enter <= distance))
+        best = (None, None, None, None)
+        for i in candidates[np.argsort(enter[candidates])]:
+            if enter[i] > distance:
+                break
+            tree, matrix, inverse, _, _ = self.instances[i]
+            local_origin = inverse @ origin
+            local_direction = inverse.to_3x3() @ direction
+            scale = local_direction.length
+            if scale <= 1e-15:
+                continue
+            hit, normal, index, length = tree.ray_cast(local_origin, local_direction / scale, distance * scale)
+            if hit is not None:
+                distance = length / scale
+                best = (matrix @ hit, (inverse.transposed().to_3x3() @ normal).normalized(), index, distance)
+        return best
+
+
+def environment_tree(objects, depsgraph, *, opacity=False):
+    if not opacity:
+        return _environment_tree(objects, depsgraph)
+    instances, contributions, cache, image_cache = [], {}, {}, {}
+    for obj in objects:
+        evaluated = obj.evaluated_get(depsgraph)
+        # Modifiers may depend on object position; only plain shared meshes cache.
+        key = ((obj.data.as_pointer(), tuple(s.material.as_pointer() if s.material else 0 for s in obj.material_slots))
+               if not obj.modifiers else ('object', obj.as_pointer()))
+        if key not in cache:
+            cache[key] = _environment_tree([obj], depsgraph, opacity=True, local=True, image_cache=image_cache)
+        tree = cache[key]
+        if tree is None:
+            raise InputError(f'Environment mesh contributes no triangles: {obj.name}')
+        matrix = evaluated.matrix_world.copy()
+        if abs(matrix.determinant()) < 1e-12:
+            raise InputError(f'Singular environment transform: {obj.name}')
+        corners = np.asarray([(matrix @ Vector(p))[:] for p in evaluated.bound_box])
+        instances.append((tree, matrix, matrix.inverted(), corners.min(0)-1e-5, corners.max(0)+1e-5))
+        contributions[obj.name] = len(tree.records)
+    return InstancedEnvironmentBVH(instances, contributions) if instances else None
+
+
+def _environment_tree(objects, depsgraph, *, opacity=False, local=False, image_cache=None):
+    """Every evaluated environment triangle contributes in world space."""
+    vertices, faces, records, contributions = [], [], [], {}
+    image_cache = {} if image_cache is None else image_cache
     for obj in objects:
         evaluated = obj.evaluated_get(depsgraph)
         mesh = evaluated.to_mesh()
         try:
             offset = len(vertices)
-            vertices.extend(evaluated.matrix_world @ vertex.co for vertex in mesh.vertices)
-            faces.extend(tuple(offset + index for index in polygon.vertices) for polygon in mesh.polygons)
+            matrix = Matrix.Identity(4) if local else evaluated.matrix_world
+            vertices.extend(matrix @ vertex.co for vertex in mesh.vertices)
+            if not opacity:
+                faces.extend(tuple(offset + index for index in polygon.vertices) for polygon in mesh.polygons)
+                continue
+            mesh.calc_loop_triangles()
+            contributions[obj.name] = len(mesh.loop_triangles)
+            if not mesh.loop_triangles:
+                raise InputError(f'Environment mesh contributes no triangles: {obj.name}')
+            for tri in mesh.loop_triangles:
+                faces.append(tuple(offset+i for i in tri.vertices))
+                polygon = mesh.polygons[tri.polygon_index]
+                material = mesh.materials[polygon.material_index] if polygon.material_index < len(mesh.materials) else None
+                sample = alpha_sampler(material, mesh, polygon, tri.loops, image_cache)
+                record = None
+                if sample:
+                    a, b, c = (np.asarray(vertices[offset+i][:]) for i in tri.vertices)
+                    u, v = b-a, c-a
+                    gram = np.array([[u@u, u@v], [u@v, v@v]])
+                    if abs(np.linalg.det(gram)) > 1e-16:
+                        record = (a, u, v, np.linalg.inv(gram), sample)
+                records.append(record)
         finally:
             evaluated.to_mesh_clear()
-    return BVHTree.FromPolygons(vertices, faces) if faces else None
+    tree = BVHTree.FromPolygons(vertices, faces, all_triangles=opacity) if opacity and faces else (BVHTree.FromPolygons(vertices, faces) if faces else None)
+    return EnvironmentBVH(tree, records, contributions) if opacity and tree else tree
+
+
+def build_environment_assets(directory, layout, scenario, pbr):
+    path = Path(__file__).resolve().parents[1] / 'env_assets.py'
+    spec = importlib.util.spec_from_file_location('env_contracts', path)
+    rules = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rules)
+    root = Path(__file__).resolve().parents[3] / 'assets'
+    manifest = json.loads((root/'env_manifest.json').read_text())
+    if not isinstance(manifest, list):
+        raise InputError('Environment manifest must be a list')
+    procedural_path = (directory/layout.get('photo', {}).get('procedural', 'procedural.json')).resolve()
+    if not procedural_path.is_relative_to(directory.resolve()):
+        raise InputError('unsafe photo.procedural path')
+    data = json.loads(procedural_path.read_text())
+    drivable = load_paint(directory, {'ground': {'paint': layout['ground']['drivable']}})[::-1]
+    manifest = region_assets(manifest, scenario.get('region_style', 'sg'), 'kind', scenario.setdefault('region_fallback', []))
+    try:
+        plan = rules.plan_environment(data, manifest, drivable, layout['bounds'], layout['actors'], scenario['seed'])
+    except (ValueError, TypeError, KeyError) as exc:
+        raise InputError(f'Invalid environment placement input: {exc}') from exc
+    fallback = {**data, 'buildings': plan['fallback_buildings'], 'vegetation': [], 'poles': [], 'road_edges': []}
+    objects = build_procedural(directory, layout, scenario, pbr, data_override=fallback)
+    selected = {p['asset_id'] for p in plan['placements']}
+    entries = {}
+    for entry in manifest:
+        try:
+            rules.validate_asset(entry, entry.get('mesh_names', []) + entry.get('material_names', []))
+        except (ValueError, TypeError, KeyError, AttributeError):
+            continue
+        if entry['asset_id'] in selected:
+            entries.setdefault(entry['asset_id'], entry)
+    templates = {}
+    for i, placement in enumerate(plan['placements']):
+        entry = entries[placement['asset_id']]
+        if entry['asset_id'] not in templates:
+            asset_path = (root/'env'/entry['file']).resolve()
+            if not asset_path.is_relative_to((root/'env').resolve()) or not asset_path.is_file() or asset_path.suffix != '.blend':
+                raise InputError('Environment requires normalized local .blend assets')
+            with bpy.data.libraries.load(str(asset_path), link=False) as (source, target):
+                target.objects = source.objects
+            imported = [o for o in target.objects if o is not None]
+            meshes = [o for o in imported if o.type == 'MESH']
+            for obj in imported:
+                if obj.type != 'MESH':
+                    bpy.data.objects.remove(obj, do_unlink=True)
+            try:
+                rules.validate_asset(entry, [o.name for o in meshes] + [m.name for o in meshes for m in o.data.materials if m])
+            except ValueError as exc:
+                raise InputError(f'Invalid environment geometry: {exc}') from exc
+            if not meshes:
+                raise InputError('Environment asset has no meshes')
+            points = np.asarray([(o.matrix_world @ v.co)[:] for o in meshes for v in o.data.vertices])
+            if not len(points):
+                raise InputError('Environment asset has no vertices')
+            low, high = points.min(0), points.max(0)
+            native = np.asarray(entry['native_size'])
+            if (not np.isfinite(points).all() or not np.allclose(high-low, native, rtol=.01, atol=.01)
+                    or not np.allclose((low+high)[:2]/2, 0, atol=.01) or abs(low[2]) > .01):
+                raise InputError('Environment asset geometry disagrees with normalized manifest bounds')
+            if 'collision_parts' in entry:
+                normalizer_spec = importlib.util.spec_from_file_location('env_normalizer', Path(__file__).with_name('normalize_env_assets.py'))
+                normalizer = importlib.util.module_from_spec(normalizer_spec)
+                normalizer_spec.loader.exec_module(normalizer)
+                for obj in meshes:
+                    bpy.context.scene.collection.objects.link(obj)
+                measured = normalizer.collision_metadata(meshes, rules)
+                for obj in meshes:
+                    bpy.context.scene.collection.objects.unlink(obj)
+                expected = np.asarray([[p['min'], p['max']] for p in entry['collision_parts']])
+                actual = np.asarray([[p['min'], p['max']] for p in measured['collision_parts']])
+                if (actual.shape != expected.shape or not np.allclose(actual, expected, rtol=0, atol=1e-5)
+                        or abs(measured['canopy_min_z'] - entry['canopy_min_z']) > 1e-5):
+                    raise InputError('Tree collision metadata disagrees with evaluated geometry')
+            # Reuse verified mesh/material data; each placement remains a real BVH mesh.
+            templates[entry['asset_id']] = [(o, o.matrix_world.copy()) for o in meshes]
+        imported = []
+        for template, matrix in templates[entry['asset_id']]:
+            obj = template.copy()
+            obj.matrix_world = matrix.copy()
+            imported.append(obj)
+        transform = Matrix.Translation((placement['x'], placement['y'], placement['z'])) @ Matrix.Rotation(placement['yaw'], 4, 'Z') @ Matrix.Diagonal((*placement['scale'], 1))
+        for obj in imported:
+            if obj.type != 'MESH':
+                bpy.data.objects.remove(obj, do_unlink=True)
+                continue
+            obj.name = f'env_{i}_{obj.name}'
+            obj.parent = None
+            obj.matrix_world = transform @ obj.matrix_world
+            bpy.context.scene.collection.objects.link(obj)
+            objects.append(obj)
+        if placement['kind'] == 'lamp' and is_night(scenario):
+            light = bpy.data.lights.new(f'pole_light_asset_{i}', 'AREA')
+            light.energy, light.size, light.use_shadow = 750, 1.5, False
+            obj = bpy.data.objects.new(light.name, light)
+            obj.location = (placement['x'], placement['y'], placement['z']+entry['native_size'][2]*placement['scale'][2])
+            bpy.context.scene.collection.objects.link(obj)
+    for group in templates.values():
+        for obj, _ in group:
+            bpy.data.objects.remove(obj, do_unlink=True)
+    print('ENV_ASSET_PLAN ' + json.dumps(plan), flush=True)
+    return objects
 
 
 def procedural_hdri(scenario, assets):
@@ -1030,13 +1350,27 @@ def set_ground_uv(obj, bounds):
     layer.data.foreach_set("uv", np.column_stack((u, v)).ravel())
 
 
-def select_library_asset(manifest, actor, seed):
+def region_assets(manifest, region, field="class", fallback=None):
+    """Filter independently per class/kind, preserving legacy manifest order."""
+    result = []
+    for kind in dict.fromkeys(entry[field] for entry in manifest):
+        entries = [entry for entry in manifest if entry[field] == kind]
+        selected = [entry for entry in entries if region in entry.get("region", ["sg", "vn"])]
+        if not selected:
+            selected = entries
+            if fallback is not None and kind not in fallback:
+                fallback.append(kind)
+        result.extend(selected)
+    return result
+
+
+def select_library_asset(manifest, actor, seed, region="sg", fallback=None):
     """Closest shape among same-class assets respecting the 1.3 distortion cap."""
     target = np.asarray(actor["size"], dtype=float)
     if target.shape != (3,) or not np.isfinite(target).all() or (target <= 0).any():
         raise InputError(f"Invalid actor size: {actor['track']}")
     candidates = []
-    for asset in manifest:
+    for asset in region_assets(manifest, region, fallback=fallback):
         if asset["class"] != actor["label"]:
             continue
         native = np.asarray(asset["native_size"], dtype=float)
@@ -1048,6 +1382,10 @@ def select_library_asset(manifest, actor, seed):
             candidates.append((float(np.linalg.norm(shape - shape.mean())), asset, scale))
     if not candidates:
         return None, None
+    if region == "vn":
+        preferred = [item for item in candidates if item[1].get("quality") == "detailed"
+                     and "vn" in item[1].get("region", [])]
+        candidates = preferred or candidates
     best = min(item[0] for item in candidates)
     tied = sorted((item for item in candidates if abs(item[0] - best) < 1e-9),
                   key=lambda item: item[1]["asset_id"])
@@ -1087,6 +1425,14 @@ def load_library_manifest():
                 raise TypeError("animated must be bool")
             if asset.get("paint_material") is not None and not isinstance(asset["paint_material"], str):
                 raise TypeError("paint_material must be a name or null")
+            region = asset.get("region", ["sg", "vn"])
+            if (not isinstance(region, list) or not region or len(set(region)) != len(region)
+                    or any(value not in ("sg", "vn") for value in region)):
+                raise ValueError("region must be a nonempty list of sg/vn")
+            if asset["class"] == "rider":
+                seat = np.asarray(asset["seat_offset"], dtype=float)
+                if seat.shape != (3,) or not np.isfinite(seat).all():
+                    raise ValueError("seat_offset must contain three finite values")
             if asset["class"] == "pedestrian" and asset.get("animated"):
                 for key in ("walk_speed_mps", "cycle_frames", "fps"):
                     value = asset[key]
@@ -1199,6 +1545,56 @@ def import_library_actor(asset, scale, directory, name, color, night):
     return root
 
 
+def attach_rider(root, actor, manifest, directory, scenario):
+    """Attach seated geometry in box coordinates; actor_tree inherits the vehicle owner."""
+    length, width, height = actor["size"]
+    region = scenario.get("region_style", "sg")
+    fallbacks = scenario.setdefault("region_fallback", [])
+    rider_size = [min(0.8, length * 0.5), width * 0.65, height * 0.63]
+    rider_actor = {"track": actor["track"], "label": "rider", "size": rider_size}
+    asset, scale = select_library_asset(manifest, rider_actor, scenario["seed"], region, fallbacks)
+    if asset:
+        rider = import_library_actor(asset, scale, directory, root.name + "_rider", None, is_night(scenario))
+        # Normalized seat landmark anchors the seated pose to the vehicle saddle.
+        seat = np.asarray(asset["seat_offset"]) * scale
+        rider.location = Vector((-0.1 * length, 0, 0.0)) - Vector(seat)
+        rider.parent = root
+        top = rider.location.z + rider_size[2] / 2
+        cap = height / 2 - (0.14 if region == "vn" and not asset.get("has_helmet") else 0)
+        rider.location.z -= max(0, top - cap)
+        actor["rider_asset_id"] = asset["asset_id"]
+    else:
+        parts = Builder()
+        # Bent legs straddle the saddle; torso and head stay within the actor box.
+        parts.box((-0.1 * length, 0, height * 0.15), (length * 0.17, width * 0.55, height * 0.32), 0)
+        parts.box((-0.03 * length, 0, -height * 0.03), (length * 0.30, width * 0.58, height * 0.10), 1)
+        for side in (-1, 1):
+            parts.box((length * 0.08, side * width * 0.26, -height * 0.15),
+                      (length * 0.09, width * 0.14, height * 0.28), 1)
+            parts.box((length * 0.04, side * width * 0.22, height * 0.18),
+                      (length * 0.30, width * 0.12, height * 0.08), 0)
+        parts.box((-0.08 * length, 0, height * 0.37), (height * 0.15, width * 0.36, height * 0.13), 2)
+        rider = mesh_object(root.name + "_rider", parts.vertices, parts.faces, parts.slots,
+                            (principled("rider_jacket", (0.02, 0.35, 0.1)),
+                             principled("rider_trousers", (0.02, 0.03, 0.05)),
+                             principled("rider_skin", (0.45, 0.25, 0.15))))
+        rider.parent = root
+        actor["rider_appearance"] = "procedural"
+    if region == "vn" and not (asset and asset.get("has_helmet")):
+        helmet_actor = {"track": actor["track"], "label": "helmet", "size": [height * 0.18, width * 0.42, height * 0.13]}
+        helmet_asset, helmet_scale = select_library_asset(manifest, helmet_actor, scenario["seed"], region, fallbacks)
+        if helmet_asset:
+            helmet = import_library_actor(helmet_asset, helmet_scale, directory, root.name + "_helmet", None, False)
+            actor["helmet_asset_id"] = helmet_asset["asset_id"]
+        else:
+            parts = Builder()
+            parts.box((0, 0, 0), helmet_actor["size"], 0)
+            helmet = mesh_object(root.name + "_helmet", parts.vertices, parts.faces, parts.slots,
+                                 (principled("rider_helmet", (0.015, 0.45, 0.07)),))
+        helmet.parent = root
+        helmet.location = (-0.08 * length, 0, height / 2 - helmet_actor["size"][2] / 2)
+
+
 def build_actors(layout, scenario, observed_colors=None):
     night = is_night(scenario)
     glass = principled("glass", (0.01, 0.01, 0.012), roughness=0.05, metallic=0.2)
@@ -1209,6 +1605,9 @@ def build_actors(layout, scenario, observed_colors=None):
                       strength=8.0 if night else 0.0)
     grey = principled("body_grey", (0.4, 0.4, 0.4), roughness=0.4)
     manifest, library_dir = load_library_manifest()
+    if scenario.get("region_style", "sg") == "vn":
+        # Median paint RGB from locally inspected VN reference body ROIs (S13 §6).
+        observed_colors = [[158, 254, 253], [225, 228, 235], [222, 184, 199]]
     if observed_colors is None:
         observed_colors = [a["color"] for a in layout["actors"] if "color" in a
                            and a.get("origin", "recorded") != "generated"]
@@ -1216,7 +1615,14 @@ def build_actors(layout, scenario, observed_colors=None):
     for index, actor in enumerate(layout["actors"]):
         rng = random.Random(scenario["seed"] ^ zlib.crc32(actor["track"].encode()))
         actor.setdefault("origin", "generated" if actor["track"].startswith("gen:") else "recorded")
-        asset, scale = select_library_asset(manifest, actor, scenario["seed"])
+        for flag in ("rider", "with_rider"):
+            if actor.get(flag) is not None and type(actor[flag]) is not bool:
+                raise InputError(f"{flag} must be bool or null")
+        has_rider = (actor["label"] in ("motorcycle", "bicycle")
+                     and (actor.get("rider") is True or actor.get("with_rider") is True))
+        body_actor = {**actor, "size": [*actor["size"][:2], actor["size"][2] * 0.72]} if has_rider else actor
+        asset, scale = select_library_asset(manifest, body_actor, scenario["seed"],
+                                            scenario.get("region_style", "sg"), scenario.setdefault("region_fallback", []))
         color = actor.get("color")
         if actor["origin"] == "generated" and observed_colors and actor["label"] != "pedestrian":
             color = rng.choice(observed_colors)
@@ -1230,6 +1636,14 @@ def build_actors(layout, scenario, observed_colors=None):
             obj = import_library_actor(asset, scale, library_dir, f"actor_{index:04d}",
                                        rgb if actor["label"] != "pedestrian" else None, night)
             actor.update(appearance="library", asset_id=asset["asset_id"])
+            if has_rider:
+                # Align the shorter vehicle body to the original box floor.
+                for child in obj.children:
+                    child.location.z -= (actor["size"][2] - body_actor["size"][2]) / 2
+                attach_rider(obj, actor, manifest, library_dir, scenario)
+            for child in [obj, *obj.children_recursive]:
+                if child.type == "MESH":
+                    child.pass_index = index + 1
             obj["track"] = actor["track"]
             timestamps = {f["index"]: f["timestamp_us"] / 1e6 for f in layout["frames"]}
             for key in actor["keys"]:
@@ -1249,9 +1663,19 @@ def build_actors(layout, scenario, observed_colors=None):
                               metallic=0.3)
         else:
             body = grey
-        parts = actor_geometry(actor["label"], actor["size"])
+        parts = actor_geometry(actor["label"], body_actor["size"])
+        if has_rider:
+            dz = (actor["size"][2] - body_actor["size"][2]) / 2
+            extent_x = max(abs(v[0]) for v in parts.vertices)
+            fit_x = min(1.0, actor["size"][0] / (2 * extent_x))
+            parts.vertices = [(x * fit_x, y, z - dz) for x, y, z in parts.vertices]
         obj = mesh_object(f"actor_{index:04d}", parts.vertices, parts.faces, parts.slots,
                           (body, glass, tyre, head, tail))
+        if has_rider:
+            attach_rider(obj, actor, manifest, library_dir, scenario)
+        for child in [obj, *obj.children_recursive]:
+            if child.type == "MESH":
+                child.pass_index = index + 1
         obj.pass_index = index + 1
         obj["track"] = actor["track"]
         actors.append((obj, actor, {key["frame"]: key for key in actor["keys"]}))
@@ -1376,7 +1800,7 @@ def setup_world(layout, scenario):
         else:
             obj.rotation_euler = (math.radians(45), 0.0, math.radians(30))
         bpy.context.scene.collection.objects.link(obj)
-    if preset["night"] and scenario.get("environment", "voxel") != "procedural":
+    if preset["night"] and scenario.get("environment", "voxel") not in ("procedural", "assets"):
         positions = [Vector(np.asarray(f["T_world_lidar"])[:3, 3]) for f in layout["frames"]]
         travelled, last, side = 0.0, None, 1
         for position in positions:
@@ -1578,12 +2002,123 @@ def selftest(layout, out):
     return 0 if errors and result["max_err_px"] < SELFTEST_MAX_PX else 1
 
 
-def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=None):
+def export_web_environment(objects, out):
+    """Export isolated evaluated copies; never modify render/BVH source geometry."""
+    started = time.perf_counter()
+    source_scene = bpy.context.window.scene
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    allowed = {obj for root in objects for obj in (root, *root.children_recursive)}
+    copies, meshes, materials, images, node_groups = [], [], {}, {}, {}
+
+    def copy_textures(tree):
+        for node in tree.nodes:
+            if node.type == "GROUP" and node.node_tree is not None:
+                original_tree = node.node_tree
+                if original_tree not in node_groups:
+                    node_groups[original_tree] = original_tree.copy()
+                    copy_textures(node_groups[original_tree])
+                node.node_tree = node_groups[original_tree]
+            if node.type != "TEX_IMAGE" or node.image is None:
+                continue
+            original = node.image
+            if original not in images:
+                image = original.copy()
+                images[original] = image
+                width, height = image.size
+                if max(width, height) > 1024:
+                    ratio = 1024 / max(width, height)
+                    image.scale(max(1, round(width * ratio)), max(1, round(height * ratio)))
+                image.pack()
+            node.image = images[original]
+
+    export_scene = bpy.data.scenes.new("web_environment_export")
+    temporary = out / "environment.tmp.glb"
+    try:
+        for instance in depsgraph.object_instances:
+            obj = instance.object
+            owner = instance.parent.original if instance.is_instance and instance.parent else obj.original
+            if owner not in allowed or obj.type != "MESH" or owner.hide_render:
+                continue
+            mesh = bpy.data.meshes.new_from_object(obj, preserve_all_data_layers=True, depsgraph=depsgraph)
+            meshes.append(mesh)
+            copy = bpy.data.objects.new(obj.name, mesh)
+            export_scene.collection.objects.link(copy)
+            copy.matrix_world = instance.matrix_world.copy()
+            copies.append(copy)
+            for slot, material in enumerate(mesh.materials):
+                if material is None:
+                    continue
+                if material not in materials:
+                    clone = material.copy()
+                    materials[material] = clone
+                    if clone.use_nodes:
+                        copy_textures(clone.node_tree)
+                mesh.materials[slot] = materials[material]
+        bpy.context.window.scene = export_scene
+        def triangles():
+            total = 0
+            for obj in copies:
+                obj.data.calc_loop_triangles()
+                total += len(obj.data.loop_triangles)
+            return total
+        total = triangles()
+        for _ in range(4):
+            if total <= 1_500_000:
+                break
+            for obj in copies:
+                if len(obj.data.loop_triangles) < 20:
+                    continue
+                bpy.context.view_layer.objects.active = obj
+                modifier = obj.modifiers.new("Web budget", "DECIMATE")
+                modifier.ratio = min(.95, 1_400_000 / total)
+                bpy.ops.object.modifier_apply(modifier=modifier.name)
+            total = triangles()
+        if not total or total > 1_500_000:
+            raise InputError(f"Web environment triangle budget exceeded or empty: {total}")
+        bpy.ops.export_scene.gltf(filepath=str(temporary), export_format="GLB",
+                                  use_active_scene=True, export_yup=True,
+                                  export_animations=False, export_cameras=False,
+                                  export_lights=False)
+        size = temporary.stat().st_size
+        if size > 150_000_000:
+            raise InputError(f"Web environment exceeds 150 MB: {size}")
+        temporary.replace(out / "environment.glb")
+        result = {"environment_export_s": round(time.perf_counter() - started, 3),
+                  "environment_triangles": total, "environment_bytes": size}
+        print("WEB_ENV " + json.dumps(result), flush=True)
+        return result
+    finally:
+        bpy.context.window.scene = source_scene
+        bpy.data.scenes.remove(export_scene)
+        for obj in copies:
+            bpy.data.objects.remove(obj, do_unlink=True)
+        for mesh in meshes:
+            if mesh.users == 0:
+                bpy.data.meshes.remove(mesh)
+        for material in materials.values():
+            bpy.data.materials.remove(material)
+        for group in node_groups.values():
+            bpy.data.node_groups.remove(group)
+        for image in images.values():
+            bpy.data.images.remove(image)
+        temporary.unlink(missing_ok=True)
+
+
+def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=None, export_env_only=False):
     directory = layout_path.parent
     layout = load_layout(layout_path)
     observed_colors = [a["color"] for a in layout["actors"] if "color" in a
                        and a.get("origin", "recorded") != "generated"]
-    scenario = load_scenario(scenario_path, layout)
+    previous_run = None
+    if export_env_only:
+        previous_run = json.loads((out / "run.json").read_text())
+        scenario = copy.deepcopy(previous_run["scenario"])
+        if (out / "actors.json").is_file():
+            actors_path = out / "actors.json"
+        if scenario.get("environment") not in ("procedural", "assets"):
+            raise InputError("Export-only requires a procedural/assets run")
+    else:
+        scenario = load_scenario(scenario_path, layout)
     if actors_path is not None:
         try:
             actors = json.loads(actors_path.read_text())
@@ -1627,7 +2162,8 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=
     out.mkdir(parents=True, exist_ok=True)
 
     build_started = time.perf_counter()
-    procedural = scenario.get("environment", "voxel") == "procedural"
+    asset_environment = scenario.get("environment", "voxel") == "assets"
+    procedural = scenario.get("environment", "voxel") in ("procedural", "assets")
     assets = pbr_assets() if procedural else None
     bounds = layout["bounds"]
     ground = import_ply(directory / layout["ground"]["mesh"], "ground")
@@ -1635,11 +2171,28 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=
     ground.data.materials.append(procedural_ground(directory, layout, scenario["weather"], assets)
                                  if procedural else ground_material(directory, layout, scenario["weather"]))
     if procedural:
-        environment_objects = build_procedural(directory, layout, scenario, assets)
+        environment_objects = (build_environment_assets(directory, layout, scenario, assets) if asset_environment
+                               else build_procedural(directory, layout, scenario, assets))
     else:
         static = import_ply(directory / layout["static"]["mesh"], "static")
         static.data.materials.append(static_material(static))
         environment_objects = [static]
+    export_timings = {}
+    if procedural and (export_env_only or scenario.get("export_web_env", True)):
+        export_timings = export_web_environment(environment_objects, out)
+    elif not export_env_only:
+        (out / "environment.glb").unlink(missing_ok=True)
+    if export_env_only:
+        previous_export = previous_run.get("environment_export_s", 0)
+        previous_run.update(export_timings)
+        if "total_s" in previous_run:
+            previous_run["total_s"] += export_timings["environment_export_s"] - previous_export
+        else:
+            previous_run["total_s"] = (previous_run.get("environment_build_s", 0)
+                + sum(sum(v.values()) for v in previous_run.get("render_s", {}).values())
+                + sum(previous_run.get("lidar_s", {}).values()) + export_timings["environment_export_s"])
+        (out / "run.json").write_text(json.dumps(previous_run, indent=2))
+        return 0
     actors = build_actors(layout, scenario, observed_colors)
     (out / "actors.json").write_text(json.dumps(layout["actors"], allow_nan=False))
     setup_world(layout, scenario)
@@ -1652,14 +2205,24 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=
     bpy.context.scene.camera = camera
     depsgraph = bpy.context.evaluated_depsgraph_get()
     static_trees = {"ground": BVHTree.FromObject(ground, depsgraph)}
-    static_trees["static"] = (environment_tree(environment_objects, depsgraph) if procedural
+    static_trees["static"] = (environment_tree([ground, *environment_objects], depsgraph, opacity=True) if procedural
                               else BVHTree.FromObject(static, depsgraph))
+    if procedural:
+        actor_meshes = {mesh for obj, _, _ in actors for mesh in [obj, *obj.children_recursive] if mesh.type == 'MESH'}
+        expected = {obj.name for obj in bpy.context.scene.objects if obj.type == 'MESH' and not obj.hide_render and obj not in actor_meshes}
+        contributions = static_trees['static'].contributions if static_trees['static'] else {}
+        missing = sorted(expected - contributions.keys())
+        if missing:
+            raise InputError(f'Environment meshes absent from static BVH: {missing}')
+        audit = {'meshes': len(expected), 'triangles': sum(contributions.values()), 'missing': missing, 'contributions': contributions}
+        (out/'environment_bvh.json').write_text(json.dumps(audit, indent=2))
+        print('ENV_BVH ' + json.dumps({k: audit[k] for k in ('meshes', 'triangles', 'missing')}), flush=True)
     build_s = time.perf_counter() - build_started
     paint = load_paint(directory, layout)
     drivable = load_paint(directory, {"ground": {"paint": layout["ground"]["drivable"]}})
 
     failed = False
-    timings = {"render_s": {}, "lidar_s": {}}
+    timings = {"render_s": {}, "lidar_s": {}, **export_timings}
     if procedural:
         timings["environment_build_s"] = round(build_s, 3)
     for frame in frames:
@@ -1714,10 +2277,11 @@ def run(layout_path, scenario_path, out, render, lidar, save_blend, actors_path=
         print(f"FRAME {index} done", flush=True)
     if save_blend is not None:
         bpy.ops.wm.save_as_mainfile(filepath=str(save_blend))
+    timings["total_s"] = round(time.perf_counter() - build_started, 3)
     (out / "run.json").write_text(json.dumps({
         "scenario": scenario, "blender_version": bpy.app.version_string,
         "engine": bpy.context.scene.render.engine, "frames": [f["index"] for f in frames],
-        "cameras": names, **timings, "status": "failed" if failed else "ok"}, indent=2))
+        "cameras": names, "region_fallback": scenario.pop("region_fallback", []), **timings, "status": "failed" if failed else "ok"}, indent=2))
     return 1 if failed else 0
 
 
@@ -1727,10 +2291,10 @@ def main():
         bpy.ops.wm.read_factory_settings(use_empty=True)
         if args.selftest:
             return selftest(load_layout(args.layout), args.out)
-        if args.scenario is None:
+        if args.scenario is None and not args.export_env_only:
             raise InputError("--scenario is required unless --selftest")
         return run(args.layout, args.scenario, args.out, not args.no_render, not args.no_lidar,
-                   args.save_blend, args.actors)
+                   args.save_blend, args.actors, args.export_env_only)
     except InputError as exc:
         print(f"INPUT ERROR: {exc}", file=sys.stderr)
         return 2

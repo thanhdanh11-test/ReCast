@@ -1,0 +1,112 @@
+[
+  {
+    "id": "traffic-sedan",
+    "bytes": 314612,
+    "sha256": "762bf80aa82b9e8b92a9ae743bd5bb976cc2946c9e72ab51df799aa409d97f5a",
+    "triangles": 7122,
+    "boundsXYZ": [
+      [
+        -2.325000047683716,
+        2.325000047683716
+      ],
+      [
+        -0.7250000238418579,
+        0.7250000238418579
+      ],
+      [
+        -0.925000011920929,
+        0.925000011920929
+      ]
+    ],
+    "headlightBoundsXYZ": [
+      [
+        1.8782418966293335,
+        2.181933641433716
+      ],
+      [
+        -0.31097185611724854,
+        0.05375681817531586
+      ],
+      [
+        -0.6975909471511841,
+        0.6996920704841614
+      ]
+    ],
+    "taillightBoundsXYZ": [
+      [
+        -2.2614781856536865,
+        -2.0242910385131836
+      ],
+      [
+        -0.102620430290699,
+        0.09706640988588333
+      ],
+      [
+        -0.658149242401123,
+        0.6557103395462036
+      ]
+    ],
+    "forwardAxis": "+X",
+    "upAxis": "+Y",
+    "source_url": "https://sketchfab.com/3d-models/generic-passenger-car-pack-20f9af9b8a404d5cb022ac6fe87f21f5",
+    "author": "comrade1280",
+    "license": "CC-BY-4.0",
+    "copyMatchesOriginal": true,
+    "base64MatchesGLB": true
+  },
+  {
+    "id": "traffic-suv",
+    "bytes": 315224,
+    "sha256": "2ab469010d580f69dd07f1ec03b441d506a48bcdedeb7822a25b4f749379e7af",
+    "triangles": 7806,
+    "boundsXYZ": [
+      [
+        -2.375,
+        2.375
+      ],
+      [
+        -0.8500000238418579,
+        0.8500000238418579
+      ],
+      [
+        -0.9750000238418579,
+        0.9750000238418579
+      ]
+    ],
+    "headlightBoundsXYZ": [
+      [
+        1.9670618772506714,
+        2.2373924255371094
+      ],
+      [
+        -0.42735615372657776,
+        0.1181604266166687
+      ],
+      [
+        -0.7220349907875061,
+        0.7220339775085449
+      ]
+    ],
+    "taillightBoundsXYZ": [
+      [
+        -2.248215913772583,
+        -2.124197006225586
+      ],
+      [
+        -0.08076754212379456,
+        0.2195090353488922
+      ],
+      [
+        -0.7330164313316345,
+        0.7330179810523987
+      ]
+    ],
+    "forwardAxis": "+X",
+    "upAxis": "+Y",
+    "source_url": "https://sketchfab.com/3d-models/generic-passenger-car-pack-20f9af9b8a404d5cb022ac6fe87f21f5",
+    "author": "comrade1280",
+    "license": "CC-BY-4.0",
+    "copyMatchesOriginal": true,
+    "base64MatchesGLB": true
+  }
+]

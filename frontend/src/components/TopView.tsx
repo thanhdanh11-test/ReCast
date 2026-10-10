@@ -239,7 +239,7 @@ export const TopView: React.FC<TopViewProps> = ({
         // Stroke
         ctx.lineWidth = isSelected ? 3 : 1.5;
         ctx.strokeStyle = isSelected
-          ? '#38bdf8'
+          ? '#00f3ff'
           : box.label.includes('human')
           ? '#eab308'
           : '#22c55e';
@@ -250,7 +250,7 @@ export const TopView: React.FC<TopViewProps> = ({
         ctx.moveTo(centerPx.u, centerPx.v);
         ctx.lineTo(headingTipPx.u, headingTipPx.v);
         ctx.lineWidth = isSelected ? 3 : 2;
-        ctx.strokeStyle = isSelected ? '#38bdf8' : '#ef4444';
+        ctx.strokeStyle = isSelected ? '#00f3ff' : '#ef4444';
         ctx.stroke();
 
         // Front face highlight (edge p1 -> p2)
@@ -258,7 +258,7 @@ export const TopView: React.FC<TopViewProps> = ({
         ctx.moveTo(p1.u, p1.v);
         ctx.lineTo(p2.u, p2.v);
         ctx.lineWidth = isSelected ? 4 : 2.5;
-        ctx.strokeStyle = isSelected ? '#38bdf8' : '#f43f5e';
+        ctx.strokeStyle = isSelected ? '#00f3ff' : '#f43f5e';
         ctx.stroke();
 
         // Box label
@@ -267,7 +267,7 @@ export const TopView: React.FC<TopViewProps> = ({
         const isHovered = box.id === hoveredBoxId;
         if (isSelected || isHovered) {
           ctx.font = 'bold 11px sans-serif';
-          ctx.fillStyle = isSelected ? '#38bdf8' : '#e2e8f0';
+          ctx.fillStyle = isSelected ? '#00f3ff' : '#e2e8f0';
           ctx.fillText(
             shortLabel(box.label),
             p1.u + 4,
@@ -285,7 +285,7 @@ export const TopView: React.FC<TopViewProps> = ({
     const barX = 20;
     const barY = height - 25;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(barX - 8, barY - 22, scalePx + 16, 32);
 
     ctx.strokeStyle = '#f8fafc';
@@ -301,10 +301,10 @@ export const TopView: React.FC<TopViewProps> = ({
     ctx.fillText(`${scaleMeters}m (res=${bevConfig.res_m}m)`, barX + 4, barY - 8);
 
     // Top view title (offset to make room for 2D|Bird switch at left: 12)
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(92, 10, 180, 24);
     ctx.font = 'bold 12px sans-serif';
-    ctx.fillStyle = '#38bdf8';
+    ctx.fillStyle = '#00f3ff';
     ctx.fillText('TOP VIEW (orthographic 2D)', 100, 26);
 
     if (onRenderReady) {
@@ -440,7 +440,7 @@ export const TopView: React.FC<TopViewProps> = ({
         position: 'relative',
         width: '100%',
         height: '100%',
-        backgroundColor: '#0f1117',
+        backgroundColor: '#050505',
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
       }}
@@ -483,8 +483,8 @@ export const TopView: React.FC<TopViewProps> = ({
             position: 'absolute',
             left: Math.min(mousePos.x + 12, (containerRef.current?.clientWidth || 400) - 220),
             top: Math.max(10, mousePos.y - 28),
-            backgroundColor: 'rgba(15, 23, 42, 0.92)',
-            border: '1px solid #38bdf8',
+            backgroundColor: 'rgba(0, 0, 0, 0.92)',
+            border: '1px solid #00f3ff',
             borderRadius: '4px',
             padding: '3px 8px',
             fontSize: '11px',
@@ -509,8 +509,8 @@ export const TopView: React.FC<TopViewProps> = ({
             position: 'absolute',
             bottom: 12,
             right: 12,
-            backgroundColor: 'rgba(15, 23, 42, 0.92)',
-            border: '1px solid #38bdf8',
+            backgroundColor: 'rgba(0, 0, 0, 0.92)',
+            border: '1px solid #00f3ff',
             borderRadius: '6px',
             padding: '8px 12px',
             fontSize: '11px',
@@ -534,7 +534,7 @@ export const TopView: React.FC<TopViewProps> = ({
               paddingBottom: '3px',
             }}
           >
-            <span style={{ fontWeight: 'bold', color: '#38bdf8', fontSize: '11px' }}>
+            <span style={{ fontWeight: 'bold', color: '#00f3ff', fontSize: '11px' }}>
               BOX ĐANG CHỌN
             </span>
             <button
@@ -572,7 +572,7 @@ export const TopView: React.FC<TopViewProps> = ({
           onClick={resetView}
           title="Reset View"
           style={{
-            backgroundColor: 'rgba(30, 35, 48, 0.85)',
+            backgroundColor: 'rgba(26, 26, 26, 0.85)',
             color: '#cbd5e1',
             border: '1px solid #333a4d',
             borderRadius: '4px',
@@ -586,7 +586,7 @@ export const TopView: React.FC<TopViewProps> = ({
           onClick={() => setZoom((z) => Math.min(3.5, z * 1.25))}
           title="Zoom In"
           style={{
-            backgroundColor: 'rgba(30, 35, 48, 0.85)',
+            backgroundColor: 'rgba(26, 26, 26, 0.85)',
             color: '#cbd5e1',
             border: '1px solid #333a4d',
             borderRadius: '4px',
@@ -600,7 +600,7 @@ export const TopView: React.FC<TopViewProps> = ({
           onClick={() => setZoom((z) => Math.max(0.2, z * 0.8))}
           title="Zoom Out"
           style={{
-            backgroundColor: 'rgba(30, 35, 48, 0.85)',
+            backgroundColor: 'rgba(26, 26, 26, 0.85)',
             color: '#cbd5e1',
             border: '1px solid #333a4d',
             borderRadius: '4px',

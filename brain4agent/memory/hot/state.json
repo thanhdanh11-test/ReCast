@@ -1,12 +1,36 @@
 {
-  "current_version": "1.0.0",
+  "current_version": "0.12.3",
   "brain_template_version": "1.7.1",
-  "system_status": "initialized",
+  "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-03T07:13:06.060Z",
-    "grade": "Grade A Initialized"
+    "timestamp": "2026-10-10T15:57:06+07:00",
+    "scope": "0.12.3 native app logo (plan18)",
+    "frontend_tests": {
+      "total": 282,
+      "pass": 282,
+      "fail": 0,
+      "skip": 0
+    },
+    "build_typecheck_package_signature_exit": 0,
+    "logo": {
+      "version": "0.12.3",
+      "logo": {
+        "src": "file:///Users/macos/Applications/Topeye%200.12.3.app/Contents/Resources/app.asar/dist/assets/topeye-logo-Bpjuhm4B.png",
+        "width": 1200,
+        "height": 1200,
+        "displayWidth": 44,
+        "displayHeight": 44,
+        "fit": "contain",
+        "sha256": "3556d9a03505242c7cad98ff179c15886f327e287c50f58f8bf8352c5879a8ff"
+      },
+      "nativeIcon": "electron.icns",
+      "nativeIconSha256": "67ed9e942a34aa68ed9871d50ba1354b480de5816652b8ff8ff8459712ff4140",
+      "signature": "PASS",
+      "errors": []
+    },
+    "evidence": "planning/18_2026-10-10_app-logo/evidence"
   },
-  "active_plans_completed": 0,
+  "active_plans_completed": 1,
   "engine_sha": "1e68b141926025230d15ac986b2022c3d70a1e33",
   "engine_version": "1.13.0",
   "lang": {
@@ -29,5 +53,959 @@
   "owner": {
     "name": "",
     "license": ""
+  },
+  "streetgs_30k": {
+    "kernel": "danhtong/topeye-streetgs-scene0061",
+    "status": "COMPLETE",
+    "step": 30000,
+    "gaussians": 1010984,
+    "viewer": "http://127.0.0.1:8772/30k/",
+    "mesh_triangles": 149999,
+    "mesh_bytes": 25931584,
+    "front_coverage": 0.29296666666666665,
+    "quality": "not accepted",
+    "new_remote_jobs": 0
+  },
+  "scene_assembly": {
+    "spec": "planning/02_2026-10-05_blender-real2sim/specs/SPEC-S15-Scene-Assembly.md",
+    "status": "implemented_pilot_not_visual_accepted",
+    "approved_contracts": [
+      "facade_completion_beyond_observed_footprint",
+      "height_aware_tree_collision"
+    ],
+    "implemented": true,
+    "run": "lookdev_s15_v3",
+    "placements": {
+      "building": 7,
+      "tree": 135,
+      "lamp": 10,
+      "prop": 2
+    },
+    "fallback_buildings": 1,
+    "review_url": "http://127.0.0.1:8770/scene-0061/runs/lookdev_s15_v3/review.html",
+    "full_scene_20min_gate": "unmeasured",
+    "export": {
+      "environment_triangles": 1405150,
+      "environment_bytes": 143930924,
+      "environment_export_s": 201.3
+    }
+  },
+  "compute_policy": {
+    "updated": "2026-10-08",
+    "source": "user_confirmation",
+    "gpu_provider": "Kaggle",
+    "mode": "rented_gpu_as_confirmed_by_user",
+    "previous_no_gpu_rental_restriction": "superseded",
+    "gpu_type": null,
+    "budget": null
+  },
+  "team_handoff_document": "docs/PROJECT_HANDOFF.md",
+  "source_delivery": {
+    "repository": "https://github.com/AI20K-Build-Phase-Cohort-4A/P-056",
+    "branch": "main",
+    "path": "source-tool/topeye",
+    "format": "monorepo snapshot; no nested git or submodule",
+    "status": "pushed_and_verified",
+    "commit": "95fd2b2a318a89a17068886324cfe394299bc926",
+    "verified_at": "2026-10-08T15:15:26+07:00",
+    "checks": {
+      "backend_portable_tests": 68,
+      "frontend_tests": 136,
+      "frontend_build_exit": 0,
+      "backend_lint_exit": 0,
+      "npm_audit_existing_advisories": 6
+    }
+  },
+  "active_plan": {
+    "id": "18_2026-10-10_app-logo",
+    "status": "completed_local",
+    "completed_at": "2026-10-10T15:57:06+07:00"
+  },
+  "nurec_static": {
+    "scene": "scene-0061",
+    "scope": "static_environment_only",
+    "carla_integration": false,
+    "moving_actor_simulation": false,
+    "input_files": 2963,
+    "missing_files": 0,
+    "source_bytes": 475823980,
+    "existing_kaggle_gpus": [
+      {
+        "name": "Tesla T4",
+        "memory_mib": 15360
+      },
+      {
+        "name": "Tesla T4",
+        "memory_mib": 15360
+      }
+    ],
+    "gpu_inference": "superseded_by_native_full_training",
+    "remote_jobs_submitted": 1,
+    "plan": "planning/03_2026-10-08_nurec-static/plan.md",
+    "data_status": "validated_sdk18_compatible",
+    "camera_images": 1318,
+    "lidar_frames": 382,
+    "external_cuboids": 4664,
+    "calibration_max_roundtrip_px": 0.0001220703125,
+    "sensor_stores_byte_identical": 7,
+    "independent_review": "pass_5_of_5_no_skips",
+    "job_archive": "backend/data/sim/scene-0061/nurec/static-job.tar",
+    "job_archive_bytes": 482324480,
+    "job_archive_sha256": "3841a84303db2190baa7dd242b6eab9e2c8d63177ce623cf42d545e5d15534bf",
+    "kaggle_gpu_quota_remaining_hours": 24.48,
+    "kaggle_current_accelerator_access": [
+      "None",
+      "GPU T4 x2",
+      "TPU v5e-8"
+    ],
+    "remote_kaggle_pilot_approval": "user approved 2026-10-08",
+    "runtime_gate": "supported_l40s_gpu_verified",
+    "uploads": 1,
+    "accelerator_evidence": "planning/03_2026-10-08_nurec-static/evidence/local/kaggle-accelerator-options.txt",
+    "alternative_provider": "RunPod A40 48GB proposed; not approved or provisioned",
+    "priority": "nuScenes only; scene-0103 selected from10localmini scenes and SDK18validated; scene0061retained",
+    "t4_research": "planning/03_2026-10-08_nurec-static/research/kaggle-memory.md",
+    "t4_source_assertions": {
+      "pass": 8,
+      "fail": 0
+    },
+    "t4_actual_peak_vram": null,
+    "proposed_memory_controls": [
+      "predict_batch_size=1",
+      "dpt_chunk_size=1",
+      "verify efficient SDPA backend",
+      "supported single-camera profile only if necessary"
+    ],
+    "t4_inference": "superseded_by_user_before_submission",
+    "full_training_spec": "planning/03_2026-10-08_nurec-static/specs/SPEC-P02-Full-NuRec.md",
+    "target_provider": "NVIDIA Brev; approved L40S trial terminated",
+    "brev_login": "verified logged in; console balance 10 USD",
+    "brev_public_quote": {
+      "gpu": "L40S",
+      "vram_gb": 48,
+      "system_ram_gb": 72,
+      "vcpus": 12,
+      "provider": "MassedCompute via Shadeform",
+      "price_usd_hour": 1.06,
+      "storage_gb": 625,
+      "stop_start": false,
+      "checkout_price_verified": true
+    },
+    "proposed_paid_session": {
+      "duration_hours": 2,
+      "budget_usd": 3,
+      "approved": true,
+      "approval_basis": "User continued after login/funding and stated 3USD/2h scope"
+    },
+    "full_nurec_gpu_training": "stopped_at_budget_preservation_point_exit1",
+    "auxiliary_data": "complete_exit0",
+    "full_training_duration_estimate": null,
+    "browser_state": "taskspace14 reclaimed afteruseroke; browserlogin expired, CLIauthenticatedsameorg",
+    "ngc_key_local_environment_present": false,
+    "paid_vm_created": true,
+    "next_action": "User reviews native40k scene0103 at http://127.0.0.1:8774/; no newpaidjob authorized",
+    "ngc_anonymous_manifest_access": {
+      "nre-ga:26.04": true,
+      "nre-tools-ga:26.04": true
+    },
+    "container_compressed_bytes": {
+      "nre-ga": 14287662578,
+      "nre-tools-ga": 21923833861
+    },
+    "instance_id": "arl0iuyc4",
+    "instance_name": "topeye-nurec-scene0061",
+    "instance_created_at": "2026-10-08T21:49:11+07:00",
+    "paid_vm_status": "ALL_TRIAL_VMS_DELETED",
+    "watchdog_pid": null,
+    "watchdog_delete_after_seconds": 6900,
+    "brev_cli": "backend/.tools/brev/brev",
+    "brev_cli_login": "authenticated same funded org",
+    "gpu_actual": {
+      "name": "NVIDIA L40S",
+      "memory_mib": 46068,
+      "driver": "580.126.09",
+      "docker": "29.1.5",
+      "host_ram_available_gib": 68
+    },
+    "ssh_access": "Brev host alias with explicit port22; default62544 misroutes directIP",
+    "full_data_archive_sha256": "a0f6d55e8f7e61d264f893d93e75a02feaf98ab5cd9f16bf24f391a06832a64d",
+    "full_data_archive_bytes": 465868800,
+    "upload_status": "verified_sha256_and_extracted",
+    "container_pull_status": "both pinned containers complete",
+    "aux_container": "topeye-nurec-aux",
+    "aux_started_at": "2026-10-08T22:11:32+07:00",
+    "gpu_aux_vram_mib": 6262,
+    "full_training_config": "planning/03_2026-10-08_nurec-static/pilot.yaml",
+    "full_training_config_parse": "exit0",
+    "full_training_epochs": 1,
+    "full_training_steps": 40000,
+    "full_config_independent_review": {
+      "pass": 6,
+      "fail": 0,
+      "skip": 0,
+      "scope": "configuration only; render quality unproven"
+    },
+    "train_started_at": "2026-10-08T22:29:03+07:00",
+    "full_training_config_sha256": "96d8d129bc4a27ef514da901869b90b9efccd248a00bd9199541f5f14d574239",
+    "training_failure": "Native 26.04 LiDAR projection rejects4340 columns without lookup map",
+    "lidar_map_fix": "native ensure_angles_map before limit validation; originalSHAguard; idempotent; red/green5of5exit0; re-review pending",
+    "train_restarted_at": "2026-10-08T22:39:44+07:00",
+    "lidar_map_fix_review": "approved; native red/green5of5 and doubleapply pass",
+    "last_observed_step": 30079,
+    "last_observed_step_at": "2026-10-08T23:25:04+07:00",
+    "training_steps_per_second": 8.36,
+    "artifact_transfer": "authenticated TLS, source-IP firewall restriction, pinned certificate;64/64chunk probe16MiB13.62s",
+    "backup_usdz_local": "backend/data/sim/scene-0061/nurec/full-output/step-010000/model.usdz",
+    "backup_usdz_bytes": 520661708,
+    "backup_usdz_sha256": "04fef8ad1e8ee1dfeb8a80fd36e7057b21441c49b22eb46e2b1c13981d7d6630",
+    "backup_download_verified": true,
+    "backup_source_and_novel_render": "exit0;2source+2lateral1m; blurry and artifacts, not quality accepted",
+    "ply_export_010000": "native export exit0; background256011250bytes + road35079101bytes;8dynamicrigid/10staticrigid/49deformablePLYs",
+    "native_track_flags_010000": {
+      "rigid_dynamic_controllable": 10,
+      "rigid_controllable_static": 12,
+      "note": "22 raw rigid tracks retained; not equivalent to raw18moving approximation; PLYnonempty objects8dynamic+10static"
+    },
+    "local_viewer": "http://127.0.0.1:8773/step-030000/viewer/",
+    "local_viewer_pid": 41749,
+    "local_viewer_verified": "30k background2261136+road148634 loaded; start/middle/side navigation and screenshots verified; actorPLY omitted; shadows/holes/floaters/ghosts remain; QUALITY_NOT_ACCEPTED",
+    "ply_preview_appearance": "base temporalDC only, allotherfieldsbitwise preserved; originalnativePLY/USDZ kept",
+    "training_budget_forecast": "at25106step23:15,8.32it/s;40k+download unlikely beforecap; prioritize30k checkpoint",
+    "preemption_callback_active": false,
+    "checkpoint_steps": 30000,
+    "nominal_40000_steps_complete": false,
+    "training_exit_code": 1,
+    "training_stop_reason": "SIGINT after closed30000 checkpoint to preserve artifacts and stay within approved2hcap",
+    "checkpoint_resume_bytes": 3242759383,
+    "artifact_030000_bytes": 1114780075,
+    "artifact_030000_sha256": "b259db9f288fe619c6abdec12efd969bf96f951bf366218a63cb22ced8c5c338",
+    "artifact_030000_download": "VERIFIED_whole_sha256",
+    "aux_archive_local": "backend/data/sim/scene-0061/nurec/full-output/aux-data/model.tar.gz",
+    "aux_archive_sha256": "b411879a59ed7401ad65d87a44b6858ae150cf6b9c98197476de81040d940397",
+    "ply_export_030000": "native export exit0; background648947543bytes + road35079101bytes",
+    "native_render_030000": "exit0;2source+2lateral1m800x450 downloaded/viewed; street reconstructed, blur/ghosts remain",
+    "run_evidence_archive": "backend/data/sim/scene-0061/nurec/full-output/run-evidence/model.tar.gz",
+    "run_evidence_sha256": "e39504aa190c02fb38ef232f176ae0335484bd1e616136488dbc54dfb404a4fb",
+    "run_evidence_members": 69,
+    "artifact_030000_zip_crc": "PASS_12members",
+    "artifact_030000_embedded_weights_bytes": 1092465489,
+    "paid_vm_delete_command_exit": 0,
+    "paid_vm_delete_requested_at": "2026-10-08T23:30:55+07:00",
+    "ply_background_030000_sha256": "1edf40342150ac530e66120ad8ae3016db6e97768b260fa64903d1332f0d4ec7",
+    "ply_road_030000_sha256": "972ea2098271843ffbdcd7e36086d73ee4f21023fcd821ba57dd907a82364d63",
+    "ply_preview_030000_vertices": 2261136,
+    "ply_preview_030000_sha256": "ee681e19cb22217f6a51def8f3ee64cb05fe14612861e327d0fdc01c0b845063",
+    "static_background_clean": false,
+    "weather_editing_implemented": false,
+    "optimizer_resume_checkpoint_downloaded": false,
+    "model_weights_retained_in_usdz": true,
+    "paid_vm_deleted_confirmed_at": "2026-10-08T23:32:26+07:00",
+    "watchdog_status": "cancelled_only_after_delete_confirmed",
+    "paid_vm_estimated_cost_usd": 1.83,
+    "paid_vm_final_invoice_verified": false,
+    "resource_delete_scope": "brev delete removes VM and associated volumes; CLI noinstances",
+    "temporary_transfer_credentials": "removed after verified downloads and VMdeletion",
+    "resume_checkpoint_retention": "No optimizerresume checkpoint downloaded; embeddedUSDZmodelweights retained",
+    "independent_30k_review": {
+      "pass": 10,
+      "fail": 0,
+      "skip": 0,
+      "field_mismatch": 0,
+      "finite_bad": 0,
+      "verdict": "artifact_integrity_approved_quality_40k_open"
+    },
+    "completion_40k": {
+      "status": "superseded_as_nexttrial_by_user_newdataset_request",
+      "user_request": "làm đủ đi",
+      "strategy": "supersedes_fresh40k; inspectweights_onlyresume30k_and_schedule_beforetraining; nativequalitytarget",
+      "proposed_additional_cap_usd": 3.5,
+      "proposed_hours": 3,
+      "approved": true,
+      "package": "backend/data/sim/scene-0061/nurec/full-40k-job.tar",
+      "package_bytes": 488704000,
+      "package_sha256": "312ad1fa24483336d3518d266378170487a41e18eedc97c95ca904b6a96601ca",
+      "spec": "planning/03_2026-10-08_nurec-static/specs/SPEC-P03-Complete-40k.md",
+      "shell_syntax_exit": 0,
+      "new_remote_jobs": 0,
+      "approval_basis": "User oke anh cần bản đầy đủ after stated3.50USD/3h proposal; no scopeextension",
+      "quality_candidate": "planning/03_2026-10-08_nurec-static/quality-2x.candidate.yaml",
+      "candidate_sha256": "a5d9e13b15c9da1675f66ca0deda404106079370603d3726618cad2c077f884a",
+      "candidate_native_parse": "UNRUN",
+      "no_fresh_training_fallback": true
+    },
+    "new_dataset": {
+      "repo": "nvidia/PhysicalAI-Autonomous-Vehicles-NCore",
+      "revision": "5f2fd45b413f685799a6c087072c3de0a4f8db3f",
+      "candidate_clip": "100ae358-f548-49b8-af4d-c0afdbcfe9ed",
+      "files": 10,
+      "bytes": 1954813617,
+      "metadata_http": 200,
+      "manifest_http": 401,
+      "local_hf_credential_present": false,
+      "actual_visual_quality_reviewed": false,
+      "downloaded": false,
+      "spec": "planning/03_2026-10-08_nurec-static/specs/SPEC-P04-PhysicalAI-Data.md",
+      "hf_cli": "backend/.tools/hf/.venv/bin/hf",
+      "download_script": "planning/03_2026-10-08_nurec-static/download_pai.sh",
+      "shell_syntax_exit": 0,
+      "validator_compile_exit": 0,
+      "validator_rejects_missing_files_exit": 1,
+      "new_remote_jobs": 0,
+      "status": "SUPERSEDED_user_requires_nuScenes_only_noHFaction"
+    },
+    "scene_selection": {
+      "date": "2026-10-09",
+      "dataset": "nuScenes v1.0-mini",
+      "scenes_audited": 10,
+      "images_sampled": 180,
+      "chosen_scene": "scene-0103",
+      "backup_scene": "scene-0655",
+      "source_resolution": [
+        1600,
+        900
+      ],
+      "path_length_m": 117.90950876284333,
+      "total_yaw_change_deg": 14.414549078082736,
+      "source_missing_camera_lidar_files": 0,
+      "converted_camera_images": 1384,
+      "converted_lidar_frames": 389,
+      "external_cuboid_observations": 2035,
+      "converter_exit": 0,
+      "pinhole_adapter_exit": 0,
+      "sdk18_validation_exit": 0,
+      "old_scene_default_validation_exit": 0,
+      "wrong_scene_guard_exit": 2,
+      "sensor_stores_byte_identical": 7,
+      "archive": "backend/data/sim/scene-0103/nurec/full-data.tar",
+      "archive_bytes": 456243200,
+      "archive_sha256": "352df1bd66515cf79609bbbfd687516b38bf2363a573c98ca99b56cc8a2f1aeb",
+      "config_candidate": "planning/03_2026-10-08_nurec-static/pilot-0103.candidate.yaml",
+      "gpu_parse": "PASS_exit0",
+      "independent_review": {
+        "pass": 8,
+        "fail": 0,
+        "skip": 0,
+        "verdict": "selection_approved_GPUquality_open"
+      },
+      "contact_sheet": "backend/data/sim/nurec-scene-selection/scene-0103-six-cameras.jpg",
+      "new_paid_jobs": 1,
+      "full_render_request": {
+        "date": "2026-10-09T00:13:03.752662+07:00",
+        "scene": "scene-0103",
+        "training_steps": 40000,
+        "training_resolution": [
+          800,
+          450
+        ],
+        "render_resolution": [
+          1600,
+          900
+        ],
+        "render_cameras": 6,
+        "render_frame_step": 1,
+        "novel_front_offset_m": [
+          0,
+          1,
+          0
+        ],
+        "shell_syntax_exit": 0,
+        "data_sha256": "352df1bd66515cf79609bbbfd687516b38bf2363a573c98ca99b56cc8a2f1aeb",
+        "job_bytes": 456468480,
+        "scripts": {
+          "pilot-0103.yaml": "2238fb16d0e96eec507510a19fe866b29f9e87310c9ddfe19c715c9b69816c10",
+          "patch_lidar_map.py": "27b06de99b198b9a1d63a828bfa1e4b9595dcb26098297293ba610b9265d8cda",
+          "run_0103.sh": "c0c62d4c9dfe2c2ca11ef2b2269f03d2b4be7afd24f43fd05412102c1b705baa",
+          "render_0103.sh": "d5adbff35d6b482e41416c88d4146fc3cf0cefd490fd6daef8368d231cc0f9e9"
+        },
+        "gpu_parse": "PASS_exit0",
+        "new_paid_jobs": 1,
+        "browser": "resumed_after_useroke_thenCLIauthenticated",
+        "status": "COMPLETE_train_render_backups_VMdeleted_visualacceptance_open"
+      },
+      "gpu_trial": {
+        "name": "topeye-nurec-scene0103",
+        "status": "DELETED_AFTER_FULL40K_RENDER_AND_VERIFIED_BACKUPS",
+        "rate_usd_hour": 1.056,
+        "budget_usd": 3.5,
+        "max_hours": 3,
+        "watchdog_pid": null,
+        "watchdog_seconds": 10400,
+        "created_observed_at": "2026-10-09T00:22:04.863846+07:00",
+        "browser_resume_approved": true,
+        "id": "l8hw4o5f5",
+        "host_gpu": "NVIDIA L40S",
+        "memory_mib": 46068,
+        "driver": "580.126.09",
+        "docker": "29.1.5",
+        "ssh_port": 22,
+        "input_archive_sha_verified": true,
+        "package_sha256": "7af6d502b70a1a5238c9570fab85c2978e2229c2b2b810ea4409655b787650bc",
+        "transfer_tls_authenticated_http": 200,
+        "transfer_tls_unauthenticated_http": 401,
+        "independent_package_review": {
+          "pass": 11,
+          "fail": 0,
+          "blockers": 0
+        },
+        "observed_at": "2026-10-09T00:33:08.384764+07:00",
+        "native_parse_exit": 0,
+        "native_config_guard": "PASS",
+        "caffeinate_pid": null,
+        "backup_monitor_pid": null,
+        "backup_monitor": "stopped after finaltraining/render; finalcheckpoint andrender transfers now supervised directly with lower concurrency",
+        "aux_exit": 0,
+        "aux_started": "2026-10-08T17:34:29+00:00",
+        "aux_finished": "2026-10-08T17:52:19+00:00",
+        "train_started": "2026-10-08T17:52:19+00:00",
+        "aux_backup": {
+          "bytes": 14308789,
+          "sha256": "6636fcaa03f7df918abd20f97382dc742333e345a5006d607f487c762d9ebc4d",
+          "verified": true
+        },
+        "checkpoint_010000_backup": {
+          "name": "model.ckpt",
+          "bytes": 1597151703,
+          "sha256": "1f8e2b162b46ba3eb228844e2964798612235a401a5514518fff5032f0602e99",
+          "source": "coyJWe6feg5i59zmkoii73/checkpoints/last.ckpt",
+          "downloaded_at": 1791483276.9718819
+        },
+        "checkpoint_010000_resume_metadata": {
+          "global_step": 10000,
+          "epoch": 0,
+          "optimizer_states": 16,
+          "lr_schedulers": 11,
+          "state_dict_tensors": 128
+        },
+        "last_observed_step": 40000,
+        "usdz_010000_backup": {
+          "name": "model.usdz",
+          "bytes": 561372821,
+          "sha256": "bf494892a6fe20ed87075691e71ea1274eb935c6f7e50e731b4615090f9dee96",
+          "source": "coyJWe6feg5i59zmkoii73/artifacts/010000.usdz",
+          "downloaded_at": 1791483484.581067
+        },
+        "backup_checkpoint_write_order_guard": "closed checkpoint mtime >= corresponding closed USDZ mtime",
+        "checkpoint_030000_resume_metadata": {
+          "global_step": 30000,
+          "epoch": 0,
+          "optimizer_states": 16,
+          "lr_schedulers": 11,
+          "state_dict_tensors": 128
+        },
+        "checkpoint_020000_backup": {
+          "name": "model.ckpt",
+          "bytes": 1604503383,
+          "sha256": "1d6e285e9efb6892f3c83c72857336a9b621fbd9d5e6c2a1d09a4bf70fed023d",
+          "source": "coyJWe6feg5i59zmkoii73/checkpoints/last.ckpt",
+          "downloaded_at": 1791484135.555321
+        },
+        "usdz_020000_backup": {
+          "name": "model.usdz",
+          "bytes": 563869991,
+          "sha256": "fb5d2cfdb5d95f758598509371ec849b456c5b028ed7838adb0affaa42129e09",
+          "source": "coyJWe6feg5i59zmkoii73/artifacts/020000.usdz",
+          "downloaded_at": 1791484624.378804
+        },
+        "retention_review": {
+          "pass": 6,
+          "fail": 0,
+          "skip": 0,
+          "verdict": "helpers_approved_final40k_quality_resume_runtime_pending"
+        },
+        "last_progress_at": "2026-10-09T01:57:43.463616+07:00",
+        "checkpoint_030000_backup": {
+          "name": "model.ckpt",
+          "bytes": 3340674455,
+          "sha256": "afab484b01e198e0decff8e4e94faaf232cd39099689347cc78e582db2ad4348",
+          "source": "coyJWe6feg5i59zmkoii73/checkpoints/last.ckpt",
+          "downloaded_at": 1791485487.5430138
+        },
+        "usdz_030000_backup": {
+          "name": "model.usdz",
+          "bytes": 1147209184,
+          "sha256": "07c32dd7cdc57ef8697dfaa75d2d7bea90b2278710fc086772c7e9e1b9f45d4c",
+          "source": "coyJWe6feg5i59zmkoii73/artifacts/030000.usdz",
+          "downloaded_at": 1791485643.050963
+        },
+        "finalize_script_review": {
+          "pass": 5,
+          "fail": 0,
+          "skip": 0,
+          "verdict": "no_blocker_header_only_png_proof_requires_full_decode_later"
+        },
+        "train_exit": 0,
+        "render_exit": 0,
+        "render_frames": 1613,
+        "train_finished": "2026-10-08T19:02:48+00:00",
+        "render_finished": "2026-10-08T19:05:59+00:00",
+        "checkpoint_040000_backup": {
+          "name": "model.ckpt",
+          "bytes": 3353819543,
+          "sha256": "5ad64427967ae6629da0f308fb7118063be8b9c06af4f7bedb63dbed1205f233",
+          "source": "coyJWe6feg5i59zmkoii73/checkpoints/last.ckpt",
+          "downloaded_at": 1791487022.076916
+        },
+        "usdz_040000_backup": {
+          "name": "model.usdz",
+          "bytes": 1151659878,
+          "sha256": "726811736b39f0c46b7b2189052edf169a491c7f099023558c9abd6b63509569",
+          "source": "coyJWe6feg5i59zmkoii73/artifacts/040000.usdz",
+          "downloaded_at": 1791486262.473403
+        },
+        "render_archive_backup": {
+          "name": "model.tar.gz",
+          "bytes": 1555844382,
+          "sha256": "1e4689e2c9b893f38f0580198617612a9f1762ee5c2db9ca1440c6cf30336676",
+          "source": "render-full.tar.gz",
+          "downloaded_at": 1791487332.0362601
+        },
+        "public_logs_backup": {
+          "name": "model.tar.gz",
+          "bytes": 812769,
+          "sha256": "97e518b507699cb6ce998f93c97b274eb383595369c9fd991766bf4f355fb604",
+          "source": "run-evidence.tar.gz",
+          "downloaded_at": 1791486507.7977312
+        },
+        "checkpoint_040000_resume_metadata": {
+          "global_step": 40000,
+          "epoch": 0,
+          "optimizer_states": 16,
+          "lr_schedulers": 11,
+          "state_dict_tensors": 128,
+          "nonfinite_state_dict_tensors": 0,
+          "floating_state_dict_tensors_checked": 97
+        },
+        "local_checkpoint_verification": {
+          "local_checkpoint_zip_crc": "PASS",
+          "local_global_step": 40000,
+          "pickle_executed": false,
+          "native_runtime_metadata": {
+            "global_step": 40000,
+            "epoch": 0,
+            "optimizer_states": 16,
+            "lr_schedulers": 11,
+            "state_dict_tensors": 128,
+            "nonfinite_state_dict_tensors": 0,
+            "floating_state_dict_tensors_checked": 97
+          },
+          "checkpoint_sha256": "5ad64427967ae6629da0f308fb7118063be8b9c06af4f7bedb63dbed1205f233",
+          "mac_torch_load": "SDKvenv lacksomegaconf; nativecontainer load+finiteproof PASS"
+        },
+        "render_verification": {
+          "scene": "scene-0103",
+          "usdz_crc": "PASS",
+          "dimensions": [
+            1600,
+            900
+          ],
+          "all_png_decoded": 1613,
+          "groups": {
+            "source/camera_back": 229,
+            "source/camera_back_left": 228,
+            "source/camera_back_right": 234,
+            "source/camera_front": 229,
+            "source/camera_front_left": 231,
+            "source/camera_front_right": 233,
+            "novel/camera_front": 229
+          },
+          "expected_source": {
+            "camera_back": 229,
+            "camera_back_left": 228,
+            "camera_back_right": 234,
+            "camera_front": 229,
+            "camera_front_left": 231,
+            "camera_front_right": 233
+          }
+        },
+        "videos": {
+          "source-camera_front.mp4": {
+            "width": 1600,
+            "height": 900,
+            "nb_read_frames": "229",
+            "fps": 11.75257731958763,
+            "bytes": 8639965
+          },
+          "source-camera_front_left.mp4": {
+            "width": 1600,
+            "height": 900,
+            "nb_read_frames": "231",
+            "fps": 11.855670103092784,
+            "bytes": 10516570
+          },
+          "source-camera_front_right.mp4": {
+            "width": 1600,
+            "height": 900,
+            "nb_read_frames": "233",
+            "fps": 11.958762886597938,
+            "bytes": 10010160
+          },
+          "source-camera_back.mp4": {
+            "width": 1600,
+            "height": 900,
+            "nb_read_frames": "229",
+            "fps": 11.75257731958763,
+            "bytes": 8278157
+          },
+          "source-camera_back_left.mp4": {
+            "width": 1600,
+            "height": 900,
+            "nb_read_frames": "228",
+            "fps": 11.70103092783505,
+            "bytes": 9947069
+          },
+          "source-camera_back_right.mp4": {
+            "width": 1600,
+            "height": 900,
+            "nb_read_frames": "234",
+            "fps": 12.010309278350515,
+            "bytes": 9416731
+          },
+          "novel-camera_front.mp4": {
+            "width": 1600,
+            "height": 900,
+            "nb_read_frames": "229",
+            "fps": 11.75257731958763,
+            "bytes": 8763528
+          }
+        },
+        "review_server": {
+          "url": "http://127.0.0.1:8774/",
+          "pid": null,
+          "status": "stopped_after_authorizedcleanup",
+          "artifacts_location": "macOSTrash; see cleanupmanifest"
+        },
+        "quality": "visualgate_open; facades recognizable, fine details soft, actors remainvisible, no weather editing",
+        "resume_runtime_tested": false,
+        "independent_final_review": {
+          "pass": 14,
+          "fail": 0,
+          "skip": 0,
+          "verdict": "integrity_approved_quality_and_actual_resume_runtime_open",
+          "all_png_independently_decoded": 1613
+        },
+        "delete_command_exit": 0,
+        "deleted_confirmed_at": "2026-10-09T02:27:41.077134+07:00",
+        "delete_confirmed_by": "brev ls: No instances",
+        "temporary_transfer_credentials": "removed only own scene0103 config/curl/key/cert after confirmeddeletion",
+        "estimated_cost_usd": 2.25,
+        "final_invoice_verified": false,
+        "execution_closed_at": "2026-10-09T02:29:32+07:00",
+        "interactive_viewer": {
+          "url": "http://127.0.0.1:8775/",
+          "pid": null,
+          "gaussians": 2285393,
+          "background": 2105373,
+          "road": 180020,
+          "independent_review": {
+            "pass": 11,
+            "fail": 0,
+            "skip": 0
+          },
+          "browser_qa": {
+            "ready": true,
+            "presets_pass": 4,
+            "keyboard_w_distance_m": 1.1999999999999877,
+            "webgl_error": null,
+            "visual_capture": "planning/03_2026-10-08_nurec-static/evidence/local/viewer-0103/middle-canvas.png",
+            "quality": "street/buildings visible; softdetails/holes; useracceptance open"
+          },
+          "appearance": "base temporalDC; native sky/ISP not applied",
+          "weather_editable": false,
+          "new_paid_job": false,
+          "user_quality": "REJECTED: brokenappearance, unsuitableforrealisticsimulation",
+          "native_video_user_feedback": "acceptable",
+          "precision_candidate": {
+            "url": "http://127.0.0.1:8775/?precision=1",
+            "float32_input_and_accum": true,
+            "lod": false,
+            "positions_over_fp16_range": 31,
+            "syntax_exit": 0,
+            "runtime_tested": false,
+            "visual_fixed": null,
+            "blocker": "browser14 usercontrol hardstop; explicitcontinue required"
+          },
+          "status": "stopped_after_authorizedcleanup",
+          "artifacts_location": "macOSTrash; see cleanupmanifest"
+        }
+      }
+    },
+    "active_instance_id": null,
+    "active_scene": "scene-0103",
+    "artifacts_retention": "moved_to_macOSTrash_after_usercleanup2026-10-09"
+  },
+  "active_plan_status": "completed_local",
+  "project_priority": {
+    "confirmed_by_user": "2026-10-09",
+    "goal": "nuScenes→OpenSCENARIO→replay→speed/gapvariants→trajectoryerror/validscenario counts",
+    "delivery": "installeddesktopapp",
+    "initial_platform": "macOSarm64 inferred from currentmachine",
+    "implemented": true,
+    "new_paid_jobs_authorized": false,
+    "previous_plans": "02/03 secondary research; obsolete outputs in Trash per cleanup manifest",
+    "target_release": "0.5.0 local installed; aesthetic acceptance pending; public notarization deferred",
+    "stack": "Electron/React + Python private stdioJSONL + esmini"
+  },
+  "cleanup": {
+    "completed_at": "2026-10-09T09:22:20+07:00",
+    "trash": "/Users/macos/.Trash/topeye-obsolete-20261009-092105",
+    "logical_bytes": 57129709956,
+    "files": 146360,
+    "protected_source_files_unchanged": 213,
+    "servers_stopped": [
+      30635,
+      41749,
+      90215,
+      15255,
+      43127,
+      56801
+    ],
+    "manifest": "planning/04_2026-10-09_scenario-desktop/evidence/local/cleanup-manifest.json",
+    "permanent_deletion": false,
+    "disk_space_reclaimed": false,
+    "source_data_untouched": true,
+    "tests_before": {
+      "pass": 531,
+      "fail": 0,
+      "skip": 0
+    },
+    "tests_after": {
+      "pass": 531,
+      "fail": 0,
+      "skip": 0,
+      "warning": 1,
+      "seconds": 36.11,
+      "exit": 0
+    },
+    "frontend_typecheck_exit": 0
+  },
+  "scenario_desktop": {
+    "version": "0.10.1",
+    "installed_app": "/Users/macos/Applications/Topeye 0.10.1.app",
+    "artifact": {
+      "version": "0.10.1",
+      "electronVersion": "44.7.0",
+      "engineVersion": "3.9.0",
+      "engineSha256": "8bcba5cdb79713b48604f01179a89f9c64f309b7de1a38ba5d511201e40a48ad",
+      "artifact": "/Users/macos/topeye/frontend/release/Topeye-0.10.1-mac-arm64.zip",
+      "sha256": "5e0781c088cb149bc240cef1879fdef7849947428a44b2cd396868791518d6c0",
+      "arch": "arm64",
+      "signing": "local ad-hoc; not notarized",
+      "builtAt": "2026-10-10T02:24:01.759Z"
+    },
+    "engine_acceptance": {
+      "generated": 4,
+      "valid": 4,
+      "evidence": "planning/04_2026-10-09_scenario-desktop/evidence/local/acceptance-final/acceptance.json"
+    },
+    "installed_evidence": "planning/06_2026-10-09_original-scene/evidence/installed-app.json",
+    "dataset_metadata_files_unchanged": 13,
+    "review": "planning/04_2026-10-09_scenario-desktop/reports/R01_scenario-review.md",
+    "limitations": [
+      "synthetic straight road for simulator clips; original scene uses nuScenes map with estimated LiDAR structures",
+      "macOS arm64 only",
+      "ad-hoc signed, not notarized",
+      "no saved-project editor",
+      "sampled 2D clearance, not continuous collision detection"
+    ],
+    "commit_push": false,
+    "viewport3d": {
+      "evidence": "planning/05_2026-10-09_scenario-3d/evidence/viewport3d.json",
+      "review": "planning/05_2026-10-09_scenario-3d/reports/R01_viewport-review.md",
+      "artifact_verification": "planning/05_2026-10-09_scenario-3d/evidence/artifact-verification.json",
+      "render": "Three.js procedural actors and synthetic road; actual replay poses when available",
+      "frontend_tests": 143,
+      "user_visual_acceptance": "pending"
+    },
+    "source_scene": {
+      "actors": 124,
+      "annotations_verified": 2090,
+      "buildings_estimated": 13,
+      "backend_tests": 565,
+      "frontend_tests": 145,
+      "independent_probes": 19,
+      "installed_source_flow": "pass",
+      "relative_internal_symlinks": 113,
+      "codesign_strict": "pass",
+      "evidence": "planning/06_2026-10-09_original-scene/evidence",
+      "review": "planning/06_2026-10-09_original-scene/reports/R01_source-review.md",
+      "user_visual_acceptance": "approved 2026-10-09"
+    }
+  },
+  "sensor_views": {
+    "installed_app": "/Users/macos/Applications/Topeye 0.8.app",
+    "lidar": "planar geometric simulation; 180 rays/60m/ego+1m, not raw LiDAR",
+    "map": "source nuScenes vectors only; no source-map overlay on extracted scenarios",
+    "source_track_choices": 58,
+    "public_release": false
+  },
+  "ferrari_theme": {
+    "completed_at": "2026-10-09T16:39:39+07:00",
+    "installed_app": "/Users/macos/Applications/Topeye 0.8.1.app",
+    "build_exit": 0,
+    "package_exit": 0,
+    "frontend_tests": {
+      "total": 160,
+      "pass": 160,
+      "fail": 0,
+      "skip": 0
+    },
+    "visual_qa_exit": 0,
+    "renderer_errors": 0,
+    "evidence": "planning/10_2026-10-09_ferrari-theme/evidence",
+    "user_visual_acceptance": "pending"
+  },
+  "logo_patch": {
+    "completed_at": "2026-10-09T16:44:09+07:00",
+    "installed_app": "/Users/macos/Applications/Topeye 0.8.2.app",
+    "frontend_tests": 160,
+    "build_exit": 0,
+    "package_exit": 0,
+    "packaged_qa_exit": 0,
+    "asset": "frontend/src/scenario/assets/topeye-logo.png",
+    "scope": "header logo",
+    "evidence": "planning/10_2026-10-09_ferrari-theme/evidence/logo.json"
+  },
+  "xosc_map_import": {
+    "installed_app": "/Users/macos/Applications/Topeye 0.9.app",
+    "profile": "topeye-map-trajectories-v1",
+    "openscenario": "1.0",
+    "chatbot_integrated": false,
+    "supported_mini_scenes": 8,
+    "invalid_map_scenes": [
+      "scene-0103",
+      "scene-0655"
+    ],
+    "legacy_esmini_cases_pass": 2,
+    "artifact": {
+      "version": "0.9.0",
+      "electronVersion": "44.7.0",
+      "engineVersion": "3.9.0",
+      "engineSha256": "8bcba5cdb79713b48604f01179a89f9c64f309b7de1a38ba5d511201e40a48ad",
+      "artifact": "/Users/macos/topeye/frontend/release/Topeye-0.9.0-mac-arm64.zip",
+      "sha256": "b826218923886ec96c31ff4b13269a64b489f43e13c09695081a764583dd1b37",
+      "arch": "arm64",
+      "signing": "local ad-hoc; not notarized",
+      "builtAt": "2026-10-09T14:33:28.660Z"
+    },
+    "user_visual_acceptance": "pending"
+  },
+  "sensor_zoom": {
+    "completed_at": "2026-10-09T21:51:35+07:00",
+    "installed_app": "/Users/macos/Applications/Topeye 0.9.1.app",
+    "range": [
+      1,
+      8
+    ],
+    "ego_color": "#da291c",
+    "frontend_tests": 174,
+    "typecheck_exit": 0,
+    "package_exit": 0,
+    "desktop_zoom_exit": 0,
+    "evidence": "planning/11_2026-10-09_xosc-map-import/evidence/zoom"
+  },
+  "scene_detail": {
+    "completed_at": "2026-10-10T09:13:41+07:00",
+    "genuine_vf3": true,
+    "weather_engine": "Three.js presentation using CARLA0.9.15 preset values",
+    "chatbot_integrated": false,
+    "live_gap_m_scene0103": {
+      "t5": 38.3,
+      "t10": 14.6
+    },
+    "user_visual_acceptance": "pending owner observation",
+    "evidence": "planning/12_2026-10-09_scene-detail/evidence"
+  },
+  "stop_region_patch": {
+    "completed_at": "2026-10-10T09:28:54+07:00",
+    "semantic": "stop_line is stoppingarea, not whitepavementpaint",
+    "source_authority_changed": false,
+    "visual_scene": "scene-0553",
+    "visual_time": 0,
+    "evidence": "planning/13_2026-10-10_stop-region/evidence"
+  },
+  "environment_contact_investigation": {
+    "timestamp": "2026-10-10T09:40:24+07:00",
+    "status": "root_causes_measured_fix_not_implemented",
+    "flat_road_vs_annotation_z": true,
+    "estimated_building_overlap_tracks": {
+      "scene-0061": 2,
+      "scene-0655": 11,
+      "scene-0757": 1,
+      "scene-0916": 2
+    },
+    "source_poses_changed": false,
+    "version_changed": false
+  },
+  "map_polish_verification": {
+    "timestamp": "2026-10-10T15:20:28+07:00",
+    "scope": "0.12.1 map polish & faster load (plan16)",
+    "backend_tests": {
+      "total": 623,
+      "pass": 623,
+      "fail": 0,
+      "skip": 0
+    },
+    "frontend_tests": {
+      "total": 279,
+      "pass": 279,
+      "fail": 0,
+      "skip": 0
+    },
+    "typecheck_lint_package_exit": 0,
+    "load_ms": {
+      "before": {
+        "dataset_open": 7749,
+        "switch_median": 4591,
+        "revisit_median": 4555
+      },
+      "after": {
+        "dataset_open": 5074,
+        "switch_median": 3157,
+        "revisit_median": 1177
+      }
+    },
+    "backend_10_scenes_s": {
+      "before": 31.71,
+      "after": 18.12
+    },
+    "byte_identical_scenes": "10/10",
+    "map_stop_line_paths": 0,
+    "header_buttons": "210x34 @1360, 168x34 @1050",
+    "trees_on_road_shown": 0,
+    "regression_gates": "plan15 PASS (attempt1 window closed, retry PASS), imported PASS, legacy PASS",
+    "evidence": "planning/16_2026-10-10_map-load-polish/evidence"
+  },
+  "vehicle_contact_verification": {
+    "timestamp": "2026-10-10T15:46:15+07:00",
+    "scope": "0.12.2 source vehicle display contact (plan17)",
+    "frontend_tests": {
+      "total": 282,
+      "pass": 282,
+      "fail": 0,
+      "skip": 0
+    },
+    "backend_scoped_tests": {
+      "total": 15,
+      "pass": 15,
+      "fail": 0,
+      "skip": 0
+    },
+    "full_backend_unchanged_baseline_tests": 623,
+    "source_vehicle_poses": 13307,
+    "source_scenes": 10,
+    "max_rotated_support_error_m": 4.440892098500626e-16,
+    "source_mutations": 0,
+    "import_replay_xyz_changes": 0,
+    "installed_renderer_errors": 0,
+    "installed_metrics": {
+      "frames": 1201,
+      "p50": 8.30000000000291,
+      "p95": 9.299999999988358,
+      "fps": 120.1
+    },
+    "imported_desktop": "PASS",
+    "typecheck_build_package_signature_exit": 0,
+    "evidence": "planning/17_2026-10-10_vehicle-contact/evidence",
+    "limitations": "estimated single display surface; approximate axle support; not exact tire/suspension/multilevel physics"
   }
 }

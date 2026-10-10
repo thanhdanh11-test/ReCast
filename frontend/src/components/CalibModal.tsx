@@ -27,9 +27,9 @@ export const CalibModal: React.FC<CalibModalProps> = ({ report, onClose }) => {
     >
       <div
         style={{
-          backgroundColor: '#1e212b',
+          backgroundColor: '#0c0c0c',
           borderRadius: '8px',
-          border: '1px solid #33394a',
+          border: '1px solid #1f2937',
           padding: '20px 24px',
           width: '420px',
           boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
@@ -82,7 +82,7 @@ export const CalibModal: React.FC<CalibModalProps> = ({ report, onClose }) => {
 
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid #33394a', color: '#94a3b8', textAlign: 'left' }}>
+            <tr style={{ borderBottom: '1px solid #1f2937', color: '#94a3b8', textAlign: 'left' }}>
               <th style={{ padding: '8px 4px' }}>Camera</th>
               <th style={{ padding: '8px 4px' }}>dt (ms)</th>
               <th style={{ padding: '8px 4px' }}>Status</th>

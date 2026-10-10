@@ -42,11 +42,11 @@
   <div class="row"><button id="play">▶</button><input id="frame" type="range" min="0" value="0">
     <span id="frameLabel">0</span></div>
   <label><input type="checkbox" id="showGround" checked> Mặt đường (vạch sơn từ LiDAR)</label>
-  <label><input type="checkbox" id="showStatic" checked> Nhà / cây (voxel)</label>
+  <label><input type="checkbox" id="showStatic" checked> Nhà / cây</label>
   <label><input type="checkbox" id="showActors" checked> Xe / người</label>
   <label style="margin-left: 16px;"><input type="checkbox" id="useLibraryActors" checked> Mẫu thư viện / Khối hộp</label>
   <label><input type="checkbox" id="showEgo" checked> Quỹ đạo ego</label>
-  <div class="row"><span>LiDAR mô phỏng</span><select id="run"><option value="">tắt</option></select></div>
+  <div class="row"><span>Run / môi trường</span><select id="run"><option value="">tắt</option></select></div>
   <div class="row"><button id="follow">Về xe ego</button><button id="top">Nhìn từ trên</button></div>
   <details open><summary>Môi trường</summary>
     <label>Thời tiết <select id="preset"><option value="day">Ngày</option><option value="night">Đêm</option><option value="rain">Mưa</option><option value="fog">Sương</option><option value="dusk">Hoàng hôn</option></select></label>
@@ -86,7 +86,7 @@
     <div id="jobStatus" aria-live="polite"></div><div id="gallery"></div>
   </details>
   <details><summary>Lớp nền</summary>
-    <label><select id="background"><option value="voxel">Voxel</option><option value="splat" disabled>Ảnh thật (splat)</option></select></label>
+    <label><select id="background"><option value="voxel">Voxel</option><option value="splat" disabled>Điểm LiDAR màu</option><option value="msplat" disabled>Ảnh thật – msplat (mới, nét)</option><option value="trained" disabled>Ảnh thật – bản cũ 15 phút</option></select></label>
     <label><input id="photoGround" type="checkbox" disabled>Mặt đường ảnh thật</label>
   </details>
   <div id="legend"></div>
@@ -105,6 +105,11 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PLYLoader } from "three/addons/loaders/PLYLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
+import { Sky } from "three/addons/objects/Sky.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 const COLORS = { car: "#4f8ef7", truck: "#f7a64f", bus: "#c04ff7", trailer: "#a8743c",
   construction_vehicle: "#f7e14f", pedestrian: "#ff4f6d", motorcycle: "#4ff7c8",
@@ -115,6 +120,11 @@ const status = (text) => { $("status").textContent = text; };
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+// Game-style look: filmic tone mapping + soft sun shadows (ground truth is unaffected).
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $("view").appendChild(renderer.domElement);
 const world = new THREE.Scene();
 world.background = new THREE.Color("#1a2029");
@@ -126,7 +136,58 @@ const ambient = new THREE.HemisphereLight("#dfe8ff", "#30343a", 1.6);
 world.add(ambient);
 const sun = new THREE.DirectionalLight("#ffffff", 1.6);
 sun.position.set(40, -30, 80);
-world.add(sun);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, {left: -90, right: 90, top: 90, bottom: -90, near: 1, far: 600});
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.04;
+world.add(sun, sun.target);
+
+// Physical sky: background + image-based lighting rebuilt whenever the sun moves.
+const sky = new Sky();
+sky.scale.setScalar(4000);
+Object.assign(sky.material.uniforms.turbidity, {value: 6});
+Object.assign(sky.material.uniforms.rayleigh, {value: 1.6});
+sky.material.uniforms.up.value.set(0, 0, 1);
+const skyScene = new THREE.Scene();
+skyScene.add(sky);
+const pmrem = new THREE.PMREMGenerator(renderer);
+let skyTarget = null;
+function updateSky(direction, night) {
+  sky.material.uniforms.sunPosition.value.copy(direction);
+  sky.visible = !night;
+  if (skyTarget) skyTarget.dispose();
+  skyTarget = night ? null : pmrem.fromScene(skyScene, 0.02);
+  world.environment = skyTarget ? skyTarget.texture : null;
+  world.environmentIntensity = 0.8;
+}
+world.add(sky);
+
+// Shadows + alpha-tested foliage for every loaded mesh.
+function prepareMeshes(root, {cast = true, receive = true} = {}) {
+  root.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = cast;
+    child.receiveShadow = receive;
+    for (const m of Array.isArray(child.material) ? child.material : [child.material]) {
+      if (!m) continue;
+      if (m.map && (m.transparent || m.alphaMap || m.alphaTest > 0)) {
+        m.alphaTest = Math.max(m.alphaTest, 0.45);
+        m.transparent = false;
+        m.depthWrite = true;
+        m.side = THREE.DoubleSide;
+      }
+      m.needsUpdate = true;
+    }
+  });
+}
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(world, camera));
+const gtao = new GTAOPass(world, camera, innerWidth, innerHeight);
+gtao.updateGtaoMaterial({radius: 1.2, distanceExponent: 1.5, thickness: 2, scale: 1.2});
+composer.addPass(gtao);
+composer.addPass(new OutputPass());
 
 // Render on demand only: an idle map costs no GPU time.
 let dirty = true;
@@ -135,6 +196,7 @@ controls.addEventListener("change", redraw);
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   redraw();
@@ -225,7 +287,9 @@ async function loadGround(layout) {
   geometry.computeVertexNormals();
   const material = new THREE.MeshStandardMaterial({ map: await groundTexture(layout),
     roughness: 0.95, side: THREE.DoubleSide });
-  return new THREE.Mesh(geometry, material);
+  const groundMesh = new THREE.Mesh(geometry, material);
+  groundMesh.receiveShadow = true;
+  return groundMesh;
 }
 
 async function loadStatic(layout) {
@@ -330,6 +394,7 @@ async function attachLibraryModels(actorDataList, libraryGroup, frameTimes) {
       modelWrapper.rotation.x = Math.PI / 2;
       scaleGroup.add(modelWrapper);
       const model = SkeletonUtils.clone(gltf.scene);
+      prepareMeshes(model, {receive: false});
       modelWrapper.add(model);
 
       if (asset.paint_material && item.actor.color && Array.isArray(item.actor.color) && item.actor.color.length === 3) {
@@ -476,7 +541,9 @@ async function main() {
     span.textContent = label;
     $("legend").appendChild(span);
   }
+  const runInfo = new Map();
   function addRun(info) {
+    runInfo.set(info.name, {...info, environment_glb: info.environment_glb ?? (info.environment_bytes > 0)});
     if ([...$("run").options].some(o => o.value === info.name)) return;
     const option = document.createElement("option");
     option.value = info.name;
@@ -654,11 +721,74 @@ async function main() {
   const rain = new THREE.LineSegments(rainGeometry,
     new THREE.LineBasicMaterial({color: "#c5d8ee", transparent: true, opacity: .4}));
   world.add(rain);
-  let photoTexture = null, splat = null, paintVersion = 0;
+  let photoTexture = null, splat = null, trainedSplat = null, msplatSplat = null, sparkRenderer = null, paintVersion = 0;
+  let webEnvironment = null, environmentVersion = 0;
+  const environmentStatus = document.createElement("div");
+  environmentStatus.id = "environmentStatus";
+  environmentStatus.setAttribute("role", "status");
+  $("run").parentElement.after(environmentStatus);
+  function disposeEnvironment(root) {
+    const geometries = new Set(), materials = new Set(), textures = new Set();
+    root.traverse(obj => {
+      if (obj.geometry) geometries.add(obj.geometry);
+      for (const material of (Array.isArray(obj.material) ? obj.material : [obj.material])) {
+        if (!material) continue;
+        materials.add(material);
+        Object.values(material).forEach(value => { if (value?.isTexture) textures.add(value); });
+      }
+    });
+    geometries.forEach(value => value.dispose());
+    materials.forEach(value => value.dispose());
+    textures.forEach(value => value.dispose());
+  }
+  function backgroundVisibility() {
+    const show = $("showStatic").checked;
+    const mode = $("background").value;
+    // The trained splat is a photo-real alternative to the Blender environment of the run.
+    const blender = webEnvironment && mode !== "trained" && mode !== "msplat";
+    statics.visible = show && !blender && mode === "voxel";
+    if (splat) splat.visible = show && !blender && mode === "splat";
+    if (trainedSplat) trainedSplat.visible = show && mode === "trained";
+    if (msplatSplat) msplatSplat.visible = show && mode === "msplat";
+    if (webEnvironment) webEnvironment.visible = show && blender;
+    redraw();
+  }
+  async function loadRunEnvironment() {
+    const version = ++environmentVersion, run = state.run;
+    if (webEnvironment) {
+      world.remove(webEnvironment); disposeEnvironment(webEnvironment); webEnvironment = null;
+    }
+    backgroundVisibility();
+    environmentStatus.textContent = "";
+    if (!runInfo.get(run)?.environment_glb) return;
+    environmentStatus.textContent = `Đang tải môi trường ${run}…`;
+    try {
+      const gltf = await gltfLoader.loadAsync(`${scene}/runs/${encodeURIComponent(run)}/environment.glb`);
+      if (version !== environmentVersion) { disposeEnvironment(gltf.scene); return; }
+      webEnvironment = gltf.scene;
+      prepareMeshes(webEnvironment);
+      webEnvironment.name = "run-environment";
+      webEnvironment.rotation.x = Math.PI / 2;
+      world.add(webEnvironment);
+      environmentStatus.textContent = `Môi trường ${run} đã tải`;
+      backgroundVisibility();
+    } catch (error) {
+      if (version !== environmentVersion) return;
+      environmentStatus.textContent = `Lỗi môi trường ${run}: ${error.message}`;
+      backgroundVisibility();
+    }
+  }
+  $("run").addEventListener("change", loadRunEnvironment);
   const splatOption = $("background").querySelector('[value="splat"]');
   splatOption.disabled = !metadata.files.includes("static_splat.ply");
   splatOption.title = splatOption.disabled ? "Chưa có static_splat.ply" : "Điểm LiDAR tô màu";
   $("background").title = splatOption.title;
+  const msplatOption = $("background").querySelector('[value="msplat"]');
+  msplatOption.disabled = !metadata.files.includes("msplat_splat.ply");
+  msplatOption.title = msplatOption.disabled ? "Chưa có msplat_splat.ply" : "msplat 6 camera COLMAP, 8 phút";
+  const trainedOption = $("background").querySelector('[value="trained"]');
+  trainedOption.disabled = !metadata.files.includes("trained_splat.ply");
+  trainedOption.title = trainedOption.disabled ? "Chưa có trained_splat.ply (chạy topeye-sim-build)" : "Splat tối ưu 15 phút từ ảnh thật";
   $("photoGround").disabled = !metadata.files.includes("ground_photo.png");
   $("photoGround").title = $("photoGround").disabled ? "Chưa có ground_photo.png" : "Ảnh thật ban ngày";
   if (!$("photoGround").disabled) {
@@ -683,10 +813,13 @@ async function main() {
     const cloud = Math.max(w.cloudiness, w.precipitation) / 100;
     world.background.set(night ? "#080f20" : "#a8cce8");
     if (!night) world.background.lerp(new THREE.Color("#758597"), cloud);
+    updateSky(new THREE.Vector3(Math.cos(altitude)*Math.cos(azimuth), Math.cos(altitude)*Math.sin(azimuth),
+      Math.sin(altitude)), night || cloud > .6);
     world.fog = w.fog_density ? new THREE.Fog(world.background, w.fog_distance,
       w.fog_distance + 3000 / w.fog_density) : null;
     sun.position.set(Math.cos(altitude)*Math.cos(azimuth)*100,
       Math.cos(altitude)*Math.sin(azimuth)*100, Math.sin(altitude)*100);
+    sunDirection.copy(sun.position).normalize();
     sun.intensity = night ? 0 : 2*(1 - .8*w.cloudiness/100);
     sun.color.set(w.sun_altitude_angle < 15 ? "#ffbb78" : "#fff5e7");
     ambient.intensity = night ? .15 : 1.3;
@@ -762,19 +895,45 @@ async function main() {
   $("background").addEventListener("change", guarded(async () => {
     if ($("background").value === "splat" && !splat) {
       const {SparkRenderer, SplatMesh} = await import("@sparkjsdev/spark");
-      world.add(new SparkRenderer({renderer, onDirty: redraw}));
+      if (!sparkRenderer) { sparkRenderer = new SparkRenderer({renderer, onDirty: redraw}); world.add(sparkRenderer); }
       splat = new SplatMesh({url: `${scene}/static_splat.ply`, onLoad: redraw});
       world.add(splat);
       await splat.initialized;
     }
-    statics.visible = $("showStatic").checked && $("background").value === "voxel";
-    if (splat) splat.visible = $("showStatic").checked && $("background").value === "splat";
-    redraw();
+    if ($("background").value === "msplat" && !msplatSplat) {
+      const {SparkRenderer, SplatMesh} = await import("@sparkjsdev/spark");
+      if (!sparkRenderer) { sparkRenderer = new SparkRenderer({renderer, onDirty: redraw}); world.add(sparkRenderer); }
+      $("status").textContent = "Đang tải splat msplat…";
+      msplatSplat = new SplatMesh({url: `${scene}/msplat_splat.ply`, onLoad: redraw});
+      world.add(msplatSplat);
+      await msplatSplat.initialized;
+      $("status").textContent = "";
+    }
+    if ($("background").value === "trained" && !trainedSplat) {
+      const {SparkRenderer, SplatMesh} = await import("@sparkjsdev/spark");
+      if (!sparkRenderer) { sparkRenderer = new SparkRenderer({renderer, onDirty: redraw}); world.add(sparkRenderer); }
+      $("status").textContent = "Đang tải splat ảnh thật…";
+      trainedSplat = new SplatMesh({url: `${scene}/trained_splat.ply`, onLoad: redraw});
+      world.add(trainedSplat);
+      await trainedSplat.initialized;
+      $("status").textContent = "";
+    }
+    backgroundVisibility();
   }));
+  // ?run=<name> preselects a run and its Blender environment (shareable link).
+  const runParam = new URLSearchParams(location.search).get("run");
+  if (runParam && [...$("run").options].some(o => o.value === runParam)) {
+    $("run").value = runParam;
+    $("run").dispatchEvent(new Event("change"));
+  }
+  // ?bg=trained|splat|voxel preselects the background (shareable link).
+  const bgParam = new URLSearchParams(location.search).get("bg");
+  if (bgParam && [...$("background").options].some(o => o.value === bgParam && !o.disabled)) {
+    $("background").value = bgParam;
+    $("background").dispatchEvent(new Event("change"));
+  }
   $("showStatic").addEventListener("change", () => {
-    statics.visible = $("showStatic").checked && $("background").value === "voxel";
-    if (splat) splat.visible = $("showStatic").checked && $("background").value === "splat";
-    redraw();
+    backgroundVisibility();
   });
   async function post(endpoint, body) {
     const response = await fetch(endpoint, {method: "POST", headers: {"Content-Type":"application/json"},
@@ -853,6 +1012,10 @@ async function main() {
 }
 
 const clock = new THREE.Clock();
+const sunOffset = new THREE.Vector3(), sunDirection = new THREE.Vector3(0.4, -0.3, 0.8).normalize();
+// AO only for meshes: Gaussian splats have no reliable depth for it.
+const usePostFx = () => !["trained", "msplat"].includes(document.querySelector("#background")?.value)
+  && !document.querySelector("#background")?.value?.includes("splat");
 renderer.setAnimationLoop((time) => {
   const delta = clock.getDelta();
   if (state.animateRain) state.animateRain(time);
@@ -862,7 +1025,9 @@ renderer.setAnimationLoop((time) => {
   }
   // OrbitControls.update() returns true while damping still moves the camera.
   if (controls.update() || dirty) {
-    renderer.render(world, camera);
+    sun.target.position.copy(controls.target);
+    sun.position.copy(controls.target).add(sunOffset.copy(sunDirection).multiplyScalar(250));
+    if (usePostFx()) composer.render(); else renderer.render(world, camera);
     dirty = false;
   }
 });

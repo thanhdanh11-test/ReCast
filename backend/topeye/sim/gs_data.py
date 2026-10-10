@@ -89,7 +89,8 @@ def _write_init_points(path, xyz, colors):
 
 def export_gs_dataset(adapter, scene: str, out_dir: Path, scale: float = 0.5,
                       max_hz: float = 12.0, test_every: int = 8,
-                      max_init_points: int = 1_000_000) -> dict:
+                      max_init_points: int = 1_000_000,
+                      mask_tokens: set[str] | None = None) -> dict:
     """Export local static supervision; publish cameras.json only after all assets."""
     if not np.isfinite(scale) or not 0 < scale <= 1:
         raise ValueError("scale must be finite and in (0, 1]")
@@ -127,6 +128,9 @@ def export_gs_dataset(adapter, scene: str, out_dir: Path, scale: float = 0.5,
             raise ValueError(f"Cannot read camera with declared dimensions: {image_path}")
         image = cv2.resize(image, (calib.width, calib.height), interpolation=cv2.INTER_AREA)
         boxes = boxes_by_sweep[sweep.frame_id]
+        if mask_tokens is not None:
+            # Only dynamic actors are removed; static ones stay as photographed background.
+            boxes = [b for b in boxes if getattr(b, "instance_token", None) in mask_tokens]
         ego_mask = np.zeros((calib.height, calib.width), np.uint8)
         ego_rows = round(calib.height * EGO_IMAGE_MASK.get(name, 0))
         if ego_rows:

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>StreetGS 30.000 — splat và mesh thử nghiệm</title>
+<style>
+html,body{margin:0;height:100%;background:#a9c3db;font:14px system-ui}
+#ui{position:fixed;top:10px;left:10px;background:#1c2330ee;color:white;padding:12px;border-radius:8px;z-index:2;max-width:360px}
+button,select{font:inherit;margin:3px;padding:5px}small{display:block;margin-top:7px}a{color:#a4dbff}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/","@sparkjsdev/spark":"https://sparkjs.dev/releases/spark/2.3.1/spark.module.js"}}</script>
+</head><body>
+<div id="ui"><b>scene-0061 · StreetGS 30.000 vòng</b><br>
+<label for="mode">Hiển thị</label> <select id="mode"><option value="splat">Splat nền (251 MB)</option><option value="mesh">Mesh TSDF low poly</option></select><br>
+<button id="ego">Tầm mắt xe</button><button id="side">Lề đường</button><button id="top">Nhìn từ trên</button>
+<div id="status" role="status">Đang tải splat…</div>
+<small>Mesh thử nghiệm. Texture còn ánh sáng ban ngày; chưa dùng train hoặc đổi thời tiết.</small>
+<small>Kéo trái: xoay · phải: dời · cuộn: zoom · W/S: tiến/lùi.</small>
+<small><a href="../">Bản 5.000 vòng</a> · <a href="lowpoly.glb" download>Tải mesh GLB</a> · <a href="compare_000_0.jpg">Ảnh splat / mesh</a></small>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
+const renderer=new THREE.WebGLRenderer({antialias:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));document.body.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color("#a9c3db");
+const camera=new THREE.PerspectiveCamera(60,1,.05,3000);camera.up.set(0,-1,0);
+scene.add(new SparkRenderer({renderer}));
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;
+const status=document.querySelector("#status"),mode=document.querySelector("#mode");
+const map=new SplatMesh({url:"background.ply"});scene.add(map);
+let meshPromise;
+const splatReady=map.initialized;
+async function display(){
+ const selected=mode.value;map.visible=selected==="splat";
+ if(meshPromise)meshPromise.then(mesh=>{mesh.visible=mode.value==="mesh";}).catch(()=>{});
+ status.textContent=selected==="splat"?"Đang tải splat…":"Đang tải mesh…";
+ try{
+  if(selected==="splat")await splatReady;
+  else{
+   meshPromise??=new GLTFLoader().loadAsync("lowpoly.glb").then(gltf=>{scene.add(gltf.scene);return gltf.scene;});
+   const mesh=await meshPromise;mesh.visible=mode.value==="mesh";
+  }
+  if(mode.value===selected)status.textContent=selected==="splat"?"Đã tải splat · 1.010.984 Gaussian":"Đã tải mesh · thử nghiệm";
+ }catch(error){if(mode.value===selected)status.textContent=`Không tải được ${selected}: ${error.message}`;}
+}
+mode.onchange=display;display();
+function view(position,target){camera.position.set(...position);controls.target.set(...target);controls.update();}
+const presets={ego:[[0,0,0],[0,0,12]],side:[[-6,-2.5,20],[2,-1.5,35]],top:[[0,-90,40],[0,0,40]]};
+for(const name in presets)document.getElementById(name).onclick=()=>view(...presets[name]);
+addEventListener("keydown",event=>{
+ if(event.target.matches("select,input,textarea")||!['w','s'].includes(event.key.toLowerCase()))return;
+ const direction=new THREE.Vector3().subVectors(controls.target,camera.position).setY(0).normalize().multiplyScalar(event.key.toLowerCase()==="w"?2:-2);
+ camera.position.add(direction);controls.target.add(direction);
+});
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+addEventListener("resize",resize);resize();view(...presets.ego);
+renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
+</script></body></html>

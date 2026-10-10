@@ -52,7 +52,7 @@ export const ThreeView: React.FC<ThreeViewProps> = ({
     const height = container.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0f1117');
+    scene.background = new THREE.Color('#050505');
     sceneRef.current = scene;
 
     // LiDAR convention: x right, y front, z up
@@ -305,7 +305,7 @@ export const ThreeView: React.FC<ThreeViewProps> = ({
       hlGeom.computeBoundingSphere();
       const hlMat = new THREE.PointsMaterial({
         size: 0.28,
-        color: 0x38bdf8,
+        color: 0x00f3ff,
         sizeAttenuation: true,
       });
       const hlMesh = new THREE.Points(hlGeom, hlMat);
@@ -359,7 +359,7 @@ export const ThreeView: React.FC<ThreeViewProps> = ({
       );
 
       const colorHex = isSelected
-        ? 0x38bdf8
+        ? 0x00f3ff
         : box.label.includes('human')
         ? 0xeab308
         : 0x22c55e;
@@ -424,7 +424,7 @@ export const ThreeView: React.FC<ThreeViewProps> = ({
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: '#0f1117',
+        backgroundColor: '#050505',
       }}
     >
       {/* Title overlay */}
@@ -433,12 +433,12 @@ export const ThreeView: React.FC<ThreeViewProps> = ({
           position: 'absolute',
           top: 12,
           left: 12,
-          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
           padding: '4px 10px',
           borderRadius: '4px',
           fontSize: '12px',
           fontWeight: 'bold',
-          color: '#38bdf8',
+          color: '#00f3ff',
           pointerEvents: 'none',
         }}
       >
@@ -453,7 +453,7 @@ export const ThreeView: React.FC<ThreeViewProps> = ({
           onClick={resetCamera}
           title="Reset Camera"
           style={{
-            backgroundColor: 'rgba(30, 35, 48, 0.85)',
+            backgroundColor: 'rgba(26, 26, 26, 0.85)',
             color: '#cbd5e1',
             border: '1px solid #333a4d',
             borderRadius: '4px',

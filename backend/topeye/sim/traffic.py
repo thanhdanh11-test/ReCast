@@ -13,7 +13,10 @@ TRAFFIC_DEFAULTS = {"mode": "replay", "density": 1.0, "speed_scale": 1.0,
                     "pedestrians": 1.0, "keep_parked": True, "seed": 0,
                     "distance_to_leading": 2.5, "speed_difference_percent": 0.0,
                     "random_lanechange_percent": 0.0, "max_accel": 3.0,
-                    "max_decel": 6.0, "max_lateral_accel": 4.0}
+                    "max_decel": 6.0, "max_lateral_accel": 4.0, "preset": "default"}
+VN_CLASS_MIX = {"motorcycle": 0.75, "car": 0.15, "bicycle": 0.04, "truck": 0.03, "bus": 0.03}
+VN_SIZES = {"motorcycle": (0.70, 1.96, 1.71), "bicycle": (0.69, 1.77, 1.71),
+            "car": (1.94, 4.61, 1.64), "truck": (2.29, 5.91, 2.56), "bus": (2.91, 12.09, 3.61)}
 VEHICLES = {"car", "truck", "bus", "trailer", "construction_vehicle", "motorcycle", "bicycle"}
 RANGES = {"density": (0, 3), "speed_scale": (0.5, 2), "speed_jitter": (0, 0.5),
           "lane_change_rate": (0, 1), "aggressiveness": (0, 1), "pedestrians": (0, 3),
@@ -34,6 +37,8 @@ def validate_params(params):
         value = result[key]
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not lo <= value <= hi:
             raise ValueError(f"traffic.{key} must be in [{lo}, {hi}]")
+    if result["preset"] not in ("default", "vn"):
+        raise ValueError("traffic.preset must be default or vn")
     if result["mode"] not in ("replay", "generated"):
         raise ValueError("traffic.mode must be replay or generated")
     if type(result["keep_parked"]) is not bool:
@@ -270,6 +275,7 @@ def generate_traffic(layout: dict, params: dict, *, scene_dir: Path | None = Non
         for actor in layout["actors"]:
             actor.setdefault("origin", "recorded")
         return layout["actors"]
+    vn = params["preset"] == "vn"
     rng = np.random.default_rng(params["seed"] % (1 << 64))
     road = _road(layout, scene_dir)
     frames = {f["index"]: f for f in layout["frames"]}
@@ -286,15 +292,31 @@ def generate_traffic(layout: dict, params: dict, *, scene_dir: Path | None = Non
                         (key["center"], key["yaw"], actor["size"]))
     paths = _paths(layout, road)
     moving = [a for a in layout["actors"] if a["label"] in VEHICLES and _distance(a) >= 1]
-    count = round(params["density"] * len(moving))
+    count = round(params["density"] * len(moving) * (3 if vn else 1))
+    classes = rng.choice(list(VN_CLASS_MIX), count, p=list(VN_CLASS_MIX.values())) if vn else []
+    completed_slots = set()
     times = np.array([f["timestamp_us"] for f in layout["frames"]], dtype=float) / 1e6
     times -= times[0]
     history = []
     for index in range(count * 20 if paths and moving else 0):
         if len(history) >= count:
             break
+        if vn and index // 20 in completed_slots:
+            continue
         path = paths[int(rng.integers(len(paths)))]
         template = moving[int(rng.integers(len(moving)))]
+        ground_z = template["keys"][0]["center"][2] - template["size"][2] / 2
+        lateral = amplitude = 0.0
+        wavelength = 30.0
+        if vn:
+            label = str(classes[index // 20])
+            w, length, height = VN_SIZES[label]
+            size = np.array([length, w, height]) * rng.uniform(0.92, 1.08, 3)
+            template = {"label": label, "size": size.tolist(), "keys": template["keys"]}
+            if label in ("motorcycle", "bicycle"):
+                lateral = float(rng.uniform(-1.4, 1.4))
+                amplitude = float(rng.uniform(0, 0.8))
+                wavelength = float(rng.uniform(20, 40))
         s = float(rng.uniform(0, path.distance[-1]))
         speed = target = path.speed * params["speed_scale"] * rng.uniform(
             1 - params["speed_jitter"], 1 + params["speed_jitter"]) * (1 - params["speed_difference_percent"] / 100)
@@ -306,23 +328,38 @@ def generate_traffic(layout: dict, params: dict, *, scene_dir: Path | None = Non
         duration = max(3 - 1.5 * params["aggressiveness"],
                        np.sqrt(5.774 * 3.5 / params["max_lateral_accel"]) * 1.2)
         headway = 1.5 - 0.9 * params["aggressiveness"]
-        keys, samples = [], []
+        two_wheeler = vn and template["label"] in ("motorcycle", "bicycle")
+        following_gap = 1.0 if vn and template["label"] == "motorcycle" else params["distance_to_leading"]
+        if vn and template["label"] == "motorcycle":
+            headway = 0.8
+        keys, samples, lateral_samples = [], [], []
         clock = 0.0
         blend = 0.0
         pose, heading = path.sample(s)
+        if two_wheeler:
+            pose += lateral * np.array([-np.sin(heading), np.cos(heading), 0])
         for frame, time in zip(layout["frames"], times, strict=True):
             while clock < time - 1e-8:
                 dt = min(0.1, time - clock)
                 gap = np.inf
                 leader_speed = speed
-                for old_path, old_samples, old_size in history:
-                    if old_path.family == path.family and abs(old_path.offset - path.offset) < 0.1:
+                for record in history:
+                    old_path, old_samples, old_size = record[:3]
+                    overlap = abs(old_path.offset - path.offset) < 0.1
+                    if vn and template["label"] == "motorcycle":
+                        old_lateral = np.interp(clock, times[:len(old_samples)], record[3])
+                        path_center, path_yaw = path.sample(s)
+                        normal = np.array([-np.sin(path_yaw), np.cos(path_yaw)])
+                        current_lateral = float(np.dot(pose[:2] - path_center[:2], normal))
+                        overlap = (abs(old_path.offset + old_lateral - path.offset - current_lateral)
+                                   < (template["size"][1] + old_size[1]) / 2 + 0.3)
+                    if old_path.family == path.family and overlap:
                         position = np.interp(clock, times[:len(old_samples)], old_samples)
                         clearance = position - s - (template["size"][0] + old_size[0]) / 2
                         if 0 < clearance < gap:
                             gap = clearance
                             leader_speed = old_path.speed
-                desired_gap = params["distance_to_leading"] + max(0, speed * headway + speed * (speed - leader_speed) / 4)
+                desired_gap = following_gap + max(0, speed * headway + speed * (speed - leader_speed) / 4)
                 acceleration = 2 * (1 - (speed / max(target, 0.1)) ** 4 - (desired_gap / gap) ** 2)
                 speed = max(0.0, speed + np.clip(acceleration, -params["max_decel"], params["max_accel"]) * dt)
                 s += speed * dt
@@ -330,7 +367,8 @@ def generate_traffic(layout: dict, params: dict, *, scene_dir: Path | None = Non
                 if change and clock >= start:
                     # Target-lane clearance is checked during the entire lateral transition.
                     safe = True
-                    for old_path, old_samples, old_size in history:
+                    for record in history:
+                        old_path, old_samples, old_size = record[:3]
                         if old_path.family == path.family and old_path.offset == destination.offset:
                             position = np.interp(clock, times[:len(old_samples)], old_samples)
                             safe &= abs(position - s) > (template["size"][0] + old_size[0]) / 2 + params["distance_to_leading"] + speed * headway
@@ -342,6 +380,10 @@ def generate_traffic(layout: dict, params: dict, *, scene_dir: Path | None = Non
                 if change:
                     other, _ = destination.sample(min(s + lookahead, path.distance[-1]))
                     goal += blend ** 3 * (10 - 15 * blend + 6 * blend ** 2) * (other - goal)
+                if two_wheeler:
+                    _, goal_yaw = path.sample(min(s + lookahead, path.distance[-1]))
+                    offset = lateral + amplitude * np.sin(2 * np.pi * s / wavelength)
+                    goal += offset * np.array([-np.sin(goal_yaw), np.cos(goal_yaw), 0])
                 delta = goal[:2] - pose[:2]
                 bearing = np.arctan2(delta[1], delta[0]) - heading
                 steering = np.arctan2(2 * 0.6 * template["size"][0] * np.sin(bearing),
@@ -352,10 +394,18 @@ def generate_traffic(layout: dict, params: dict, *, scene_dir: Path | None = Non
                 break
             center, yaw = pose.copy(), heading
             center[2] = template["keys"][0]["center"][2]
+            if vn:
+                center[2] = ground_z + template["size"][2] / 2
             keys.append({"frame": frame["index"], "center": center.tolist(), "yaw": yaw})
             samples.append(s)
+            if vn:
+                path_center, path_yaw = path.sample(s)
+                lateral_samples.append(float(np.dot(pose[:2] - path_center[:2],
+                                                      [-np.sin(path_yaw), np.cos(path_yaw)])))
         actor = {"track": f"gen:{params['seed']}:{index}", "origin": "generated", "label": template["label"],
                  "size": list(template["size"]), "keys": keys}
+        if vn:
+            actor["rider"] = two_wheeler
         metrics = motion_metrics(layout, [actor])
         physical = (metrics["max_long_accel"] <= min(params["max_accel"], params["max_decel"])
                     and metrics["max_lat_accel"] <= params["max_lateral_accel"])
@@ -366,9 +416,12 @@ def generate_traffic(layout: dict, params: dict, *, scene_dir: Path | None = Non
             steering = np.arctan(0.6 * actor["size"][0] * dyaw / np.maximum(distance, 1e-9))
             physical &= bool((np.abs(steering) <= np.radians(35)).all() and (dt > 0).all())
         if (_distance(actor) >= 1 and physical
-                and _safe_actor(layout, road, actor, occupied, frames, params["distance_to_leading"])):
+                and (not vn or _on_road(layout, road, [k["center"] for k in keys]).all())
+                and _safe_actor(layout, road, actor, occupied, frames, 0.001 if two_wheeler else params["distance_to_leading"])):
             actors.append(actor)
-            history.append((path, samples, template["size"]))
+            history.append((path, samples, template["size"], lateral_samples) if vn else (path, samples, template["size"]))
+            if vn:
+                completed_slots.add(index // 20)
             for key in keys:
                 occupied.setdefault(key["frame"], []).append((key["center"], key["yaw"], actor["size"]))
     pedestrians = [a for a in layout["actors"] if a["label"] == "pedestrian"]

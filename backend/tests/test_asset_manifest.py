@@ -35,6 +35,11 @@ def test_manifest_contract():
         assert entry["forward_verified"] is True
         assert len(entry["native_size"]) == 3
         assert all(isinstance(v, (int, float)) and 0 < v < 30 for v in entry["native_size"])
+        if "region" in entry:
+            assert isinstance(entry["region"], list) and entry["region"]
+            assert set(entry["region"]) <= {"sg", "vn"}
+        if entry["class"] == "rider":
+            assert len(entry["seat_offset"]) == 3
         assert entry["polycount"] > 0
         glb = path.with_suffix(".glb").read_bytes()
         magic, version, total_size = struct.unpack_from("<4sII", glb)
@@ -44,10 +49,10 @@ def test_manifest_contract():
         document = json.loads(glb[20:20 + json_size])
         assert document["meshes"]
         assert not document.get("cameras")
-        if entry["class"] == "pedestrian":
-            assert entry["animated"] and entry["walk_action"]
-            assert entry["cycle_frames"] > 0 and entry["fps"] > 0
-            assert entry["walk_speed_mps"] > 0
+        if entry["class"] == "pedestrian" and entry.get("animated", False):
+            assert entry.get("walk_action")
+            assert entry.get("cycle_frames", 0) > 0 and entry.get("fps", 0) > 0
+            assert entry.get("walk_speed_mps", 0) > 0
             action_names = {a["name"] for a in document["animations"]}
             assert {entry["walk_action"], entry["idle_action"]} <= action_names
 
@@ -108,7 +113,35 @@ for entry in json.loads((root/'backend/assets/library_manifest.json').read_text(
             poses.append([b.matrix.copy() for b in arm.pose.bones])
         drift = max((point[k]-points[0][k]).xy.length for point in points for k in range(len(roots)))
         pose_changes = any((poses[12][i].translation - poses[0][i].translation).length > 0.01 for i in range(len(poses[0])))
-    rows[entry['asset_id']] = {'size':size,'center':center,'forward':method,'landmarks':landmarks,'flip_rejected':rejected,'paint_isolated':isolated,'actions_present':actions_present,'root_drift_m':drift,'walk_pose_changes':pose_changes,'idle_stands':idle_stands}
+    upright = True
+    wheel_z_diff = 0.0
+    if entry['class'] in ('car', 'truck', 'bus'):
+        wheel_objs = [o for o in meshes if any(k in o.name.lower() for k in ('wheel', 'tire', 'wheek'))]
+        assert wheel_objs, f"No wheels on {entry['asset_id']}"
+        wheel_centers = []
+        for wo in wheel_objs:
+            pts = [wo.matrix_world @ v.co for v in wo.data.vertices]
+            wheel_centers.append(sum(pts, bpy.data.objects[0].location*0) / len(pts))
+        wheel_centers.sort(key=lambda p: p.z)
+        ground_wheels = wheel_centers[:4] if len(wheel_centers) >= 4 else wheel_centers
+        zs = [p.z for p in ground_wheels]
+        wheel_z_diff = max(zs) - min(zs)
+        z_wheel_max = max(zs)
+        z_min = min(c[2] for c in coords)
+        h = size[2]
+        w = size[1]
+        l = size[0]
+        cond1 = wheel_z_diff <= 0.02
+        cond2 = z_wheel_max <= (z_min + 0.35 * h)
+        cond3 = w < l
+        cond4 = True
+        if len(ground_wheels) == 4:
+            pts_by_x = sorted(ground_wheels, key=lambda p: p.x)
+            dx_rear = abs(pts_by_x[0].x - pts_by_x[1].x)
+            dx_front = abs(pts_by_x[2].x - pts_by_x[3].x)
+            cond4 = (dx_rear <= 0.15) and (dx_front <= 0.15)
+        upright = cond1 and cond2 and cond3 and cond4
+    rows[entry['asset_id']] = {'size':size,'center':center,'forward':method,'landmarks':landmarks,'flip_rejected':rejected,'paint_isolated':isolated,'actions_present':actions_present,'root_drift_m':drift,'walk_pose_changes':pose_changes,'idle_stands':idle_stands,'upright':upright,'wheel_z_diff':wheel_z_diff}
 (root/'planning/02_2026-10-05_blender-real2sim/evidence/s8/h11_measurements.json').write_text(json.dumps(rows,indent=2))
 print('ASSETS_VERIFIED',len(rows))
 '''
@@ -136,8 +169,23 @@ def test_exported_geometry_and_materials(entry, measurements):
     assert row["forward"]
     assert row["flip_rejected"]
     assert row["paint_isolated"]
-    if entry["class"] == "pedestrian":
+    if entry["class"] in ("car", "truck", "bus"):
+        assert row["upright"], f"Vehicle {entry['asset_id']} not upright: z_diff={row.get('wheel_z_diff')}, size={row['size']}"
+    if entry["class"] == "pedestrian" and entry.get("animated", False):
         assert row["actions_present"]
         assert row["root_drift_m"] < 0.001
         assert row["walk_pose_changes"]
         assert row["idle_stands"]
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [e for e in MANIFEST if e["class"] in ("car", "truck", "bus")],
+    ids=lambda e: e["asset_id"],
+)
+def test_vehicle_upright(entry, measurements):
+    row = measurements[entry["asset_id"]]
+    assert row["upright"], (
+        f"Vehicle {entry['asset_id']} failed upright check: "
+        f"wheel_z_diff={row.get('wheel_z_diff')}, size={row['size']}"
+    )

@@ -74,7 +74,7 @@ export const Toast: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
                   borderRadius: '4px',
                   fontFamily: 'monospace',
                   fontSize: '12px',
-                  color: '#38bdf8',
+                  color: '#00f3ff',
                   overflowX: 'auto',
                 }}
               >

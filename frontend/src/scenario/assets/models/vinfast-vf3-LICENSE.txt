@@ -1,0 +1,5 @@
+Vinfast VF3 Plus 2026 by Hoàng Huy (@danghoanghuy69)
+https://sketchfab.com/3d-models/vinfast-vf3-plus-2026-aa87e1cd1fdd42ae92e5a397e3d5b125
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Changes: centered unit bounds, +X forward/+Y up, two decimated LODs, textures removed, red body and gray trim materials. Visual proxy fitted to source actor bounds, not real VF3 measurements.

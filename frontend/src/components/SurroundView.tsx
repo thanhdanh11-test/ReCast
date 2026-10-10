@@ -146,7 +146,7 @@ export const SurroundView: React.FC<SurroundViewProps> = ({
 
     const egoGeom = new THREE.BoxGeometry(egoW, egoL, egoH);
     const egoWireGeom = new THREE.WireframeGeometry(egoGeom);
-    const egoWireMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+    const egoWireMat = new THREE.LineBasicMaterial({ color: 0x00f3ff, linewidth: 2 });
     const egoWire = new THREE.LineSegments(egoWireGeom, egoWireMat);
 
     const egoBodyMat = new THREE.MeshBasicMaterial({
@@ -451,7 +451,7 @@ export const SurroundView: React.FC<SurroundViewProps> = ({
       );
 
       const colorHex = isSelected
-        ? 0x38bdf8
+        ? 0x00f3ff
         : box.label === 'vehicle'
         ? 0x22c55e
         : 0xf59e0b;
@@ -584,12 +584,12 @@ export const SurroundView: React.FC<SurroundViewProps> = ({
           position: 'absolute',
           top: 12,
           left: 12,
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
           padding: '4px 10px',
           borderRadius: '4px',
           fontSize: '12px',
           fontWeight: 'bold',
-          color: '#38bdf8',
+          color: '#00f3ff',
           pointerEvents: 'none',
           zIndex: 10,
           display: 'flex',
@@ -615,7 +615,7 @@ export const SurroundView: React.FC<SurroundViewProps> = ({
           position: 'absolute',
           top: 12,
           right: 12,
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
           padding: '6px 12px',
           borderRadius: '6px',
           display: 'flex',
@@ -705,7 +705,7 @@ export const SurroundView: React.FC<SurroundViewProps> = ({
             position: 'absolute',
             bottom: 12,
             left: 12,
-            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
             border: '1px solid #0284c7',
             borderRadius: '6px',
             padding: '6px 10px',
@@ -715,7 +715,7 @@ export const SurroundView: React.FC<SurroundViewProps> = ({
             pointerEvents: 'none',
           }}
         >
-          <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>
+          <div style={{ fontWeight: 'bold', color: '#00f3ff' }}>
             {`${selectedBox.label} (${selectedBox.id})`}
           </div>
           <div style={{ color: '#94a3b8' }}>

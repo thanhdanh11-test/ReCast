@@ -153,7 +153,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
     const height = container.clientHeight || 400;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0f1117');
+    scene.background = new THREE.Color('#050505');
     sceneRef.current = scene;
 
     const persCamera = new THREE.PerspectiveCamera(50, width / height, 0.5, 500);
@@ -505,7 +505,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
       hlGeom.computeBoundingSphere();
       const hlMat = new THREE.PointsMaterial({
         size: 0.28,
-        color: 0x38bdf8,
+        color: 0x00f3ff,
         sizeAttenuation: true,
       });
       const hlMesh = new THREE.Points(hlGeom, hlMat);
@@ -640,7 +640,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
           // Highlight selected box: bright outline / edges (SPEC-P05 §5: "Box đang chọn có viền sáng")
           const edgesGeom = new THREE.EdgesGeometry(geom);
           const edgesMat = new THREE.LineBasicMaterial({
-            color: isSelected ? 0x38bdf8 : 0x475569,
+            color: isSelected ? 0x00f3ff : 0x475569,
             linewidth: isSelected ? 3 : 1,
           });
           const edges = new THREE.LineSegments(edgesGeom, edgesMat);
@@ -652,7 +652,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
             new THREE.Vector3(box.l / 2 + 0.8, 0, 0),
           ]);
           const headingMat = new THREE.LineBasicMaterial({
-            color: isSelected ? 0x38bdf8 : 0xef4444,
+            color: isSelected ? 0x00f3ff : 0xef4444,
             linewidth: isSelected ? 3 : 2,
           });
           const headingLine = new THREE.Line(headingGeom, headingMat);
@@ -690,7 +690,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
         geom.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
 
         const colorHex = isSelected
-          ? 0x38bdf8
+          ? 0x00f3ff
           : box.label.includes('human')
           ? 0xeab308
           : 0x22c55e;
@@ -823,7 +823,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: '#0f1117',
+        backgroundColor: '#050505',
         cursor: 'grab',
       }}
       onPointerDown={handlePointerDown}
@@ -838,13 +838,13 @@ export const BirdView: React.FC<BirdViewProps> = ({
           position: 'absolute',
           top: 10,
           left: 92,
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
           border: '1px solid #334155',
           borderRadius: '4px',
           padding: '4px 10px',
           fontSize: '11px',
           fontWeight: 'bold',
-          color: '#38bdf8',
+          color: '#00f3ff',
           pointerEvents: 'none',
           zIndex: 10,
           display: 'flex',
@@ -894,7 +894,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
           border: '1px solid #334155',
           borderRadius: '6px',
           padding: '4px 10px',
@@ -912,7 +912,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
             gap: '6px',
           }}
         >
-          Pitch: <span style={{ color: '#38bdf8', fontFamily: 'monospace', minWidth: '28px' }}>{Math.round(pitch)}°</span>
+          Pitch: <span style={{ color: '#00f3ff', fontFamily: 'monospace', minWidth: '28px' }}>{Math.round(pitch)}°</span>
           <input
             data-testid="pitch-slider"
             type="range"
@@ -924,7 +924,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
             style={{
               width: '80px',
               height: '4px',
-              accentColor: '#38bdf8',
+              accentColor: '#00f3ff',
               cursor: 'pointer',
             }}
           />
@@ -957,7 +957,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
             position: 'absolute',
             bottom: 12,
             left: 12,
-            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
             border: '1px solid #334155',
             borderRadius: '4px',
             padding: '4px 10px',
@@ -992,8 +992,8 @@ export const BirdView: React.FC<BirdViewProps> = ({
             position: 'absolute',
             bottom: 12,
             right: 12,
-            backgroundColor: 'rgba(15, 23, 42, 0.92)',
-            border: '1px solid #38bdf8',
+            backgroundColor: 'rgba(0, 0, 0, 0.92)',
+            border: '1px solid #00f3ff',
             borderRadius: '6px',
             padding: '8px 12px',
             fontSize: '11px',
@@ -1017,7 +1017,7 @@ export const BirdView: React.FC<BirdViewProps> = ({
               paddingBottom: '3px',
             }}
           >
-            <span style={{ fontWeight: 'bold', color: '#38bdf8', fontSize: '11px' }}>
+            <span style={{ fontWeight: 'bold', color: '#00f3ff', fontSize: '11px' }}>
               BOX ĐANG CHỌN (BIRD)
             </span>
             <button

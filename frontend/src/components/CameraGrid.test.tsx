@@ -88,8 +88,8 @@ describe('CameraGrid Box Selection & Highlighting (H06 contract & H11 box labels
       />
     );
 
-    // Box A has label tag with highlight color #38bdf8
-    expect(html).toContain(`fill="#38bdf8"`);
+    // Box A has label tag with highlight color #00f3ff
+    expect(html).toContain(`fill="#00f3ff"`);
     expect(html).toContain(`>car</text>`);
 
     // Box A lines are stroke-width 4
@@ -115,8 +115,8 @@ describe('CameraGrid Box Selection & Highlighting (H06 contract & H11 box labels
       />
     );
 
-    // Box B is highlighted with #38bdf8
-    expect(html).toContain(`fill="#38bdf8"`);
+    // Box B is highlighted with #00f3ff
+    expect(html).toContain(`fill="#00f3ff"`);
     expect(html).toContain(`>car</text>`);
 
     // Box A has normal color #22c55e
@@ -135,8 +135,8 @@ describe('CameraGrid Box Selection & Highlighting (H06 contract & H11 box labels
       />
     );
 
-    // No highlight color #38bdf8 in SVG boxes
-    expect(html).not.toContain(`fill="#38bdf8"`);
+    // No highlight color #00f3ff in SVG boxes
+    expect(html).not.toContain(`fill="#00f3ff"`);
     expect(html).not.toContain(`stroke-width="4"`);
 
     // Both are unselected #22c55e with stroke-width 2 and short label
@@ -175,7 +175,7 @@ describe('CameraGrid Box Selection & Highlighting (H06 contract & H11 box labels
     );
 
     expect(htmlSelectedSmall).toContain('>ped</text>');
-    expect(htmlSelectedSmall).toContain(`fill="#38bdf8"`);
+    expect(htmlSelectedSmall).toContain(`fill="#00f3ff"`);
   });
 
   it('Không phần tử text nào chứa chuỗi "gt:" (SPEC-P02 §2 CẤM in id lên canvas hay ảnh)', () => {

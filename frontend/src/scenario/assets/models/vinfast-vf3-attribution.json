@@ -1,0 +1,52 @@
+{
+  "source_sha256": "72f0ae45ea597521e207fc450652d93ae81c3fcf448b7aa94b58503f82cd5abd",
+  "source_url": "https://sketchfab.com/3d-models/vinfast-vf3-plus-2026-aa87e1cd1fdd42ae92e5a397e3d5b125",
+  "author": "Ho\u00e0ng Huy (@danghoanghuy69)",
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "changes": "Centered unit bounds, front +X/up +Y GLTF, decimated two LODs, textures removed, red ego paint and gray trim.",
+  "physical_measurements": false,
+  "source_blender_bounds": [
+    [
+      -2.100332736968994,
+      -0.9780257940292358,
+      -0.0065346360206604
+    ],
+    [
+      1.4650166034698486,
+      0.9414380788803101,
+      1.7197721004486084
+    ]
+  ],
+  "source_front_axis_blender": "-Y",
+  "source_triangles": 262981,
+  "material_categories": {
+    "tire.002": "rubber",
+    "blue_car_paint.001": "body",
+    "material.012": "glass",
+    "material.010": "trim",
+    "clean_chrome.001": "chrome",
+    "disk": "chrome",
+    "material.011": "trim",
+    "material.016": "trim",
+    "material.014": "light",
+    "material.015": "trim",
+    "material.013": "light",
+    "material.017": "light",
+    "glass_windows-darker": "light",
+    "clean_chrome": "chrome",
+    "glass_windows.001": "light"
+  },
+  "levels": {
+    "high": {
+      "triangles": 49885,
+      "bytes": 2017368,
+      "sha256": "588513680dbf383caba7b91626234897deb66bf8e7c9648d377def5161af1acc"
+    },
+    "low": {
+      "triangles": 7923,
+      "bytes": 408308,
+      "sha256": "74898845f459d9b19c40038dc770b96838c82e562128a9697146ad0fce6e2eb7"
+    }
+  }
+}

@@ -4,15 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "topeye"
-version = "0.1.0"
+version = "0.12.3"
 description = "LiDAR and surround-camera annotation processing core"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi", "uvicorn", "numpy", "scipy", "opencv-python-headless", "pyquaternion",
-  "sqlalchemy>=2", "alembic",
+  "sqlalchemy>=2", "alembic", "lxml>=5", "shapely==2.1.2",
 ]
 
 [project.scripts]
+topeye-scenario = "topeye.scenario.cli:main"
 topeye-prepare = "topeye.prepare:main"
 topeye-export-splat = "topeye.export_splat:main"
 topeye-sim-build = "topeye.sim.cli:build_main"
@@ -20,11 +21,14 @@ topeye-sim-layout = "topeye.sim.cli:layout_main"
 topeye-sim-render = "topeye.sim.cli:render_main"
 topeye-sim-view = "topeye.sim.view:main"
 topeye-sim-gsdata = "topeye.sim.gs_data:main"
+topeye-sim-fo = "topeye.sim.fo_dataset:main"
 
 [project.optional-dependencies]
+scenario-build = ["cmake==3.31.6", "pyinstaller==6.22.3"]
 dev = ["pytest", "ruff", "httpx"]
 ground = ["pypatchworkpp"]
 mesh = ["open3d"]
+fiftyone = ["fiftyone", "umap-learn", "torchvision", "matplotlib"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

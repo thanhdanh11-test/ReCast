@@ -101,7 +101,7 @@ export class PaneErrorBoundary extends React.Component<
             width: '100%',
             padding: '16px',
             boxSizing: 'border-box',
-            backgroundColor: '#181b24',
+            backgroundColor: '#0c0c0c',
             color: '#f87171',
             textAlign: 'center',
             gap: '8px',
@@ -130,7 +130,7 @@ export class PaneErrorBoundary extends React.Component<
             style={{
               marginTop: '4px',
               padding: '4px 12px',
-              backgroundColor: '#282e3e',
+              backgroundColor: '#1a1a1a',
               color: '#f1f5f9',
               border: '1px solid #3b4252',
               borderRadius: '4px',

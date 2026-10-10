@@ -107,7 +107,7 @@ export const CameraGrid: React.FC<CameraGridProps> = ({
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '8px',
         padding: '8px',
-        backgroundColor: '#12141c',
+        backgroundColor: '#050505',
         height: '100%',
         boxSizing: 'border-box',
         overflowY: 'auto',
@@ -125,10 +125,10 @@ export const CameraGrid: React.FC<CameraGridProps> = ({
             }}
             style={{
               position: 'relative',
-              backgroundColor: '#181b24',
+              backgroundColor: '#0c0c0c',
               borderRadius: '6px',
               overflow: 'hidden',
-              border: '1px solid #282e3e',
+              border: '1px solid #1a1a1a',
               aspectRatio: '16/9',
             }}
           >
@@ -140,13 +140,13 @@ export const CameraGrid: React.FC<CameraGridProps> = ({
                   top: '6px',
                   left: '6px',
                   zIndex: 10,
-                  backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.75)',
                   padding: '2px 8px',
                   borderRadius: '4px',
                   fontSize: '11px',
                   fontFamily: 'monospace',
                   fontWeight: 600,
-                  color: '#38bdf8',
+                  color: '#00f3ff',
                   border: '1px solid #334155',
                 }}
               >
@@ -207,7 +207,7 @@ export const CameraGrid: React.FC<CameraGridProps> = ({
 
                       const isSelected = box.id === selectedBoxId;
                       const strokeColor = isSelected
-                        ? '#38bdf8'
+                        ? '#00f3ff'
                         : box.label.includes('human')
                         ? '#eab308'
                         : '#22c55e';
@@ -281,8 +281,8 @@ export const CameraGrid: React.FC<CameraGridProps> = ({
                     bottom: '6px',
                     right: '6px',
                     zIndex: 20,
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                    border: '1px solid #38bdf8',
+                    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+                    border: '1px solid #00f3ff',
                     borderRadius: '4px',
                     padding: '2px 8px',
                     fontSize: '11px',

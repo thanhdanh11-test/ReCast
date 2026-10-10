@@ -11,7 +11,7 @@ import {
   FramePose,
   PanoData,
 } from './api/types';
-import { Header, LayerState } from './components/Header';
+import { Sidebar, LayerState } from './components/Sidebar';
 import { TopView } from './components/TopView';
 import { BirdView } from './components/BirdView';
 import { SurroundView } from './components/SurroundView';
@@ -421,25 +421,12 @@ export function App() {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
-        backgroundColor: '#0f1117',
-      }}
-    >
-      {/* 1. Header Bar */}
-      <Header
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+      {/* Sidebar (was Header) */}
+      <Sidebar
         scenes={scenes}
         currentScene={currentScene}
         onSelectScene={setCurrentScene}
-        currentFrameIndex={currentFrameIndex}
-        totalFrames={meta?.frames?.length || 1}
-        currentFrameId={currentFrameId}
-        onFrameChange={setCurrentFrameIndex}
         layers={layers}
         onLayerToggle={handleLayerToggle}
         calibReport={meta?.calib_report || null}
@@ -451,133 +438,81 @@ export function App() {
         isSplatAvailable={isSplatAvailable}
       />
 
+      <main className="flex-1 flex flex-col min-w-0 bg-background">
+        <header className="h-14 border-b border-border flex items-center justify-between px-4 gap-4 bg-card shrink-0">
+          <div className="flex items-center gap-3 flex-1 max-w-2xl">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Frame</span>
+            <div className="flex items-center gap-1">
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-md border border-border bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setCurrentFrameIndex(Math.max(0, currentFrameIndex - 1))}
+                disabled={currentFrameIndex <= 0}
+              >
+                ◀
+              </button>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-md border border-border bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setCurrentFrameIndex(Math.min((meta?.frames?.length || 1) - 1, currentFrameIndex + 1))}
+                disabled={currentFrameIndex >= (meta?.frames?.length || 1) - 1}
+              >
+                ▶
+              </button>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, (meta?.frames?.length || 1) - 1)}
+              value={currentFrameIndex}
+              onChange={(e) => setCurrentFrameIndex(parseInt(e.target.value, 10))}
+              className="flex-1 accent-primary h-1.5 bg-muted rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="flex flex-col text-[10px] font-mono text-muted-foreground w-40">
+              <span className="font-semibold text-foreground">[{currentFrameIndex + 1}/{meta?.frames?.length || 1}]</span>
+              <span className="truncate" title={currentFrameId}>{currentFrameId}</span>
+            </div>
+          </div>
+        </header>
+
       {/* 2. Main Content Split: Upper (55%) vs Lower (45%) */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          height: 'calc(100vh - 48px)',
-          overflow: 'hidden',
-        }}
-      >
+      <div className="flex flex-col flex-1 overflow-hidden">
         {cache425Error ? (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#f8fafc',
-              gap: '16px',
-              padding: '24px',
-            }}
-          >
-            <div style={{ fontSize: '36px' }}>⏳</div>
-            <div style={{ fontSize: '18px', fontWeight: 600, color: '#facc15' }}>
-              Cache chưa sẵn sàng (425)
-            </div>
-            <div style={{ color: '#94a3b8', fontSize: '14px' }}>
-              Scene '{currentScene}' chưa được chuẩn bị cache. Vui lòng chạy lệnh:
-            </div>
-            <code
-              style={{
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                borderRadius: '6px',
-                padding: '10px 18px',
-                color: '#38bdf8',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                userSelect: 'all',
-              }}
-            >
+          <div className="flex-1 flex flex-col items-center justify-center p-8 gap-4 text-center">
+            <div className="text-4xl">⏳</div>
+            <h2 className="text-xl font-bold text-yellow-500">Cache chưa sẵn sàng (425)</h2>
+            <p className="text-muted-foreground">Scene '{currentScene}' chưa được chuẩn bị cache. Vui lòng chạy lệnh:</p>
+            <code className="bg-muted px-4 py-2 rounded-md font-mono text-primary text-sm select-all">
               {cache425Error}
             </code>
           </div>
         ) : (
           <>
             {/* Upper Viewport: Top View (Left) & 3D View (Right) */}
-            <div
-              style={{
-                display: 'flex',
-                flex: '1 1 54%',
-                minHeight: '260px',
-                borderBottom: '2px solid #232734',
-                overflow: 'hidden',
-              }}
-            >
+            <div className="flex flex-1 basis-[54%] min-h-[260px] border-b border-border overflow-hidden">
               {/* Top View / Bird View Pane */}
-              <div
-                style={{
-                  flex: '1 1 50%',
-                  borderRight: '1px solid #232734',
-                  height: '100%',
-                  position: 'relative',
-                }}
-              >
+              <div className="flex-1 basis-1/2 border-r border-border h-full relative">
                 {/* 2D | Bird Mode Switcher */}
                 <div
                   data-testid="topview-mode-toggle"
-                  style={{
-                    position: 'absolute',
-                    top: 10,
-                    left: 12,
-                    zIndex: 25,
-                    display: 'flex',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    padding: '2px',
-                    gap: '2px',
-                  }}
+                  className="absolute top-3 left-3 z-25 flex bg-background/80 backdrop-blur-md border border-border rounded-md p-1 gap-1 shadow-sm"
                 >
                   <button
                     data-testid="mode-2d-btn"
                     onClick={() => handleTopViewModeChange('2D')}
-                    style={{
-                      backgroundColor: topViewMode === '2D' ? '#0284c7' : 'transparent',
-                      color: topViewMode === '2D' ? '#ffffff' : '#94a3b8',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '3px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${topViewMode === '2D' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                   >
                     2D
                   </button>
                   <button
                     data-testid="mode-bird-btn"
                     onClick={() => handleTopViewModeChange('Bird')}
-                    style={{
-                      backgroundColor: topViewMode === 'Bird' ? '#0284c7' : 'transparent',
-                      color: topViewMode === 'Bird' ? '#ffffff' : '#94a3b8',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '3px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${topViewMode === 'Bird' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                   >
                     Bird
                   </button>
                   <button
                     data-testid="mode-surround-btn"
                     onClick={() => handleTopViewModeChange('Surround')}
-                    style={{
-                      backgroundColor: topViewMode === 'Surround' ? '#0284c7' : 'transparent',
-                      color: topViewMode === 'Surround' ? '#ffffff' : '#94a3b8',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '3px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${topViewMode === 'Surround' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                   >
                     Surround
                   </button>
@@ -639,13 +574,7 @@ export function App() {
               </div>
 
               {/* 3D View (Perspective Three.js) */}
-              <div
-                style={{
-                  flex: '1 1 50%',
-                  height: '100%',
-                  position: 'relative',
-                }}
-              >
+              <div className="flex-1 basis-1/2 h-full relative">
                 <PaneErrorBoundary paneName="ThreeView" resetKeys={[currentFrameId]}>
                   <ThreeView
                     pointsData={pointsData}
@@ -663,13 +592,7 @@ export function App() {
             </div>
 
             {/* Lower Viewport: 6 Camera Grid (NuScenes: FL F FR / BL B BR) */}
-            <div
-              style={{
-                flex: '1 1 46%',
-                minHeight: '200px',
-                overflow: 'hidden',
-              }}
-            >
+            <div className="flex-1 basis-[46%] min-h-[200px] overflow-hidden">
               <PaneErrorBoundary paneName="CameraGrid" resetKeys={[currentFrameId]}>
                 <CameraGrid
                   frameId={currentFrameId}
@@ -685,6 +608,7 @@ export function App() {
           </>
         )}
       </div>
+      </main>
 
       {/* Calibration Modal */}
       {isCalibModalOpen && (
