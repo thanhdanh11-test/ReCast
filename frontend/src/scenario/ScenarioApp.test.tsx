@@ -262,3 +262,73 @@ describe("environment session settings", () => {
   expect(mock.replay).not.toHaveBeenCalled();
  });
 });
+
+describe('static web demo shell', () => {
+ beforeEach(() => {
+  mock.settings.mockResolvedValue({mode:'web-demo', dataset:'nuScenes demo', datasetVersion:'v1.0-mini', workspace:'', engineAvailable:false, version:'0.12.4'});
+  window.scenarioDemo = {demoVariants: () => []};
+ });
+ afterEach(() => { delete window.scenarioDemo; vi.unstubAllEnvs(); });
+ it('loads without a picker and hides desktop-only actions, retaining shared views and credits', async () => {
+  render(<ScenarioApp/>);
+  await screen.findByText('Đã đọc 1 cảnh');
+  expect(screen.getByText('BẢN DEMO WEB · dữ liệu tính sẵn')).toBeTruthy();
+  for (const name of ['Chọn thư mục nuScenes','Thư mục lưu','OpenSCENARIO','Xuất kịch bản ↗','Góp ý']) {
+   expect(screen.queryByRole('button',{name})).toBeNull();
+  }
+  expect(screen.queryByRole('slider',{name:'Hệ số tốc độ'})).toBeNull();
+  expect(screen.queryByRole('slider',{name:'Dịch dọc'})).toBeNull();
+  expect(screen.getByText('Biến thể chỉ có ở bản desktop')).toBeTruthy();
+  expect(screen.getByText('nuScenes © Motional, CC BY-NC-SA 4.0')).toBeTruthy();
+  expect(screen.getByText('Nguồn mô hình xe')).toBeTruthy();
+  expect(mock.chooseDataset).not.toHaveBeenCalled();
+ });
+ it('offers exact manifest combinations for the base and loads recorded replay without an engine', async () => {
+  const base = {...importedScenario,id:'base',mode:undefined,import:undefined};
+  const variant = {key:'known', scenario_id:'base',target_actor:'car-new',speed_factor:.8,gap_offset_m:2,result_id:'variant'};
+  window.scenarioDemo = {demoVariants: id => id === 'base' ? [variant] : []};
+  mock.extract.mockResolvedValue(base);
+  mock.variant.mockResolvedValue({...base,id:'variant'});
+  mock.replay.mockResolvedValue({observed:[],report:{status:'pass',coverage:1,per_actor:[]}});
+  render(<ScenarioApp/>);
+  await screen.findByText('Đã đọc 1 cảnh');
+  fireEvent.click(screen.getByText('Trích đoạn thử nghiệm'));
+  fireEvent.click(await screen.findByRole('button',{name:'car-new · 0.8× · 2m'}));
+  await screen.findByText('Biến thể tính sẵn đã sẵn sàng');
+  expect(mock.variant).toHaveBeenCalledWith({scenario_id:'base',target_actor:'car-new',speed_factor:.8,gap_offset_m:2});
+  fireEvent.click(screen.getByText('Xem kết quả esmini tính sẵn'));
+  await screen.findByText('Kết quả esmini đã đo sẵn');
+  expect(mock.replay).toHaveBeenCalledWith({scenario_id:'variant'});
+  expect(screen.queryByText(/Chưa tìm thấy bộ mô phỏng/)).toBeNull();
+ });
+ it('keeps the current scene after an unavailable extract', async () => {
+  mock.extract.mockRejectedValue(new Error('WEB_DEMO_UNAVAILABLE: Tổ hợp này chưa có trong bản demo'));
+  render(<ScenarioApp/>);
+  await screen.findByText('Đã đọc 1 cảnh');
+  fireEvent.click(screen.getByText('Trích đoạn thử nghiệm'));
+  await screen.findByRole('alert');
+  expect(screen.getByText('DỮ LIỆU GỐC')).toBeTruthy();
+  expect(screen.getByText('Tổ hợp này chưa có trong bản demo',{exact:false})).toBeTruthy();
+ });
+ it('opens optional feedback with only the five context parameters and no API call', async () => {
+  vi.stubEnv('VITE_FEEDBACK_URL','https://feedback.example/form?unrelated=discard');
+  const open = vi.spyOn(window,'open').mockReturnValue(null);
+  render(<ScenarioApp/>);
+  await screen.findByText('Đã đọc 1 cảnh');
+  fireEvent.change(screen.getByRole('slider',{name:'Thời gian mô phỏng'}),{target:{value:'1.26'}});
+  const host = document.createElement('div'); host.dataset.cameraMode = 'cabin';
+  screen.getByRole('region',{name:'Mô phỏng 3D'}).append(host);
+  fireEvent.click(screen.getByText('Góp ý'));
+  const url = new URL(String(open.mock.calls[0][0]));
+  expect(Object.fromEntries(url.searchParams)).toEqual({scene:'scene-0103',time:'1.3',camera:'cabin',weather:'ClearNoon',version:'0.12.4'});
+  expect(open.mock.calls[0].slice(1)).toEqual(['_blank','noopener,noreferrer']);
+  open.mockRestore();
+ });
+ it('allows retrying failed initial data loading', async () => {
+  mock.listScenes.mockRejectedValueOnce(new Error('NETWORK: data/scenes.json'));
+  render(<ScenarioApp/>);
+  fireEvent.click(await screen.findByText('Thử lại'));
+  await screen.findByText('Đã đọc 1 cảnh');
+  expect(mock.listScenes).toHaveBeenCalledTimes(2);
+ });
+});

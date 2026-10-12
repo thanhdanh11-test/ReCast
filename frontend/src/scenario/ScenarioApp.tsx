@@ -7,6 +7,7 @@ import { TacticalMap } from "./TacticalMap";
 import { playbackEnd } from "./trajectory";
 import { EnvironmentMenu, HeaderPopover } from "./EnvironmentMenu";
 import { defaultEnvironmentSettings } from "./weather";
+import { ModelCredits } from "./ModelCredits";
 import "./scenario.css";
 const api = window.scenarioApp;
 export default function ScenarioApp() {
@@ -22,6 +23,20 @@ export default function ScenarioApp() {
     }[]>([]);
     const [environmentSettings, setEnvironmentSettings] = useState(defaultEnvironmentSettings);
     const [showMap, setShowMap] = useState(true);
+    const demo = settings?.mode === "web-demo";
+    const demoVariants = demo && base ? window.scenarioDemo?.demoVariants(base.id) ?? [] : [];
+    const workspaceRef = useRef<HTMLElement>(null);
+    function feedback() {
+        const url = new URL(import.meta.env.VITE_FEEDBACK_URL, window.location.href);
+        if (!['https:', 'http:'].includes(url.protocol)) return;
+        url.search = '';
+        url.searchParams.set('scene', sceneName);
+        url.searchParams.set('time', time.toFixed(1));
+        url.searchParams.set('camera', workspaceRef.current?.querySelector<HTMLElement>('[data-camera-mode]')?.dataset.cameraMode ?? 'follow');
+        url.searchParams.set('weather', environmentSettings.preset);
+        url.searchParams.set('version', settings?.version ?? '');
+        window.open(url.href, '_blank', 'noopener,noreferrer');
+    }
     const busyRef = useRef(false);
     const generation = useRef(0);
     const cancelling = useRef(false);
@@ -149,7 +164,7 @@ export default function ScenarioApp() {
         }, 40);
         return () => clearInterval(timer);
     }, [playing, scenario, timelineEnd]);
-    const canRun = !!scenario && scenario.mode !== "source" && settings?.engineAvailable && !busy;
+    const canRun = !!scenario && scenario.mode !== "source" && (settings?.engineAvailable || demo) && !busy;
     const imported = scenario?.mode === "imported";
     const hasSourceMap = !!original?.environment?.polygons.length;
     const sourceLabel = replay ? "ESMINI · ĐÃ ĐO" : scenario?.mode === "source" ? "DỮ LIỆU GỐC" : imported ? "ĐÃ NẠP · XEM TRƯỚC" : "XEM TRƯỚC";
@@ -167,10 +182,10 @@ export default function ScenarioApp() {
         return <main className="studio view-empty"><h1>Topeye · Scenario Studio</h1><p>Mở ứng dụng Topeye trên máy để dùng mô phỏng.</p></main>;
     return <div className="studio">
     <header className="studio-header">
-      <div className="studio-brand"><img className="brand-mark" src={topeyeLogo} alt="Logo Topeye"/><div><h1>Topeye <span>Scenario Studio</span></h1><small>Không gian mô phỏng</small></div></div>
+      <div className="studio-brand"><img className="brand-mark" src={topeyeLogo} alt="Logo Topeye"/><div><h1>Topeye <span>Scenario Studio</span></h1><small>{demo ? "BẢN DEMO WEB · dữ liệu tính sẵn" : "Không gian mô phỏng"}</small></div></div>
       <div className="header-actions">
         <EnvironmentMenu settings={environmentSettings} onChange={setEnvironmentSettings}/>
-        <HeaderPopover label="OpenSCENARIO" primary>
+        {!demo && <><HeaderPopover label="OpenSCENARIO" primary>
           <button className="primary full-width" disabled={busy || !hasSourceMap} onClick={() => void job('Đang nạp OpenSCENARIO', () => importScenario(false))}>Nạp OpenSCENARIO</button>
           <button className="full-width" disabled={busy || !hasSourceMap} onClick={() => void job('Đang xuất thông tin map', async () => { const r = await checked(api.exportMapContext({source_id: original!.id})); setMessage(r ? `Đã xuất thông tin map: ${r.path}` : 'Đã đóng hộp chọn · giữ nguyên cảnh đang xem'); })}>Xuất thông tin map</button>
           <button className="full-width" disabled={busy || !hasSourceMap} onClick={() => void job('Đang mở OpenSCENARIO đã lưu', () => importScenario(true))}>Mở kịch bản đã lưu</button>
@@ -188,7 +203,8 @@ export default function ScenarioApp() {
                 setMessage(`Đã đọc ${res.scenes.length} cảnh`);
             }
         })}>{settings?.dataset ? `Đổi dữ liệu · ${settings.datasetVersion || 'nuScenes'}` : 'Chọn thư mục nuScenes'}</button>
-        <button disabled={busy} title={settings?.workspace} onClick={() => void job('Chọn nơi lưu', async () => { await checked(api.chooseWorkspace()); setSettings(await checked(api.settings())); setMessage('Đã cập nhật nơi lưu'); })}>Thư mục lưu</button>
+        <button disabled={busy} title={settings?.workspace} onClick={() => void job('Chọn nơi lưu', async () => { await checked(api.chooseWorkspace()); setSettings(await checked(api.settings())); setMessage('Đã cập nhật nơi lưu'); })}>Thư mục lưu</button></>}
+        {demo && import.meta.env.VITE_FEEDBACK_URL && <button onClick={feedback}>Góp ý</button>}
       </div>
     </header>
     <div className="studio-body">
@@ -237,6 +253,15 @@ export default function ScenarioApp() {
             setMessage('Đã trích quỹ đạo · sẵn sàng phát lại');
         })}>Trích đoạn thử nghiệm</button>
         </section>
+        {demo ? (demoVariants.length ? <section>
+          <div className="section-title"><h2>02 · Biến thể</h2></div>
+          <button disabled={busy} onClick={() => { setScenario(base); resetPlayback(); }}>Bản gốc</button>
+          {demoVariants.map(v => <button className="full-width" key={v.key} disabled={busy}
+            onClick={() => void job('Đang tải biến thể tính sẵn', async () => {
+              const s = await checked(api.variant({scenario_id: base!.id, target_actor: v.target_actor, speed_factor: v.speed_factor, gap_offset_m: v.gap_offset_m}));
+              setScenario(s); resetPlayback(); setMessage('Biến thể tính sẵn đã sẵn sàng');
+            })}>{v.target_actor} · {v.speed_factor}× · {v.gap_offset_m}m</button>)}
+        </section> : <p className="sensor-note">Biến thể chỉ có ở bản desktop</p>) : <>
         <section>
           <div className="section-title"><h2>02 · Biến thể</h2></div>
           <label className="field">Đối tượng<select value={target} disabled={!base || busy || imported} onChange={e => setTarget(e.target.value)}>{base?.actors.filter(a => a.role === 'traffic').map(a => <option key={a.id} value={a.id}>{a.id}</option>)}</select></label>
@@ -244,11 +269,12 @@ export default function ScenarioApp() {
           <label className="field"><span>Dịch dọc <output>{offset.toFixed(1)}m</output></span><input aria-label="Dịch dọc" type="range" min="-10" max="10" step=".5" value={offset} disabled={!base || busy || imported} onChange={e => setOffset(Number(e.target.value))}/></label>
           <div className="button-pair"><button disabled={!base || busy || imported} onClick={() => { setScenario(base); resetPlayback(); }}>Bản gốc</button><button disabled={!base || busy || imported} onClick={() => void job('Đang tạo biến thể', async () => { const s = await checked(api.variant({ scenario_id: base!.id, target_actor: target, speed_factor: speed, gap_offset_m: offset })); setScenario(s); resetPlayback(); setMessage('Biến thể đã sẵn sàng'); })}>Tạo biến thể</button></div>
         </section>
+        </>}
         <section>
           <div className="section-title"><h2>03 · Kiểm chứng</h2><span>{runs.filter(r => r.valid).length}/{runs.length} đạt</span></div>
-          {settings && !settings.engineAvailable && scenario && scenario.mode !== "source" && <p className="sensor-note">Chưa tìm thấy bộ mô phỏng esmini; cần kiểm tra cài đặt trước khi chạy kịch bản.</p>}
-          <button className="primary full-width" disabled={!canRun} onClick={() => void job(imported ? 'Đang chạy kịch bản đã nạp' : 'Đang khởi động esmini', async () => { const r = await checked(imported ? api.replayImported({ scenario_id: scenario!.id }) : api.replay({ scenario_id: scenario!.id })); setReplay(r); setTime(0); if (r.report.kind !== 'imported') { const valid = r.report.status === 'pass'; setRuns(v => [...v.filter(item => item.id !== scenario!.id), { id: scenario!.id, valid }]); } setMessage('Đã lưu kết quả phát lại và báo cáo'); })}>{imported ? 'Chạy kịch bản đã nạp' : 'Chạy phát lại'}</button>
-          <button className="full-width" disabled={!scenario || scenario.mode === 'source' || imported || busy} onClick={() => void job('Đang xuất OpenSCENARIO', async () => { const r = await checked(api.export({ scenario_id: scenario!.id })); setMessage(`Đã xuất: ${r.path}`); })}>Xuất kịch bản ↗</button>
+          {!demo && settings && !settings.engineAvailable && scenario && scenario.mode !== "source" && <p className="sensor-note">Chưa tìm thấy bộ mô phỏng esmini; cần kiểm tra cài đặt trước khi chạy kịch bản.</p>}
+          <button className="primary full-width" disabled={!canRun} onClick={() => void job(demo ? 'Đang tải kết quả esmini tính sẵn' : imported ? 'Đang chạy kịch bản đã nạp' : 'Đang khởi động esmini', async () => { const r = await checked(imported ? api.replayImported({ scenario_id: scenario!.id }) : api.replay({ scenario_id: scenario!.id })); setReplay(r); setTime(0); if (r.report.kind !== 'imported') { const valid = r.report.status === 'pass'; setRuns(v => [...v.filter(item => item.id !== scenario!.id), { id: scenario!.id, valid }]); } setMessage(demo ? 'Kết quả esmini đã đo sẵn' : 'Đã lưu kết quả phát lại và báo cáo'); })}>{demo ? 'Xem kết quả esmini tính sẵn' : imported ? 'Chạy kịch bản đã nạp' : 'Chạy phát lại'}</button>
+          {!demo && <button className="full-width" disabled={!scenario || scenario.mode === 'source' || imported || busy} onClick={() => void job('Đang xuất OpenSCENARIO', async () => { const r = await checked(api.export({ scenario_id: scenario!.id })); setMessage(`Đã xuất: ${r.path}`); })}>Xuất kịch bản ↗</button>}
           {replay && replay.report.kind !== 'imported' && <div className="replay-result"><strong>{replay.report.status === 'pass' ? 'Đạt ngưỡng kiểm chứng' : 'Chưa đạt ngưỡng'}</strong><span>Coverage {(replay.report.coverage * 100).toFixed(1)}%</span>{replay.report.per_actor.map(m => <p key={m.id}>{m.id}: {m.status} · ADE {m.ade_xy_m?.toFixed(3) ?? '—'}m{m.reason ? ` · ${m.reason}` : ''}</p>)}</div>}
           {replay?.report.kind === 'imported' && <div className="replay-result">
             <strong>Thực thi: {replay.report.execution}</strong>
@@ -258,8 +284,9 @@ export default function ScenarioApp() {
             {replay.report.warnings.map((warning, i) => <p key={i}>{warning === "Contacts are sampled at 20Hz; geometry is estimated, not a safety certification" ? "Tiếp xúc được lấy mẫu 20 lần/giây; hình học ước lượng chưa xác nhận an toàn vật lý." : warning}</p>)}
           </div>}
         </section>
+        {demo && <section><ModelCredits/><p className="sensor-note">nuScenes © Motional, CC BY-NC-SA 4.0</p><p className="sensor-note">CARLA weather presets · MIT</p></section>}
       </aside>
-      <main className={`view-workspace ${showMap ? '' : 'without-map'}`}>
+      <main ref={workspaceRef} className={`view-workspace ${showMap ? '' : 'without-map'}`}>
         <section className="viewport-panel primary-view" aria-label="Mô phỏng 3D">
           <div className="panel-heading"><h2>Mô phỏng 3D</h2><span>{scenario ? sourceLabel : 'CHƯA CÓ CẢNH'}</span></div>
           <div className="panel-content"><TrackView scenario={scenario} time={time} replay={replay} environmentSettings={environmentSettings}/></div>
@@ -286,6 +313,6 @@ export default function ScenarioApp() {
       <input aria-label="Thời gian mô phỏng" type="range" min="0" max={timelineEnd || 1} step=".01" value={time} disabled={!scenario || busy} onChange={e => { setPlaying(false); setTime(Number(e.target.value)); }}/>
       <output>{time.toFixed(2)} <span>/ {timelineEnd.toFixed(2)}s</span></output>
     </div>
-    <footer aria-label="Trạng thái tác vụ" className={`studio-status ${error ? 'has-error' : ''}`} role={error ? 'alert' : 'status'}><span>{busy ? '◌ ' : ''}{error || message}</span>{busy && <button disabled={cancelling.current} onClick={() => void cancel()}>Huỷ tác vụ</button>}<small>v{settings?.version ?? '—'}</small></footer>
+    <footer aria-label="Trạng thái tác vụ" className={`studio-status ${error ? 'has-error' : ''}`} role={error ? 'alert' : 'status'}><span>{busy ? '◌ ' : ''}{error || message}</span>{busy && <button disabled={cancelling.current} onClick={() => void cancel()}>Huỷ tác vụ</button>}{error && (demo || !!window.scenarioDemo) && <button disabled={busy} onClick={() => void job("Đang thử lại", refresh)}>Thử lại</button>}<small>v{settings?.version ?? '—'}</small></footer>
   </div>;
 }

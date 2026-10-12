@@ -6,7 +6,7 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [x] v0.8.0: [Plan09](../planning/09_2026-10-09_sensor-views/plan.md) — 3D/LiDAR quét ngang/map nuScenes theo timeline;160frontend,independent24,standalone2/2esmini đạt; đã cài/mở app.
 - [ ] Chủ dự án nghiệm thu bằng mắt 0.8.1→0.12.3 (thay các mục nghiệm thu v0.5/v0.8; LiDAR giả lập 2D, nhà/cây ước lượng LiDAR).
 - [x] [Plan19](../planning/19_2026-10-12_audit-fixes/plan.md) audit fixes 0.12.4 (installed, desktop test PASS).
-- [ ] [Plan20](../planning/20_2026-10-12_web-demo/plan.md) web demo tĩnh 0.13.0 trên Cloudflare Pages — SPEC chờ chủ dự án duyệt + chốt công khai/nơi nhận góp ý.
+- [ ] [Plan20](../planning/20_2026-10-12_web-demo/plan.md) web demo 0.13.0: local gates ✅; còn deploy Cloudflare (chủ dự án `wrangler login`), URL góp ý, thẩm định độc lập.
 - [x] Nâng cấp UI Dashboard (v0.7.0): Chuyển đổi giao diện sang Dark Mode IDE-like với Tailwind CSS và shadcn/ui. [Plan08](../planning/08_2026-10-09_ui-tailwind-shadcn/plan.md).
 - [x] v0.5.0: [cảnh gốc đầy đủ](../planning/06_2026-10-09_original-scene/plan.md), map/LiDAR đơn sắc;565backend/145frontend, installed và review đạt.
 - [x] v0.4.0: khung hiển thị kịch bản 3D theo ảnh người dùng; camera bám xe/xoay/zoom/toàn cảnh và đọc pose esmini. [Plan05](../planning/05_2026-10-09_scenario-3d/plan.md).

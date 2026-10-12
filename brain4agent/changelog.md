@@ -2,6 +2,12 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.13.0 — Static web demo for feedback — 2026-10-12T17:02:42+07:00
+- New build target `npm run build:web` (Vite mode web → `dist-web/`), same ScenarioApp over `staticApi` (DesktopAPI backed by precomputed JSON); `Settings.mode` optional field is the only contract change. Desktop build/IPC unchanged.
+- `backend/scripts/export_web_demo.py` exports worker responses (10 sources, 5 extracts, 3 variants, 8 real esmini replays, 5 genuine backend rejections as `skipped`), sha256 manifest, dataset metadata guard; 6.2 MB / 1.7 MB gzip.
+- Unlisted hosting decision (owner): noindex headers + robots; Cloudflare Pages chosen; feedback URL pending (button hidden until set).
+- Codex ×2 in parallel (both hit usage limit before reports); orchestrator verified and fixed missing site `index.html` and favicon 404. Frontend 314/314, backend 638/638, installed `~/Applications/Topeye 0.13.0.app` desktop test PASS; local web smoke: 10 scenes, replay + 3 variants pass thresholds, 0 external requests, 0 console errors. Deploy pending owner login. [Plan20](../planning/20_2026-10-12_web-demo/plan.md).
+
 ## v0.12.4 — Audit fixes before web demo — 2026-10-12T16:40:51+07:00
 - Toolchain: Vite 5.4→8.3.4, Vitest 2.1→5.0.3, plugin-react 4.7→6.1.2; shadcn/@tailwindcss/vite/gaussian-splats moved to devDependencies; unused autoprefixer/postcss direct deps removed. `npm audit --omit=dev` 0; full audit 2 critical/8 high → 0 critical/7 high, all inside the dev-only shadcn CLI (braces advisory, no upstream fix). Packaged app never contained node_modules (only dist + electron), so shipped exposure was nil before and after.
 - Legacy viewer entry removed from production build (`dist/` no longer ships legacy/gaussian-splats chunks); legacy source and tests kept. Root clean: removed stray patch_app.py and .vite cache, `.vite/` ignored. docs/scenario.md and roadmap Active refreshed to 0.12.3+.

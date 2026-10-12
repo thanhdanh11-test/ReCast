@@ -1,0 +1,78 @@
+{
+  "generator": "backend/scripts/export_web_demo.py extract_key / variant_key; generated via backend/.venv/bin/python runpy (2026-10-12)",
+  "vectors": [
+    {
+      "kind": "extract",
+      "args": [
+        "scene-0103",
+        [
+          "ec0e6425eae2442698ff7b43d405d279"
+        ],
+        8,
+        13
+      ],
+      "canonical": "[\"scene-0103\",[\"ec0e6425eae2442698ff7b43d405d279\"],8,13]",
+      "key": "9d2fcd08469d0aea"
+    },
+    {
+      "kind": "extract",
+      "args": [
+        "scene-0061",
+        [
+          "b",
+          "a"
+        ],
+        0,
+        2.5
+      ],
+      "canonical": "[\"scene-0061\",[\"a\",\"b\"],0,2.5]",
+      "key": "8ca61232568ca9e8"
+    },
+    {
+      "kind": "extract",
+      "args": [
+        "cảnh",
+        [
+          "xe-β"
+        ],
+        0.8,
+        12
+      ],
+      "canonical": "[\"cảnh\",[\"xe-β\"],0.8,12]",
+      "key": "09fd605de6605c89"
+    },
+    {
+      "kind": "variant",
+      "args": [
+        "scenario-1",
+        "vehicle_1",
+        0.8,
+        2
+      ],
+      "canonical": "[\"scenario-1\",\"vehicle_1\",0.8,2]",
+      "key": "62dbf3481b3fe9fb"
+    },
+    {
+      "kind": "variant",
+      "args": [
+        "scenario-1",
+        "vehicle_1",
+        1.2,
+        0
+      ],
+      "canonical": "[\"scenario-1\",\"vehicle_1\",1.2,0]",
+      "key": "a615d24d34fdc267"
+    },
+    {
+      "kind": "variant",
+      "args": [
+        "scenario-2",
+        "vehicle_1",
+        1,
+        -2
+      ],
+      "canonical": "[\"scenario-2\",\"vehicle_1\",1,-2]",
+      "key": "c343937d23500e92"
+    }
+  ]
+}

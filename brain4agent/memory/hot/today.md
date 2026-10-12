@@ -136,3 +136,6 @@ Owner: map light patches, equal header buttons, faster map load, trees on roads.
 - Correction recorded: packaged .app never shipped node_modules; npm advisories were dev/build-only.
 - Codex did H01 deps/build (🔁 only for 7 dev-only high); agy launch blocked by permission classifier → docs done inline. Orchestrator re-measured 282/282, build, package, installed desktop test PASS.
 - Measured web feasibility: 10 mini source scenes 5.8 MB raw / 1.6 MB gzip; dist 5.3 MB. Plan20 SPEC package written (static DesktopAPI over precomputed JSON, Cloudflare Pages); awaiting owner approval + public/unlisted + feedback destination.
+
+## 2026-10-12T17:02:42+07:00 — Web demo 0.13.0 (Claude orchestrator)
+- Owner: commit 0.12.4 (done 329987e on release/v0.12.4), web unlisted. Codex P01/P02 parallel; both hit ChatGPT usage limit (reset ~19:15) before reports → orchestrator verified/fixed. Local web gates pass; wrangler token expired → owner must `wrangler login`. Local preview server on 127.0.0.1:8790.

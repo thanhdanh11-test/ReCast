@@ -1,4 +1,4 @@
-# Scenario Studio — N3-09B, v0.12.3
+# Scenario Studio — N3-09B, v0.13.0
 
 ## Tóm tắt phiên bản hiện hành
 
@@ -9,6 +9,8 @@
 - 0.12.1: bỏ vạch dừng trên map, nút header đều nhau, cây/cột không nằm trên đường, đổi cảnh nhanh hơn.
 - 0.12.2: xe nguồn bám mặt địa hình hiển thị (hình chữ nhật tựa bánh xoay).
 - 0.12.3: logo chủ dự án làm icon app macOS.
+- 0.12.4: Vite 8/Vitest 5, viewer cũ ra khỏi build.
+- 0.13.0: web demo tĩnh (mục cuối).
 
 
 Ứng dụng desktop macOS Apple Silicon: đọc quỹ đạo nuScenes → xuất OpenSCENARIO 1.0 + OpenDRIVE → phát lại bằng esmini 3.9.0 → tạo biến thể tốc độ/vị trí → báo cáo sai số và số kịch bản hợp lệ. App dùng Electron/React, đóng gói Python 3.12 qua PyInstaller và thư viện esmini arm64; không cần Python/Node/Terminal/GPU khi sử dụng. Giao tiếp worker bằng JSONL stdio riêng, không mở HTTP server.
@@ -202,3 +204,16 @@ Evidence: planning/17_2026-10-10_vehicle-contact/evidence/{regression-red.txt,ov
 `frontend/scripts/package-desktop.mjs` derives standard macOS16/32/128/256/512 logical-size1x/2x PNGs from `src/scenario/assets/topeye-logo.png` with macOS `sips`, then `iconutil` produces `build/topeye.icns`, passed to Electron packager `icon`. Build outputs remain ignored. User source PNG is preserved byte-for-byte; header stays44×44 contain. `CFBundleIconFile` remains `electron.icns` because packager replaces its contents; filename is not evidence of a default Electron graphic. Verify embedded ICNS SHA against generated file.
 v0.12.3 installed: supplied logo is now the native macOS app icon; header PNG already matched owner source byte-for-byte and is preserved. Packaging derives10 standard icon PNGs (16–1024px, alpha) and ICNS from frontend/src/scenario/assets/topeye-logo.png via sips/iconutil.282frontend tests/build/signature pass;installed native ICNS hash matches generated icon, UI logo SHA matches owner image,0renderer errors. ~/Applications/Topeye 0.12.3.app;plan18.
 Evidence: planning/18_2026-10-10_app-logo/evidence/verification.json and installed-logo.png; source SHA256 `3556d9a03505242c7cad98ff179c15886f327e287c50f58f8bf8352c5879a8ff`; ICNS SHA256 `67ed9e942a34aa68ed9871d50ba1354b480de5816652b8ff8ff8459712ff4140`.
+
+
+## Web demo tĩnh 0.13.0
+
+Cho người không cài app xem và góp ý. Cùng `ScenarioApp`; `src/scenario/staticApi.ts` cài `DesktopAPI` bằng JSON tính sẵn, `webMain.tsx` gắn API trước khi import động app. Không Python/esmini/dataset trên web. Chế độ `settings.mode="web-demo"` ẩn chọn dữ liệu/thư mục lưu/OpenSCENARIO/xuất; biến thể là nút chọn đúng tổ hợp đã tính; nút Góp ý chỉ hiện khi build có `VITE_FEEDBACK_URL` (mở tab mới, kèm scene/time/camera/weather/version).
+
+```sh
+backend/.venv/bin/python backend/scripts/export_web_demo.py --dataset <nuscenes> --engine <libesminiLib.dylib> --out frontend/public-web/data
+cd frontend && VITE_FEEDBACK_URL=<url> npm run build:web      # → dist-web/ (index.html, _headers, robots.txt, data/)
+npx wrangler pages deploy dist-web --project-name topeye-demo --branch preview
+```
+
+Dữ liệu: 10 cảnh mini, 5 trích đoạn (preset scene-0103 + mặc định UI), 3 biến thể, 8 replay esmini thật; 5 tổ hợp backend từ chối được ghi `skipped`. 6,2 MB (gzip 1,7 MB); manifest sha256 từng file; exporter dừng nếu metadata dataset đổi. Unlisted: `X-Robots-Tag: noindex` + robots Disallow; ai có link đều xem được. Ghi nguồn: VF3/sedan/SUV CC BY 4.0, nuScenes CC BY-NC-SA 4.0 (phi thương mại), CARLA MIT. `public-web/data/` và `dist-web/` bị gitignore. SPEC: planning/20_2026-10-12_web-demo/.

@@ -163,3 +163,6 @@ Owner reports floating vehicles and wall penetration in0.10.1. Read-only source 
 - npm in sandboxed agents may hit EPERM on `~/.npm`; set `npm_config_cache=/private/tmp/<name>` instead of chown.
 - Vitest 5 loses contextual typing on `ReturnType<typeof vi.spyOn>` mock.calls callbacks → use `MockInstance<typeof fn>`.
 - Vite 8 `defineConfig` with `test:` block must be imported from `vitest/config`.
+- Web build: Vite names the HTML output after the source (`web.html`); static hosts need `index.html` at the root → `topeye-web-index` plugin must be `enforce: 'post'` or the rename is overwritten.
+- `ScenarioApp.tsx` captures `window.scenarioApp` at module load: any non-Electron host must assign it BEFORE a dynamic `import("./ScenarioApp")`.
+- Codex CLI shares the owner's ChatGPT quota; parallel runs can stop mid-task without a report — always re-measure on disk.

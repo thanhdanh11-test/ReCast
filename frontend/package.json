@@ -1,11 +1,12 @@
 {
   "name": "topeye-frontend",
   "private": true,
-  "version": "0.12.4",
+  "version": "0.13.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:web": "tsc && vite build --mode web",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "desktop:dev": "node scripts/dev-desktop.mjs",
