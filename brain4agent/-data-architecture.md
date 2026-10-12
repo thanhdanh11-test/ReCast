@@ -2,7 +2,10 @@
 
 Tài liệu thiết kế về cấu trúc dữ liệu, cơ chế lưu trữ bền vững (Persistence Layer) và luồng luân chuyển dữ liệu đa tầng.
 
-## 0. Scenario desktop — v0.4.0 đã triển khai
+## 0. Scenario Studio — lưu trữ (desktop v0.4.0 → web localhost 0.15.0)
+
+0.15.0: Electron main thay bằng `frontend/server/local-server.mjs` (127.0.0.1, token mỗi lần chạy) ↔ cùng Python worker JSONL stdio. Settings/log vẫn ở `~/Library/Application Support/Topeye/`; workspace/bundle/run/import layout không đổi. Map context xuất = trình duyệt tải về; `.xosc` nạp bằng upload (≤2 MiB) thay vì đọc đường dẫn.
+
 Nguồn nuScenes chỉ đọc → extractor giữ instance/timestamp, đổi global về origin ego chung → Scenario schema1 → XOSC/XODR/reference/manifest → esmini thực chạy → timestampedposes/report → biến thể có reference riêng. Không dùng tọa độ GTBox3D trong LIDAR như tọa độ world; ego_pose không phải sensor_pose.
 Lưu project ở workspace người dùng chọn, không ở dataset; settings/log dưới userData của app. Hoàn tất bundle/run bằng manifest atomic ghi cuối, giữ provenance/hash/engineversion. Electron main ↔ Python worker bằng private stdioJSONL, không mở cổng mạng. Preview GUI không được dùng làm bằng chứng replay. Run lưu thêm engine-info.json (ABI/box centers) và report.json (clearance hộp 2D lấy mẫu). Recovery chỉ sửa marker thuộc project xác thực, bỏ qua malformed JSON, symlink và dataset lồng trong workspace. Contract: [01-CONTRACTS](../planning/04_2026-10-09_scenario-desktop/specs/01-CONTRACTS.md).
 Source pipelineBlender/cũ vẫn giữ; generatedoutputs vàtools đãchuyển sangmacOSTrash2026-10-09. Trongbackend/data chỉcòn layout.json vàground_drivable.png của scene0061 đểtesthồiquy. Các mô tảoutput dưới làlịch sử, không còn tồn tạiởpathcũ. DatasetnuScenesgốc ngoàiworkspace không đổi.

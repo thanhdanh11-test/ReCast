@@ -261,7 +261,7 @@ export default function ScenarioApp() {
               const s = await checked(api.variant({scenario_id: base!.id, target_actor: v.target_actor, speed_factor: v.speed_factor, gap_offset_m: v.gap_offset_m}));
               setScenario(s); resetPlayback(); setMessage('Biến thể tính sẵn đã sẵn sàng');
             })}>{v.target_actor} · {v.speed_factor}× · {v.gap_offset_m}m</button>)}
-        </section> : <p className="sensor-note">Biến thể chỉ có ở bản desktop</p>) : <>
+        </section> : <p className="sensor-note">Biến thể tự do chỉ có ở bản đầy đủ (npm run web:local)</p>) : <>
         <section>
           <div className="section-title"><h2>02 · Biến thể</h2></div>
           <label className="field">Đối tượng<select value={target} disabled={!base || busy || imported} onChange={e => setTarget(e.target.value)}>{base?.actors.filter(a => a.role === 'traffic').map(a => <option key={a.id} value={a.id}>{a.id}</option>)}</select></label>

@@ -159,10 +159,14 @@ Owner reports floating vehicles and wall penetration in0.10.1. Read-only source 
 - Installed source window closed once with concurrent imported acceptance; isolated retry/final run passed. Same class of transient event exists in plans14/16; cause still unconfirmed. Prefer sequential native QA and retain failed outputs.
 
 ## Toolchain 0.12.4 (2026-10-12)
-- `scripts/test-desktop.mjs` asserts the app path does NOT contain `/topeye/`: run it on a copy installed outside the repo (`~/Applications/Topeye <ver>.app`), not on `frontend/release/...`.
+- (≤0.14.0, desktop removed) `scripts/test-desktop.mjs` asserted the app path does NOT contain `/topeye/`: run it on a copy installed outside the repo (`~/Applications/Topeye <ver>.app`), not on `frontend/release/...`.
 - npm in sandboxed agents may hit EPERM on `~/.npm`; set `npm_config_cache=/private/tmp/<name>` instead of chown.
 - Vitest 5 loses contextual typing on `ReturnType<typeof vi.spyOn>` mock.calls callbacks → use `MockInstance<typeof fn>`.
 - Vite 8 `defineConfig` with `test:` block must be imported from `vitest/config`.
 - Web build: Vite names the HTML output after the source (`web.html`); static hosts need `index.html` at the root → `topeye-web-index` plugin must be `enforce: 'post'` or the rename is overwritten.
 - `ScenarioApp.tsx` captures `window.scenarioApp` at module load: any non-Electron host must assign it BEFORE a dynamic `import("./ScenarioApp")`.
 - Codex CLI shares the owner's ChatGPT quota; parallel runs can stop mid-task without a report — always re-measure on disk.
+- Cloudflare deploy from this Mac: IPv6 to Cloudflare API times out (`ConnectTimeoutError ... 2606:4700:...`) → run wrangler with `NODE_OPTIONS=--dns-result-order=ipv4first`. Wrangler ≥4.149 delegates `pages` to Workers; project `topeye-demo` was created once with `--force` (classic Pages) — never pass `--force` again. Fresh deployments can return 522 for a few seconds.
+- Vite rejects mode name `local` (clashes with `.env.local`); the localhost web build uses mode `localweb`.
+- Vitest must exclude `frontend/server/**` (node:test files); run them with `npm run test:server`.
+- Cloudflare API can return `code: 8000000` (unknown) on `pages project delete`; a single retry succeeded — verify with `pages project list`.

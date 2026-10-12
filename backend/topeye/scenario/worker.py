@@ -1,4 +1,4 @@
-"""Private JSONL worker owned by Electron. No socket or public HTTP endpoint."""
+"""Private JSONL worker owned by the localhost web server (frontend/server). No socket of its own."""
 
 import copy
 import json

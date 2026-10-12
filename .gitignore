@@ -10,3 +10,4 @@ backend/assets/env/
 .vite/
 frontend/public-web/data/
 frontend/dist-web/
+frontend/dist-local/

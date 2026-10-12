@@ -6,7 +6,9 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [x] v0.8.0: [Plan09](../planning/09_2026-10-09_sensor-views/plan.md) — 3D/LiDAR quét ngang/map nuScenes theo timeline;160frontend,independent24,standalone2/2esmini đạt; đã cài/mở app.
 - [ ] Chủ dự án nghiệm thu bằng mắt 0.8.1→0.12.3 (thay các mục nghiệm thu v0.5/v0.8; LiDAR giả lập 2D, nhà/cây ước lượng LiDAR).
 - [x] [Plan19](../planning/19_2026-10-12_audit-fixes/plan.md) audit fixes 0.12.4 (installed, desktop test PASS).
-- [ ] [Plan20](../planning/20_2026-10-12_web-demo/plan.md) web demo 0.13.0: local gates ✅; còn deploy Cloudflare (chủ dự án `wrangler login`), URL góp ý, thẩm định độc lập.
+- [x] [Plan22](../planning/22_2026-10-12_drop-desktop/plan.md) bỏ app desktop Electron 0.15.0; Cloudflare project đã xoá.
+- [x] [Plan21](../planning/21_2026-10-12_local-web-full/plan.md) web localhost đầy đủ 0.14.0 (`npm run web:local`).
+- [ ] [Plan20](../planning/20_2026-10-12_web-demo/plan.md) web demo tĩnh 0.13.0: code giữ; Cloudflare project ĐÃ XOÁ theo chủ dự án (chưa cần deploy). Mở lại khi cần chia sẻ.
 - [x] Nâng cấp UI Dashboard (v0.7.0): Chuyển đổi giao diện sang Dark Mode IDE-like với Tailwind CSS và shadcn/ui. [Plan08](../planning/08_2026-10-09_ui-tailwind-shadcn/plan.md).
 - [x] v0.5.0: [cảnh gốc đầy đủ](../planning/06_2026-10-09_original-scene/plan.md), map/LiDAR đơn sắc;565backend/145frontend, installed và review đạt.
 - [x] v0.4.0: khung hiển thị kịch bản 3D theo ảnh người dùng; camera bám xe/xoay/zoom/toàn cảnh và đọc pose esmini. [Plan05](../planning/05_2026-10-09_scenario-3d/plan.md).
@@ -38,10 +40,12 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
 *Nơi lưu trữ các ý tưởng hay, kiến trúc mở rộng chưa ưu tiên làm ngay nhưng cần giữ lại để tham khảo.*
+- [ ] **Dọn artifact desktop cũ** (0.15.0): 17 `.app` trong `~/Applications` (8,7 GB) + `frontend/release/` (5,2 GB) + `frontend/build/` + `frontend/dist/` cũ — chỉ khi chủ dự án đồng ý.
+- [ ] **Một lệnh khởi động không cần Terminal** (0.15.0): ví dụ script `.command` mở `npm run web:local`, vì bản web cần repo/venv/Node.
 - [ ] **Bỏ phụ thuộc shadcn CLI** (plan19): chỉ dùng `shadcn/tailwind.css` trong `src/index.css`; vendor file CSS đó để gỡ 7 high dev-only (braces chain).
 - [ ] **Build chậm ~50 s ở Tailwind transform** (Vite 8, plan19): kiểm phạm vi quét nguồn `@source` của Tailwind v4.
 - [ ] **Chạy biến thể hàng loạt + xuất báo cáo CSV/HTML** (audit 2026-10-12): tăng trực tiếp chỉ số số kịch bản hợp lệ.
-- [ ] **Notarize Apple / bản Windows** (audit 2026-10-12) để phát app desktop cho người ngoài.
+- [x] ~~Notarize Apple / bản Windows~~: không còn áp dụng, desktop đã bỏ (0.15.0).
 - [ ] **Dựng 3D nhanh hơn khi đổi cảnh** (plan16): phía trình duyệt còn ~1.1 s (drape địa hình + model); cân nhắc dựng trong worker/Web Worker hoặc cache geometry theo cảnh.
 - [ ] **Bus/truck GLB có giấy phép** (plan15): hiện là thân thủ tục cùng bảng màu xe con; cần nguồn CC0/CC-BY xác minh offline trước khi bundle.
 - [ ] **Hàn đỉnh polygon nguồn trước khi drape** (2026-10-10, plan14): 0–15 T-junction >2 cm/scene (max 0.245 m) còn lại do polygon kề nhau không chung đỉnh; chèn đỉnh lên cạnh kề / weld trước khi tam giác hoá. Probe: planning/14_2026-10-10_ground-contact/evidence/tjunction-probe.test.ts.

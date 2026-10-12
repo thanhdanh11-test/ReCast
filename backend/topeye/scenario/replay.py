@@ -62,15 +62,10 @@ def run_replay(bundle, engine, output, cancel=None):
         )
     output.mkdir(parents=True)
     write_json(output / "status.json", {"status": "running"})
-    command = (
-        [sys.executable]
-        if getattr(sys, "frozen", False)
-        else [sys.executable, "-m", "topeye.scenario.worker"]
-    )
+    command = [sys.executable, "-m", "topeye.scenario.worker"]
     command += ["--engine-child", str(bundle), str(engine), str(output)]
     env = os.environ.copy()
-    if not getattr(sys, "frozen", False):
-        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
     with (output / "engine-output.log").open("w") as log:
         process = subprocess.Popen(
             command, cwd=bundle, stdout=log, stderr=subprocess.STDOUT, env=env, shell=False

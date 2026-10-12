@@ -10,4 +10,4 @@
 
 The files are copies of the exact GLBs used by `backend/scripts/render_tesla_fsd_preview.py`. GLB coordinates were verified from decoded POSITION vertices: +X forward (headlights positive X, rear lights negative X), +Y up, box centered at origin. The loader requires no axis rotation; it normalizes each axis by decoded bounds.
 
-The `.base64` files are byte-identical encodings of the accompanying GLBs. Vite imports them as raw strings so development and the installed Electron app both decode in memory without file/HTTP fetches. Original GLBs remain alongside them for reproducible header/mesh tests.
+The `.base64` files are byte-identical encodings of the accompanying GLBs. Vite imports them as raw strings so every web build decodes them in memory without extra file/HTTP fetches. Original GLBs remain alongside them for reproducible header/mesh tests.

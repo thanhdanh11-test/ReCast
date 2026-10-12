@@ -82,7 +82,7 @@ beforeEach(() => {
     ]);
 });
 afterEach(cleanup);
-describe("desktop scenario flow", () => {
+describe("full scenario flow", () => {
     it("loads scenes through native picker and exposes extraction errors", async () => {
         mock.extract.mockRejectedValue(new Error("UNSUPPORTED_ROAD: Đường cong"));
         render(<ScenarioApp />);
@@ -269,7 +269,7 @@ describe('static web demo shell', () => {
   window.scenarioDemo = {demoVariants: () => []};
  });
  afterEach(() => { delete window.scenarioDemo; vi.unstubAllEnvs(); });
- it('loads without a picker and hides desktop-only actions, retaining shared views and credits', async () => {
+ it('loads without a picker and hides full-version-only actions, retaining shared views and credits', async () => {
   render(<ScenarioApp/>);
   await screen.findByText('Đã đọc 1 cảnh');
   expect(screen.getByText('BẢN DEMO WEB · dữ liệu tính sẵn')).toBeTruthy();
@@ -278,7 +278,7 @@ describe('static web demo shell', () => {
   }
   expect(screen.queryByRole('slider',{name:'Hệ số tốc độ'})).toBeNull();
   expect(screen.queryByRole('slider',{name:'Dịch dọc'})).toBeNull();
-  expect(screen.getByText('Biến thể chỉ có ở bản desktop')).toBeTruthy();
+  expect(screen.getByText('Biến thể tự do chỉ có ở bản đầy đủ (npm run web:local)')).toBeTruthy();
   expect(screen.getByText('nuScenes © Motional, CC BY-NC-SA 4.0')).toBeTruthy();
   expect(screen.getByText('Nguồn mô hình xe')).toBeTruthy();
   expect(mock.chooseDataset).not.toHaveBeenCalled();

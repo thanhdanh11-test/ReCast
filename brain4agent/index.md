@@ -8,6 +8,8 @@ Source delivery: [`P-056/source-tool/topeye`](https://github.com/AI20K-Build-Pha
 
 **Cleanup2026-10-09:** oldgenerated3Doutputs/tools areinmacOSTrash; oldviewerURLsinthisdocument arehistorical/inactive. Manifest: plan04/evidence/local/cleanup-manifest.json.
 
+**0.15.0 (2026-10-12):** app desktop Electron đã bỏ; chạy bằng `npm run web:local` ([plan22](../planning/22_2026-10-12_drop-desktop/plan.md), [plan21](../planning/21_2026-10-12_local-web-full/plan.md)).
+
 **PRIMARY2026-10-09:** [ScenarioDesktopplan04](../planning/04_2026-10-09_scenario-desktop/plan.md), [scenario module](../docs/scenario.md). v0.5.0 bổ sung cảnh gốc toàn bộ annotation và map/LiDAR đơn sắc; v0.4.0 bổ sung viewport3D: Electron/React + Python JSONL + esmini arm64; 4/4 kịch bản thực đạt. Plans02/03 secondary research.
 
 **Original scene v0.5.0:** [Plan06](../planning/06_2026-10-09_original-scene/plan.md); backend `source_scene.py`, frontend `sourceEnvironment.ts`; source playback remains separate from esmini acceptance.
@@ -84,9 +86,10 @@ project-root/
 │   ├── tests/                        #   pytest: 565 pass (2026-10-09), includes source-scene regressions
 │   └── data/                         #   (gitignore) cache/, sim/<scene>/{layout…, runs/<scenario>/}
 ├── frontend/                         # React/TS + legacy viewer
-│   ├── electron/                     # Native dialogs, sandboxed preload, worker ownership
+│   ├── server/                       # Localhost web server (127.0.0.1, token) + Python worker bridge
 │   ├── src/scenario/                 # Scenario Studio UI/Three.js 3D viewport + trajectory helpers
-│   └── scripts/                      # Desktop package/dev/installed acceptance
+│   ├── local.html · web.html          # Entries: full localhost app / static demo
+│   └── scripts/test-local-web.mjs     # E2E on real dataset + esmini
 ├── .agents/skills/ · .claude/        # Skill vault + shim (engine sinh)
 ```
 
@@ -94,7 +97,8 @@ project-root/
 | Lệnh | Vai trò |
 | :--- | :--- |
 | `backend/.venv/bin/python backend/scripts/build_scenario_engine.py` | Build pinned esmini arm64 |
-| `cd frontend && npm run desktop:dev` / `npm run desktop:package` | Run / package installed app |
+| `cd frontend && npm run web:local` | Full app in browser at http://127.0.0.1:5180 (0.15.0: only way; desktop removed) |
+| `cd frontend && npm run test:server` / `npm run test:e2e -- <nuscenes>` | Server security tests / real-data E2E |
 | `.venv/bin/python -m topeye.scenario.cli probe-engine` / `accept` | See docs/scenario.md for required arguments |
 | `cd backend && .venv/bin/topeye-sim-layout --scene scene-0061` | Xuất bố cục scene thật cho Blender |
 | `.venv/bin/topeye-sim-render --scene scene-0061 --selftest` | Kiểm camera Blender khớp OpenCV (< 0,5 px) |

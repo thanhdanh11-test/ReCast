@@ -1,15 +1,19 @@
 {
-  "current_version": "0.13.0",
+  "current_version": "0.15.0",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-12T17:02:42+07:00",
-    "scope": "0.13.0 static web demo (plan20)",
+    "timestamp": "2026-10-12T19:37:49+07:00",
+    "scope": "0.15.0 drop desktop (plan22)",
     "frontend_tests": {
-      "total": 314,
-      "pass": 314,
+      "total": 320,
+      "pass": 320,
       "fail": 0,
       "skip": 0
+    },
+    "server_tests": {
+      "total": 12,
+      "pass": 12
     },
     "backend_tests": {
       "total": 638,
@@ -17,16 +21,11 @@
       "fail": 0,
       "skip": 0
     },
-    "installed_desktop_test": "PASS",
-    "web_local_smoke": {
-      "scenes": 10,
-      "replay_and_variants_pass": 4,
-      "external_requests": 0,
-      "console_errors": 0,
-      "p95_frame_ms": 16.8
-    },
-    "deploy": "pending wrangler login",
-    "evidence": "planning/20_2026-10-12_web-demo/evidence"
+    "e2e_local_web": "14/14",
+    "dataset_metadata_unchanged": true,
+    "electron": "removed",
+    "cloudflare_project": "deleted",
+    "evidence": "planning/22_2026-10-12_drop-desktop/evidence"
   },
   "active_plans_completed": 1,
   "engine_sha": "1e68b141926025230d15ac986b2022c3d70a1e33",

@@ -2,6 +2,16 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.15.0 — Drop Electron desktop app — 2026-10-12T19:37:49+07:00
+- Owner decision: remove the desktop app; the localhost web app (`npm run web:local`) is the only runtime. Cloudflare Pages project `topeye-demo` deleted (first API call failed with Cloudflare 8000000, retry succeeded; project list empty).
+- Removed electron/, scenario.html, desktop dev/package/test scripts, PyInstaller entry and `sys.frozen` branches, electron/@electron/packager/pyinstaller deps. `npm run build` now builds dist-local. New `scripts/test-local-web.mjs` (`npm run test:e2e`) replaces the installed-app acceptance.
+- Gates: typecheck 0, frontend 320/320, server 12/12, backend 638/638, build 0, E2E 14/14 (metadata 13 unchanged, 0 workers left, 0 external), `npm ls electron` empty. Installed `.app` copies and gitignored release/build artifacts left untouched. [Plan22](../planning/22_2026-10-12_drop-desktop/plan.md).
+
+## v0.14.0 — Full-feature localhost web — 2026-10-12T19:24:40+07:00
+- `npm run web:local`: Vite mode `localweb` → `dist-local/` + `frontend/server/local-server.mjs` (Node, 127.0.0.1 only) bridging the unchanged Python worker over JSONL; `httpApi.ts` implements DesktopAPI over fetch + SSE. All desktop features work in the browser; native dialogs → path prompt / file upload / download.
+- Architecture decision (owner): invariant "no HTTP daemon" relaxed to "no public/remote server; opt-in localhost server". Per-run token, Host/Origin checks, static path containment, Electron allowlist mirrored.
+- Frontend 320/320, server 12/12 (mutation-red on token/Host), E2E 14/14 real dataset + esmini (dataset, source, extract, replay, free variant, export, map context, import/run/reopen XOSC, cancel + recover); metadata 13 files unchanged; clean shutdown 0 workers. [Plan21](../planning/21_2026-10-12_local-web-full/plan.md).
+
 ## v0.13.0 — Static web demo for feedback — 2026-10-12T17:02:42+07:00
 - New build target `npm run build:web` (Vite mode web → `dist-web/`), same ScenarioApp over `staticApi` (DesktopAPI backed by precomputed JSON); `Settings.mode` optional field is the only contract change. Desktop build/IPC unchanged.
 - `backend/scripts/export_web_demo.py` exports worker responses (10 sources, 5 extracts, 3 variants, 8 real esmini replays, 5 genuine backend rejections as `skipped`), sha256 manifest, dataset metadata guard; 6.2 MB / 1.7 MB gzip.

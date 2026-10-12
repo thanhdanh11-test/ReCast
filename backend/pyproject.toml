@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "topeye"
-version = "0.13.0"
+version = "0.15.0"
 description = "LiDAR and surround-camera annotation processing core"
 requires-python = ">=3.12"
 dependencies = [
@@ -24,7 +24,7 @@ topeye-sim-gsdata = "topeye.sim.gs_data:main"
 topeye-sim-fo = "topeye.sim.fo_dataset:main"
 
 [project.optional-dependencies]
-scenario-build = ["cmake==3.31.6", "pyinstaller==6.22.3"]
+scenario-build = ["cmake==3.31.6"]
 dev = ["pytest", "ruff", "httpx"]
 ground = ["pypatchworkpp"]
 mesh = ["open3d"]

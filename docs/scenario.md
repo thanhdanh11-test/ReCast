@@ -1,4 +1,4 @@
-# Scenario Studio — N3-09B, v0.13.0
+# Scenario Studio — N3-09B, v0.15.0
 
 ## Tóm tắt phiên bản hiện hành
 
@@ -10,10 +10,12 @@
 - 0.12.2: xe nguồn bám mặt địa hình hiển thị (hình chữ nhật tựa bánh xoay).
 - 0.12.3: logo chủ dự án làm icon app macOS.
 - 0.12.4: Vite 8/Vitest 5, viewer cũ ra khỏi build.
-- 0.13.0: web demo tĩnh (mục cuối).
+- 0.13.0: web demo tĩnh.
+- 0.14.0: web localhost đầy đủ tính năng.
+- 0.15.0: **bỏ app desktop Electron**; chạy duy nhất bằng `npm run web:local` (mục cuối). Các đoạn bên dưới nhắc "app/desktop/Electron/.app" là lịch sử ≤0.14.0.
 
 
-Ứng dụng desktop macOS Apple Silicon: đọc quỹ đạo nuScenes → xuất OpenSCENARIO 1.0 + OpenDRIVE → phát lại bằng esmini 3.9.0 → tạo biến thể tốc độ/vị trí → báo cáo sai số và số kịch bản hợp lệ. App dùng Electron/React, đóng gói Python 3.12 qua PyInstaller và thư viện esmini arm64; không cần Python/Node/Terminal/GPU khi sử dụng. Giao tiếp worker bằng JSONL stdio riêng, không mở HTTP server.
+Ứng dụng web chạy trên máy (localhost, từ 0.15.0; trước đó là app desktop Electron): đọc quỹ đạo nuScenes → xuất OpenSCENARIO 1.0 + OpenDRIVE → phát lại bằng esmini 3.9.0 → tạo biến thể tốc độ/vị trí → báo cáo sai số và số kịch bản hợp lệ. Giao diện React chạy trong trình duyệt, nói chuyện với server Node chỉ nghe 127.0.0.1 (`frontend/server/`), server điều khiển worker Python 3.12 qua JSONL stdio và esmini arm64 build trong repo. Cần repo + `backend/.venv` + Node; không cần GPU.
 
 ## Giao diện ba khung v0.8.0
 
@@ -53,7 +55,7 @@ Cảnh gốc không xuất/replay trực tiếp và không tính vào số kịc
 
 Renderer nằm trong `frontend/src/scenario/{TrackView.tsx,scene3d.ts,trajectory.ts}`. Transform worldXYZ→Three(X,Z,-Y), yaw quay quanh+Y. Ego pose là origin mặt đất; traffic annotation là tâm hộp. Scene rebuild chỉ khi scenario/replay thay đổi; thời gian chạy cập nhật pose, không tạo renderer mỗi frame. Unmount giải phóng geometry/material/controls/RAF/ResizeObserver/WebGL. Thiếu WebGL hoặc pose có cảnh báo.
 
-## Phát triển và đóng gói
+## Cài đặt và chạy (0.15.0)
 
 Từ root repo, sau khi đã tạo Python 3.12 venv:
 
@@ -62,19 +64,22 @@ uv pip install --python backend/.venv/bin/python -e 'backend[dev,scenario-build]
 backend/.venv/bin/python backend/scripts/build_scenario_engine.py
 cd frontend
 npm ci
-npm run desktop:dev
-npm run desktop:package
+npm run web:local                       # build dist-local + server http://127.0.0.1:5180
+npm run test:server                     # 12 test bảo mật server
+npm run test:e2e -- /path/to/nuscenes   # E2E 14 bước trên Chrome, dataset + esmini thật
 ```
+
+Ghi chú lịch sử ≤0.14.0 (đóng gói desktop, đã bỏ):
 
 Build engine kiểm SHA256 của `esmini-fullsrc.zip` v3.9.0: `dbf409d228087ef71e3077498aad181974a1adc222823e7ebcf9cd981b6ceaf8`. CMake tắt OSG/OSI/SUMO/PROJ/IMPLOT; không tải GPU/runtime mô phỏng khác. Xcode Command Line Tools cần cho build, không cần cho người dùng app. Electron archive cache được kiểm bằng checksums của package Electron. Bộ cài ở `frontend/release/Topeye-<version>-mac-arm64.zip`, manifest ghi engine/artifact SHA, phiên bản và kiến trúc. Ký ad-hoc local, **chưa notarize để phát hành công khai**; không vô hiệu hóa Gatekeeper.
 
 ```sh
 backend/.venv/bin/python -m topeye.scenario.cli probe-engine --engine backend/.tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib.dylib
 backend/.venv/bin/python -m topeye.scenario.cli accept --dataset /path/to/nuscenes --engine backend/.tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib.dylib --workspace /new/acceptance-directory
-node frontend/scripts/test-desktop.mjs /path/Topeye.app/Contents/MacOS/Topeye /path/to/nuscenes /existing/evidence-directory
+node frontend/scripts/test-local-web.mjs /path/to/nuscenes /existing/evidence-directory
 ```
 
-`accept` chọn reference đáp ứng các ngưỡng động học trước, rồi bắt buộc chạy baseline và 3 biến thể qua engine. Reference preflight không được tính là bằng chứng simulator. `desktop:test` điều khiển app cài thật bằng Playwright Electron, chỉ giả lập giá trị trả về của hộp chọn thư mục; toàn bộ IPC, đọc dữ liệu, xuất file, engine, đo sai số, hủy và đóng tiến trình đều thật. Kiểm hash 13 file metadata trước/sau. Không claim đã tự động kiểm mọi thao tác native file picker bằng chuột.
+`accept` chọn reference đáp ứng các ngưỡng động học trước, rồi bắt buộc chạy baseline và 3 biến thể qua engine. Reference preflight không được tính là bằng chứng simulator. `test-local-web.mjs` (thay `test-desktop.mjs` từ 0.15.0) tự dựng server localhost, điều khiển Chrome qua Playwright: nhập đường dẫn dataset, cảnh gốc, trích đoạn, phát lại esmini, biến thể, xuất kịch bản, tải map context, tải lên/chạy/mở lại `.xosc`, huỷ rồi chạy tiếp; kiểm hash metadata dataset trước/sau, 0 worker sót, 0 request ngoài 127.0.0.1.
 
 ## Contracts và giới hạn
 
@@ -217,3 +222,19 @@ npx wrangler pages deploy dist-web --project-name topeye-demo --branch preview
 ```
 
 Dữ liệu: 10 cảnh mini, 5 trích đoạn (preset scene-0103 + mặc định UI), 3 biến thể, 8 replay esmini thật; 5 tổ hợp backend từ chối được ghi `skipped`. 6,2 MB (gzip 1,7 MB); manifest sha256 từng file; exporter dừng nếu metadata dataset đổi. Unlisted: `X-Robots-Tag: noindex` + robots Disallow; ai có link đều xem được. Ghi nguồn: VF3/sedan/SUV CC BY 4.0, nuScenes CC BY-NC-SA 4.0 (phi thương mại), CARLA MIT. `public-web/data/` và `dist-web/` bị gitignore. SPEC: planning/20_2026-10-12_web-demo/.
+
+
+## Web localhost đầy đủ 0.14.0
+
+`cd frontend && npm run web:local` → build `dist-local/` (Vite mode `localweb`, entry `local.html`) rồi chạy `server/local-server.mjs` tại `http://127.0.0.1:5180/` và mở trình duyệt. Đủ mọi tính năng desktop: chọn dataset, cảnh gốc, trích đoạn/biến thể tự do, phát lại esmini thật, xuất kịch bản, xuất map context, nạp/mở OpenSCENARIO, huỷ.
+
+- `server/worker-bridge.mjs` là bản chuyển từ Electron main: một worker Python JSONL, một tác vụ (BUSY), huỷ dừng cả process group. `local-server.mjs` giữ đúng allowlist tham số/giới hạn/kiểm ID của Electron.
+- Bảo mật: chỉ bind 127.0.0.1; token 32 byte mỗi lần chạy nhúng vào `index.html` (`<meta name="topeye-token">`), bắt buộc ở header `X-Topeye-Token` (SSE `/api/events?token=`); Host phải là 127.0.0.1/localhost:port (chống DNS rebinding), Origin cùng gốc; static không thoát khỏi `dist-local/`; không có endpoint đọc file tuỳ ý.
+- Hộp thoại native thay bằng: `window.prompt` nhập đường dẫn (dataset, thư mục lưu, thư mục `import/` của kịch bản đã lưu); chọn file `.xosc` từ trình duyệt (≤2 MiB); map context tải về thư mục Tải về.
+- Settings/log dùng chung `~/Library/Application Support/Topeye/` với app desktop. `TOPEYE_PORT` (mặc định 5180), `TOPEYE_NO_OPEN=1`. Ctrl+C dừng worker trước khi thoát.
+- Test: `npm run test:server` (12, node:test), `httpApi.test.ts` (6). SPEC/bằng chứng: planning/21_2026-10-12_local-web-full/.
+
+
+## Bỏ app desktop 0.15.0
+
+Đã xoá `frontend/electron/`, `frontend/scenario.html`, `frontend/scripts/{dev,package,test,test-imported}-desktop.mjs`, `backend/scripts/scenario_worker.py` (PyInstaller), dependency `electron`/`@electron/packager`, `pyinstaller` khỏi extra `scenario-build`, và nhánh `sys.frozen` trong `replay.py`/`imported_replay.py`/`source_scene.py`. `npm run build` = build web localhost (`dist-local/`). Code desktop còn trong lịch sử git đến commit `3ef337d` (0.13.0) / bản 0.14.0; các `.app` đã cài trong `~/Applications` không bị gỡ. SPEC: planning/22_2026-10-12_drop-desktop/.

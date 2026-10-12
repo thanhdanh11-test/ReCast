@@ -103,7 +103,7 @@ export interface ImportedScenario extends Scenario { mode: "imported"; profile: 
 export interface ImportedReport { kind: "imported"; execution: "pass" | "fail"; fidelity: {coverage: number; max_xy_m: number; max_yaw_rad: number}; map_conformance: "pass" | "fail"; contacts: {actors: string[]; [key: string]: unknown}[]; warnings: string[] }
 export interface ImportedReplay extends Replay { report: ImportedReport }
 export interface Settings {
-  mode?: "desktop" | "web-demo";
+  mode?: "web-demo" | "local-web";
   dataset: string | null;
   datasetVersion: string | null;
   workspace: string;

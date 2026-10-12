@@ -1,7 +1,6 @@
 """Read-only original scene: annotations, vector map and measured static geometry."""
 
 import json
-import sys
 import uuid
 from pathlib import Path
 
@@ -15,8 +14,6 @@ from topeye.scenario.presentation import build_presentation, estimate_ground
 
 
 def map_directory():
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent / "maps"
     return Path(__file__).resolve().parents[2] / "data/scenario/maps"
 
 

@@ -139,3 +139,9 @@ Owner: map light patches, equal header buttons, faster map load, trees on roads.
 
 ## 2026-10-12T17:02:42+07:00 — Web demo 0.13.0 (Claude orchestrator)
 - Owner: commit 0.12.4 (done 329987e on release/v0.12.4), web unlisted. Codex P01/P02 parallel; both hit ChatGPT usage limit (reset ~19:15) before reports → orchestrator verified/fixed. Local web gates pass; wrangler token expired → owner must `wrangler login`. Local preview server on 127.0.0.1:8790.
+
+## 2026-10-12T19:24:40+07:00 — Local full web 0.14.0
+- Owner: build full-feature localhost web; "xoá bản app và bản deploy, chưa cần deploy" — deletion scope awaiting confirmation (installed .app copies vs Electron code; Cloudflare project topeye-demo). Implemented plan21 inline (Codex quota exhausted); all gates pass.
+
+## 2026-10-12T19:37:49+07:00 — Drop desktop 0.15.0
+- Owner: "xoá cloudflare chọn b" → Cloudflare project deleted (retry after 8000000), Electron desktop removed from code (plan22). Installed .app copies untouched (not requested). All gates pass; commit pending owner OK.

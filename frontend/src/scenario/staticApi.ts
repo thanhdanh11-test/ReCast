@@ -28,7 +28,7 @@ function failure(code: string, message: string): Error & { code: string } {
   return Object.assign(new Error(`${code}: ${message}`), { code });
 }
 const unavailable = async (): Promise<never> => {
-  throw failure("WEB_DEMO_UNAVAILABLE", "Chỉ có ở bản desktop");
+  throw failure("WEB_DEMO_UNAVAILABLE", "Chỉ có ở bản đầy đủ (npm run web:local)");
 };
 
 export function createStaticApi(base: string, fetchImpl: typeof fetch = fetch): DesktopAPI & DemoHelpers {

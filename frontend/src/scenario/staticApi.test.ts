@@ -51,7 +51,7 @@ describe("static demo DesktopAPI", () => {
       "/demo/data/extract/9d2fcd08469d0aea.json", expect.stringMatching(/^\/demo\/data\/variant\/[a-f0-9]{16}\.json$/), "/demo/data/replay/scenario-1.json",
     ]);
   });
-  it.each(["chooseDataset", "chooseWorkspace", "mapContext", "export", "exportMapContext", "importXosc", "openImported", "replayImported"] as const)("rejects desktop-only %s without fetching", async method => {
+  it.each(["chooseDataset", "chooseWorkspace", "mapContext", "export", "exportMapContext", "importXosc", "openImported", "replayImported"] as const)("rejects full-version-only %s without fetching", async method => {
     const { api, fetcher } = await fixture();
     await expect(api[method]({ scenario_id: "s", source_id: "s" })).rejects.toMatchObject({ code: "WEB_DEMO_UNAVAILABLE" });
     expect(fetcher).not.toHaveBeenCalled();
