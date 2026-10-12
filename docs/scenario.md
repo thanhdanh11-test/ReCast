@@ -1,4 +1,15 @@
-# Scenario Studio — N3-09B, v0.9.0
+# Scenario Studio — N3-09B, v0.12.3
+
+## Tóm tắt phiên bản hiện hành
+
+- 0.10.0: ego VinFast VF3 có giấy phép, xe giao thông xám, khoảng cách xe trước, 22 preset thời tiết CARLA (chỉ hiển thị), XOSC trên header.
+- 0.10.1: bỏ mảng trắng lớn của vùng dừng nuScenes.
+- 0.11.0: nền LiDAR/annotation, tiếp xúc/nghiêng theo nguồn, cắt nhà theo hành lang xe.
+- 0.12.0: thân bus/truck, đèn trước/sau, camera "Trong xe", map tô màu theo loại + chú giải.
+- 0.12.1: bỏ vạch dừng trên map, nút header đều nhau, cây/cột không nằm trên đường, đổi cảnh nhanh hơn.
+- 0.12.2: xe nguồn bám mặt địa hình hiển thị (hình chữ nhật tựa bánh xoay).
+- 0.12.3: logo chủ dự án làm icon app macOS.
+
 
 Ứng dụng desktop macOS Apple Silicon: đọc quỹ đạo nuScenes → xuất OpenSCENARIO 1.0 + OpenDRIVE → phát lại bằng esmini 3.9.0 → tạo biến thể tốc độ/vị trí → báo cáo sai số và số kịch bản hợp lệ. App dùng Electron/React, đóng gói Python 3.12 qua PyInstaller và thư viện esmini arm64; không cần Python/Node/Terminal/GPU khi sử dụng. Giao tiếp worker bằng JSONL stdio riêng, không mở HTTP server.
 
@@ -14,7 +25,7 @@ Tác vụ UI dùng generation token: bấm Hủy vô hiệu mọi kết quả c�
 
 ## Dùng bản cài
 
-Mở `~/Applications/Topeye 0.8.app`. Bản đóng gói cũng có tại `frontend/release/Topeye-darwin-arm64/Topeye.app`. Chọn thư mục chứa `v1.0-mini`: app tự dựng cảnh gốc đầy đủ. Để đo bằng simulator, chọn 1–3 xe, bấm **Trích đoạn thử nghiệm**, rồi **Chạy phát lại**. **Xuất kịch bản** lưu gói XOSC/XODR/reference/manifest. Thanh tốc độ và dịch dọc đường tạo một reference mới; số kịch bản đạt là số ID đã chạy đạt trong phiên hiện tại, không phải số file xuất.
+Mở `~/Applications/Topeye 0.12.3.app`. Bản đóng gói cũng có tại `frontend/release/Topeye-darwin-arm64/Topeye.app`. Chọn thư mục chứa `v1.0-mini`: app tự dựng cảnh gốc đầy đủ. Để đo bằng simulator, chọn 1–3 xe, bấm **Trích đoạn thử nghiệm**, rồi **Chạy phát lại**. **Xuất kịch bản** lưu gói XOSC/XODR/reference/manifest. Thanh tốc độ và dịch dọc đường tạo một reference mới; số kịch bản đạt là số ID đã chạy đạt trong phiên hiện tại, không phải số file xuất.
 
 Preset minh họa đã đo: `scene-0103`, actor `ec0e6425eae2442698ff7b43d405d279` (bicycle), yêu cầu giây 8–13. Giao thời gian quan sát thực bắt đầu khoảng 10,4 giây, nên clip chung khoảng 2,6 giây. Tốc độ 0,8×/1,2× và dịch +2m đều có đủ hỗ trợ dữ liệu. Các lựa chọn khác có thể bị từ chối hoặc báo không đạt; không tự nới ngưỡng.
 
@@ -53,7 +64,7 @@ npm run desktop:dev
 npm run desktop:package
 ```
 
-Build engine kiểm SHA256 của `esmini-fullsrc.zip` v3.9.0: `dbf409d228087ef71e3077498aad181974a1adc222823e7ebcf9cd981b6ceaf8`. CMake tắt OSG/OSI/SUMO/PROJ/IMPLOT; không tải GPU/runtime mô phỏng khác. Xcode Command Line Tools cần cho build, không cần cho người dùng app. Electron archive cache được kiểm bằng checksums của package Electron. Bộ cài ở `frontend/release/Topeye-0.8.0-mac-arm64.zip`, manifest ghi engine/artifact SHA, phiên bản và kiến trúc. Ký ad-hoc local, **chưa notarize để phát hành công khai**; không vô hiệu hóa Gatekeeper.
+Build engine kiểm SHA256 của `esmini-fullsrc.zip` v3.9.0: `dbf409d228087ef71e3077498aad181974a1adc222823e7ebcf9cd981b6ceaf8`. CMake tắt OSG/OSI/SUMO/PROJ/IMPLOT; không tải GPU/runtime mô phỏng khác. Xcode Command Line Tools cần cho build, không cần cho người dùng app. Electron archive cache được kiểm bằng checksums của package Electron. Bộ cài ở `frontend/release/Topeye-<version>-mac-arm64.zip`, manifest ghi engine/artifact SHA, phiên bản và kiến trúc. Ký ad-hoc local, **chưa notarize để phát hành công khai**; không vô hiệu hóa Gatekeeper.
 
 ```sh
 backend/.venv/bin/python -m topeye.scenario.cli probe-engine --engine backend/.tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib.dylib

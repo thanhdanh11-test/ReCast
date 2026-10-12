@@ -2,6 +2,11 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.12.4 — Audit fixes before web demo — 2026-10-12T16:40:51+07:00
+- Toolchain: Vite 5.4→8.3.4, Vitest 2.1→5.0.3, plugin-react 4.7→6.1.2; shadcn/@tailwindcss/vite/gaussian-splats moved to devDependencies; unused autoprefixer/postcss direct deps removed. `npm audit --omit=dev` 0; full audit 2 critical/8 high → 0 critical/7 high, all inside the dev-only shadcn CLI (braces advisory, no upstream fix). Packaged app never contained node_modules (only dist + electron), so shipped exposure was nil before and after.
+- Legacy viewer entry removed from production build (`dist/` no longer ships legacy/gaussian-splats chunks); legacy source and tests kept. Root clean: removed stray patch_app.py and .vite cache, `.vite/` ignored. docs/scenario.md and roadmap Active refreshed to 0.12.3+.
+- Work split: Codex (deps/build, report 🔁 only for the 7 dev-only high) + orchestrator re-measure; agy launch was blocked by the local permission classifier, docs done by orchestrator. Frontend 282/282 0 skip, typecheck/build/package exit 0, installed `~/Applications/Topeye 0.12.4.app` desktop flow + real esmini + cancel + dataset integrity PASS. [Plan19](../planning/19_2026-10-12_audit-fixes/plan.md). No commit/push.
+
 ## v0.12.1 — Map polish & faster scene load — 2026-10-10T15:20:28+07:00
 - Integrated map no longer paints nuScenes stop_line regions (the broken light patches); header buttons all 210×34 px (168×34 ≤1150 px); LiDAR-estimated trees/poles on the road or observed vehicle paths are omitted from display (raw kept; 0 left on the road in 10 scenes).
 - Faster load with byte-identical scenes: backend 31.7 → 18.1 s for 10 scenes; installed app first scene switch median 4.6 → 3.2 s, revisit 4.6 → 1.2 s (worker in-memory LRU, 12 scenes, 13.4 MB for mini).

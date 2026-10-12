@@ -157,3 +157,9 @@ Owner reports floating vehicles and wall penetration in0.10.1. Read-only source 
 - With heightAt=null or >1.5m annotation-to-ground offset, former raw-Z fallback kept cars airborne while displayed surface faded to the flat backdrop;0916 gap4.1665m. Source display now uses surfaceAt; support confidence remains separately disclosed. Preserve raw coordinates and measured/imported/replay fidelity.
 - Do not use outer body bbox corners as wheel supports: overhangs over a hump lift every wheel. Use axle rectangle ±0.3length/±0.4width and apply the same YZX rotation before fitting contact. This is an approximate support footprint, not exact tire geometry/suspension or bridge reconstruction.
 - Installed source window closed once with concurrent imported acceptance; isolated retry/final run passed. Same class of transient event exists in plans14/16; cause still unconfirmed. Prefer sequential native QA and retain failed outputs.
+
+## Toolchain 0.12.4 (2026-10-12)
+- `scripts/test-desktop.mjs` asserts the app path does NOT contain `/topeye/`: run it on a copy installed outside the repo (`~/Applications/Topeye <ver>.app`), not on `frontend/release/...`.
+- npm in sandboxed agents may hit EPERM on `~/.npm`; set `npm_config_cache=/private/tmp/<name>` instead of chown.
+- Vitest 5 loses contextual typing on `ReturnType<typeof vi.spyOn>` mock.calls callbacks → use `MockInstance<typeof fn>`.
+- Vite 8 `defineConfig` with `test:` block must be imported from `vitest/config`.

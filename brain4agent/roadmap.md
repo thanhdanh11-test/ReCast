@@ -4,10 +4,11 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 
 ## Mục tiêu hiện tại (Active)
 - [x] v0.8.0: [Plan09](../planning/09_2026-10-09_sensor-views/plan.md) — 3D/LiDAR quét ngang/map nuScenes theo timeline;160frontend,independent24,standalone2/2esmini đạt; đã cài/mở app.
-- [ ] Người dùng xem bố cục ba khung v0.8.0; LiDAR giả lập2D, môi trường vẫn giản lược.
+- [ ] Chủ dự án nghiệm thu bằng mắt 0.8.1→0.12.3 (thay các mục nghiệm thu v0.5/v0.8; LiDAR giả lập 2D, nhà/cây ước lượng LiDAR).
+- [x] [Plan19](../planning/19_2026-10-12_audit-fixes/plan.md) audit fixes 0.12.4 (installed, desktop test PASS).
+- [ ] [Plan20](../planning/20_2026-10-12_web-demo/plan.md) web demo tĩnh 0.13.0 trên Cloudflare Pages — SPEC chờ chủ dự án duyệt + chốt công khai/nơi nhận góp ý.
 - [x] Nâng cấp UI Dashboard (v0.7.0): Chuyển đổi giao diện sang Dark Mode IDE-like với Tailwind CSS và shadcn/ui. [Plan08](../planning/08_2026-10-09_ui-tailwind-shadcn/plan.md).
 - [x] v0.5.0: [cảnh gốc đầy đủ](../planning/06_2026-10-09_original-scene/plan.md), map/LiDAR đơn sắc;565backend/145frontend, installed và review đạt.
-- [ ] Người dùng nghiệm thu hình ảnh v0.5.0; nhà/cây vẫn là ước lượng LiDAR.
 - [x] v0.4.0: khung hiển thị kịch bản 3D theo ảnh người dùng; camera bám xe/xoay/zoom/toàn cảnh và đọc pose esmini. [Plan05](../planning/05_2026-10-09_scenario-3d/plan.md).
 - [x] Chốt mục tiêu N3-09B + app cài trên máy; audit local10scenes/18538annotationrecords.
 - [x] Tạo [SPECpackage04](../planning/04_2026-10-09_scenario-desktop/plan.md): macOSarm64/Electron+React+Pythonstdio/esmini; v0.3.0 local desktop.
@@ -31,12 +32,16 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [ ] Pipeline fusion kiểu YOLO-LiDAR-Fusion trên adapter của ta (baseline đo mAP 3D).
 
 ## Tương lai (Upcoming)
-- [ ] Xử lý audit frontend cũ (2026-10-08): 6 advisory, gồm vitest/tinypool critical và vite high; tách khỏi thử nghiệm StreetGS, cần nâng dependency và kiểm hồi quy.
+- [x] ~~Xử lý audit frontend cũ~~: xong ở 0.12.4 (plan19); còn 7 high dev-only trong shadcn CLI.
 - [ ] Chạy layout và render cho đủ 10 scene nuScenes-mini, ở tất cả các frame.
 - [ ] Dữ liệu thật 8 cam của team: viết adapter mới. Nếu không có map làn thì tự dò làn từ intensity LiDAR.
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
 *Nơi lưu trữ các ý tưởng hay, kiến trúc mở rộng chưa ưu tiên làm ngay nhưng cần giữ lại để tham khảo.*
+- [ ] **Bỏ phụ thuộc shadcn CLI** (plan19): chỉ dùng `shadcn/tailwind.css` trong `src/index.css`; vendor file CSS đó để gỡ 7 high dev-only (braces chain).
+- [ ] **Build chậm ~50 s ở Tailwind transform** (Vite 8, plan19): kiểm phạm vi quét nguồn `@source` của Tailwind v4.
+- [ ] **Chạy biến thể hàng loạt + xuất báo cáo CSV/HTML** (audit 2026-10-12): tăng trực tiếp chỉ số số kịch bản hợp lệ.
+- [ ] **Notarize Apple / bản Windows** (audit 2026-10-12) để phát app desktop cho người ngoài.
 - [ ] **Dựng 3D nhanh hơn khi đổi cảnh** (plan16): phía trình duyệt còn ~1.1 s (drape địa hình + model); cân nhắc dựng trong worker/Web Worker hoặc cache geometry theo cảnh.
 - [ ] **Bus/truck GLB có giấy phép** (plan15): hiện là thân thủ tục cùng bảng màu xe con; cần nguồn CC0/CC-BY xác minh offline trước khi bundle.
 - [ ] **Hàn đỉnh polygon nguồn trước khi drape** (2026-10-10, plan14): 0–15 T-junction >2 cm/scene (max 0.245 m) còn lại do polygon kề nhau không chung đỉnh; chèn đỉnh lên cạnh kề / weld trước khi tam giác hoá. Probe: planning/14_2026-10-10_ground-contact/evidence/tjunction-probe.test.ts.

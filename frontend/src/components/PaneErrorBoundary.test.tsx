@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { MockInstance } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PaneErrorBoundary } from './PaneErrorBoundary';
@@ -16,7 +17,7 @@ const BuggyChild: React.FC<{ shouldThrow: boolean; message?: string }> = ({
 };
 
 describe('PaneErrorBoundary', () => {
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: MockInstance<typeof console.error>;
 
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

@@ -1,34 +1,26 @@
 {
-  "current_version": "0.12.3",
+  "current_version": "0.12.4",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-10T15:57:06+07:00",
-    "scope": "0.12.3 native app logo (plan18)",
+    "timestamp": "2026-10-12T16:40:51+07:00",
+    "scope": "0.12.4 audit fixes (plan19)",
     "frontend_tests": {
       "total": 282,
       "pass": 282,
       "fail": 0,
       "skip": 0
     },
-    "build_typecheck_package_signature_exit": 0,
-    "logo": {
-      "version": "0.12.3",
-      "logo": {
-        "src": "file:///Users/macos/Applications/Topeye%200.12.3.app/Contents/Resources/app.asar/dist/assets/topeye-logo-Bpjuhm4B.png",
-        "width": 1200,
-        "height": 1200,
-        "displayWidth": 44,
-        "displayHeight": 44,
-        "fit": "contain",
-        "sha256": "3556d9a03505242c7cad98ff179c15886f327e287c50f58f8bf8352c5879a8ff"
-      },
-      "nativeIcon": "electron.icns",
-      "nativeIconSha256": "67ed9e942a34aa68ed9871d50ba1354b480de5816652b8ff8ff8459712ff4140",
-      "signature": "PASS",
-      "errors": []
+    "typecheck_build_package_exit": 0,
+    "npm_audit_prod": 0,
+    "npm_audit_dev": {
+      "critical": 0,
+      "high": 7,
+      "note": "shadcn CLI braces chain, dev-only, no upstream fix"
     },
-    "evidence": "planning/18_2026-10-10_app-logo/evidence"
+    "installed_desktop_test": "PASS",
+    "app": "~/Applications/Topeye 0.12.4.app",
+    "evidence": "planning/19_2026-10-12_audit-fixes/evidence"
   },
   "active_plans_completed": 1,
   "engine_sha": "1e68b141926025230d15ac986b2022c3d70a1e33",

@@ -129,3 +129,10 @@ Owner: map light patches, equal header buttons, faster map load, trees on roads.
 - Owner supplied /Users/macos/logo.png; SHA exactly matched existing header asset. Native packager had no custom icon; added standard iconset/ICNS generation from shared asset. No redraw/crop/recolor.
 - v0.12.3 installed: supplied logo is now the native macOS app icon; header PNG already matched owner source byte-for-byte and is preserved. Packaging derives10 standard icon PNGs (16–1024px, alpha) and ICNS from frontend/src/scenario/assets/topeye-logo.png via sips/iconutil.282frontend tests/build/signature pass;installed native ICNS hash matches generated icon, UI logo SHA matches owner image,0renderer errors. ~/Applications/Topeye 0.12.3.app;plan18.
 - No product behavior change or commit/push. New bundle icon stored under legacy filename electron.icns; bytes verified against generated custom icon.
+
+
+## 2026-10-12T16:40:51+07:00 — Audit fixes 0.12.4 + web demo SPEC (Claude orchestrator)
+- Owner asked: review whole app, web vs app; then fix all audit findings via Codex/agy, then build web version to upload (Cloudflare/Vercel).
+- Correction recorded: packaged .app never shipped node_modules; npm advisories were dev/build-only.
+- Codex did H01 deps/build (🔁 only for 7 dev-only high); agy launch blocked by permission classifier → docs done inline. Orchestrator re-measured 282/282, build, package, installed desktop test PASS.
+- Measured web feasibility: 10 mini source scenes 5.8 MB raw / 1.6 MB gzip; dist 5.3 MB. Plan20 SPEC package written (static DesktopAPI over precomputed JSON, Cloudflare Pages); awaiting owner approval + public/unlisted + feedback destination.
