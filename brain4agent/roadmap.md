@@ -40,7 +40,7 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
 *Nơi lưu trữ các ý tưởng hay, kiến trúc mở rộng chưa ưu tiên làm ngay nhưng cần giữ lại để tham khảo.*
-- [ ] **Dọn artifact desktop cũ** (0.15.0): 17 `.app` trong `~/Applications` (8,7 GB) + `frontend/release/` (5,2 GB) + `frontend/build/` + `frontend/dist/` cũ — chỉ khi chủ dự án đồng ý.
+- [x] **Dọn artifact desktop cũ** (2026-10-12, chủ dự án đồng ý): 17 `.app` + `frontend/{release,build,dist}` + `backend/build` (≈15 GB) chuyển vào `~/.Trash/topeye-desktop-20261012-195140` (khôi phục được tới khi dọn Thùng rác).
 - [ ] **Một lệnh khởi động không cần Terminal** (0.15.0): ví dụ script `.command` mở `npm run web:local`, vì bản web cần repo/venv/Node.
 - [ ] **Bỏ phụ thuộc shadcn CLI** (plan19): chỉ dùng `shadcn/tailwind.css` trong `src/index.css`; vendor file CSS đó để gỡ 7 high dev-only (braces chain).
 - [ ] **Build chậm ~50 s ở Tailwind transform** (Vite 8, plan19): kiểm phạm vi quét nguồn `@source` của Tailwind v4.

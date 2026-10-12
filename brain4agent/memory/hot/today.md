@@ -145,3 +145,4 @@ Owner: map light patches, equal header buttons, faster map load, trees on roads.
 
 ## 2026-10-12T19:37:49+07:00 — Drop desktop 0.15.0
 - Owner: "xoá cloudflare chọn b" → Cloudflare project deleted (retry after 8000000), Electron desktop removed from code (plan22). Installed .app copies untouched (not requested). All gates pass; commit pending owner OK.
+- Commit 1b93df1 (0.14.0+0.15.0). Desktop artifacts ≈15 GB moved to ~/.Trash/topeye-desktop-20261012-195140; web build/server re-verified.
