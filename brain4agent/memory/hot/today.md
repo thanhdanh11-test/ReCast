@@ -49,3 +49,6 @@
 - Backend565/frontend145 pass,0fail/skip; lint/typecheck/build/package đạt. Independent probes11/11 và packaging8/8; regression RED→GREEN lưu đầy đủ.
 - Installed source/seek/cameras + esmini baseline/variant + cancel/process teardown +13metadata hashes đạt. Bản cài ~/Applications/Topeye 0.5.app; giữ app0.4 và zip rollback.
 - Evidence: planning/06_2026-10-09_original-scene/evidence. Chưa nghiệm thu thẩm mỹ bởi người dùng, chưa notarize/public release, chưa commit/push.
+- 09:22 v0.23.1: AV2 mở nhanh hơn (adapter vector hoá, worker giữ adapter đã kiểm tra, quét LiDAR song song); bỏ phương án lấy mẫu 2 Hz vì mất chi tiết.
+- 09:30 v0.23.2: thanh icon bỏ Cảnh báo + Dữ liệu, thêm Cài đặt (chủ dự án yêu cầu); cảnh báo vẫn ở chip 3D.
+- 09:41 v0.24.0: bỏ Môi trường khỏi thanh icon; Cài đặt có giao diện sáng/tối/hệ thống + chất lượng đồ hoạ (nhớ theo trình duyệt).

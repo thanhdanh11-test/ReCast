@@ -37,7 +37,7 @@ const mock = {
 };
 window.scenarioApp = mock as DesktopAPI;
 const { default: ScenarioApp } = await import("./ScenarioApp");
-// Dataset and workspace pickers live in the header "Dữ liệu" menu since 0.17.0.
+// Dataset and workspace pickers live in the "Cài đặt" rail drawer (0.23.2; was "Dữ liệu").
 // Panel titles/labels were removed in 0.18.0; the 3D panel exposes its state for tests.
 const viewState = () => screen.getByRole("region", { name: "Mô phỏng 3D" }).getAttribute("data-view-state");
 // 0.18.0: every control lives behind an icon-rail tool (drawer) or the OpenSCENARIO runner.
@@ -46,7 +46,7 @@ function tool(name: string) {
     if (button.getAttribute("aria-pressed") !== "true") fireEvent.click(button);
 }
 function openDatasetPicker() {
-    tool("Dữ liệu");
+    tool("Cài đặt");
     fireEvent.click(screen.getByText("Chọn thư mục dữ liệu"));
 }
 beforeEach(() => {
@@ -195,7 +195,7 @@ describe('OpenSCENARIO runner',()=>{
  it('opens the create dialog even while a job is running',async()=>{
   await openRunner();
   mock.chooseDataset.mockImplementation(() => new Promise(() => {}));
-  tool('Dữ liệu');
+  tool('Cài đặt');
   fireEvent.click(screen.getByText('Đổi dữ liệu'));
   await screen.findByTestId('busy-indicator');
   fireEvent.click(screen.getByRole('button',{name:'OpenSCENARIO'}));
@@ -375,20 +375,24 @@ describe("switching between the runner and the scene view", () => {
 });
 
 describe("environment session settings", () => {
- it("preserves timestamp and preset through changing display settings and returning to source", async () => {
+ it("keeps time through settings changes; quality and theme persist, weather stays ClearNoon (0.23.3)", async () => {
+  localStorage.clear();
   await openRunner();
   tool("Cảnh nguồn");
   fireEvent.change(screen.getByRole("slider", {name:"Thời gian mô phỏng"}), {target:{value:"1"}});
-  tool("Môi trường");
-  fireEvent.change(screen.getByRole("combobox", {name:"Thời tiết CARLA 0.9.15"}), {target:{value:"HardRainNight"}});
+  tool("Cài đặt");
+  expect(screen.queryByRole("combobox", {name:"Thời tiết CARLA 0.9.15"})).toBeNull();
+  fireEvent.change(screen.getByRole("combobox", {name:"Chất lượng đồ hoạ"}), {target:{value:"balanced"}});
+  fireEvent.change(screen.getByRole("combobox", {name:"Giao diện"}), {target:{value:"light"}});
   expect(screen.getByTestId("viewport").getAttribute("data-time")).toBe("1");
-  expect(screen.getByTestId("viewport").getAttribute("data-preset")).toBe("HardRainNight");
-  fireEvent.change(screen.getByRole("combobox", {name:"Chất lượng 3D"}), {target:{value:"balanced"}});
+  expect(screen.getByTestId("viewport").getAttribute("data-preset")).toBe("ClearNoon");
+  expect(document.querySelector(".studio")?.getAttribute("data-theme")).toBe("light");
   tool("Cảnh nguồn");
   fireEvent.click(screen.getByRole("button", {name:/^scene-0103/}));
-  expect(screen.getByTestId("viewport").getAttribute("data-preset")).toBe("HardRainNight");
   expect(screen.getByTestId("viewport").getAttribute("data-quality")).toBe("balanced");
+  expect(JSON.parse(localStorage.getItem("topeye.preferences.v1")!)).toEqual({appearance:"light", quality:"balanced"});
   expect(mock.replay).not.toHaveBeenCalled();
+  localStorage.clear();
  });
 });
 
@@ -401,7 +405,10 @@ describe('static web demo shell', () => {
  it('loads without a picker and hides full-version-only actions, retaining shared views and credits', async () => {
   render(<ScenarioApp/>);
   await screen.findByText('Đã đọc 1 cảnh');
-  for (const name of ['Dữ liệu','OpenSCENARIO','Góp ý']) expect(screen.queryByRole('button',{name})).toBeNull();
+  for (const name of ['OpenSCENARIO','Góp ý']) expect(screen.queryByRole('button',{name})).toBeNull();
+  tool('Cài đặt');
+  expect(screen.getByRole('combobox',{name:'Giao diện'})).toBeTruthy();
+  expect(screen.queryByText(/Đổi dữ liệu|Chọn thư mục dữ liệu|Thư mục lưu/)).toBeNull();
   tool('Cảnh nguồn');
   expect(screen.getByText('nuScenes © Motional, CC BY-NC-SA 4.0')).toBeTruthy();
   expect(screen.getByText('Nguồn mô hình xe')).toBeTruthy();
@@ -497,22 +504,29 @@ describe("shell 0.18.0", () => {
         expect(rail.className).not.toContain("wide");
         tool("Cảnh nguồn");
         expect(screen.getByRole("complementary", { name: "Cảnh nguồn" })).toBeTruthy();
-        tool("Môi trường");
+        tool("Cài đặt");
         expect(screen.queryByRole("complementary", { name: "Cảnh nguồn" })).toBeNull();
-        expect(screen.getByRole("complementary", { name: "Môi trường" })).toBeTruthy();
+        expect(screen.getByRole("complementary", { name: "Cài đặt" })).toBeTruthy();
         fireEvent.keyDown(window, { key: "Escape" });
         expect(screen.queryByRole("complementary")).toBeNull();
         await act(async () => {});
     });
-    it("marks warnings on the rail and lists them in the warnings drawer", async () => {
+    it("has no warnings rail tool; data warnings stay in the 3D chip (0.23.2)", async () => {
         mock.sourceScene.mockResolvedValue({ id: "source", mode: "source", interval_s: [0, 19], actors: [], source: { scene: "scene-0103" }, road: { kind: "source_map" }, environment: { ...environment, warnings: ["Thiếu LiDAR 2 mẫu"] } });
         render(<ScenarioApp />);
         openDatasetPicker();
         await screen.findByText("Đã đọc 1 cảnh");
-        const button = screen.getByRole("button", { name: "Cảnh báo (1)" });
-        expect(button.querySelector(".rail-badge")).toBeTruthy();
-        fireEvent.click(button);
-        expect(within(screen.getByRole("complementary", { name: "Cảnh báo dữ liệu" })).getByText("Thiếu LiDAR 2 mẫu")).toBeTruthy();
+        expect(screen.queryByRole("button", { name: /^Cảnh báo/ })).toBeNull();
+        // The 3D view's warning chip is covered by trackViewWarnings.test.tsx.
+    });
+    it("settings drawer shows the dataset and save folder", async () => {
+        render(<ScenarioApp />);
+        openDatasetPicker();
+        await screen.findByText("Đã đọc 1 cảnh");
+        tool("Cài đặt");
+        const drawer = within(screen.getByRole("complementary", { name: "Cài đặt" }));
+        expect(drawer.getByRole("button", { name: /Đổi dữ liệu|Chọn thư mục dữ liệu/ })).toBeTruthy();
+        expect(drawer.getByText("Thư mục lưu")).toBeTruthy();
     });
     it("has no extract, variant, verification or export tools (removed 0.19.0)", async () => {
         render(<ScenarioApp />);
@@ -520,7 +534,7 @@ describe("shell 0.18.0", () => {
         await screen.findByText("Đã đọc 1 cảnh");
         for (const name of ["Trích đoạn", "Biến thể", "Kiểm chứng", "Xuất kịch bản"]) expect(screen.queryByRole("button", { name })).toBeNull();
         expect(screen.queryByTestId("timeline-clip")).toBeNull();
-        expect(screen.getAllByRole("button").filter(b => b.closest(".icon-rail")).map(b => b.getAttribute("aria-label"))).toEqual(["Mở rộng thanh công cụ", "Cảnh nguồn", "OpenSCENARIO", "Môi trường", "Cảnh báo", "Dữ liệu"]);
+        expect(screen.getAllByRole("button").filter(b => b.closest(".icon-rail")).map(b => b.getAttribute("aria-label"))).toEqual(["Mở rộng thanh công cụ", "Cảnh nguồn", "OpenSCENARIO", "Cài đặt"]);
     });
     it("shows errors in a dismissible toast", async () => {
         mock.sourceScene.mockRejectedValue(new Error("DATASET_INVALID: Thiếu bảng sample"));

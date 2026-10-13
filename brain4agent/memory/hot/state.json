@@ -1,17 +1,17 @@
 {
-  "current_version": "0.23.0",
+  "current_version": "0.24.0",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-13T01:55:58+07:00",
-    "scope": "0.23.0 plan34 local auth/catalog/AV2",
+    "timestamp": "2026-10-13T09:41:34+07:00",
+    "scope": "0.24.0 settings: theme + graphics quality; weather removed from rail",
     "backend_tests": {
-      "total": 666,
-      "pass": 666
+      "total": 667,
+      "pass": 667
     },
     "frontend_tests": {
-      "total": 350,
-      "pass": 350
+      "total": 351,
+      "pass": 351
     },
     "server_tests": {
       "total": 30,
@@ -1026,5 +1026,22 @@
     "url": "http://127.0.0.1:5180/",
     "owner_account_created": false,
     "commit": false
+  },
+  "av2_open_speed": {
+    "version": "0.23.1",
+    "measured_at": "2026-10-13T09:22:19+07:00",
+    "before_s": {
+      "inspect": 7.1,
+      "list_scenes": 7.3,
+      "source_scene": 11.0,
+      "lidar_cold": 6.0
+    },
+    "after_s": {
+      "inspect": 2.1,
+      "list_scenes": 0.7,
+      "source_scene": 7.4,
+      "lidar_cold": 1.2
+    },
+    "output": "identical static env; annotation pose diff <=1.8e-12 m"
   }
 }

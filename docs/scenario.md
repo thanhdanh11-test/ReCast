@@ -306,3 +306,7 @@ Run `cd frontend && npm run web:local`, then open http://127.0.0.1:5180. First u
 Machine-local library: nuScenes mini (10 existing scenes) plus Argoverse 2 Sensor (10 downloaded validation logs across PIT/MIA/WDC/DTW/PAO). AV2 raw: `backend/data/dataset-intake-20261013/argoverse2`, 30,362 files / 11,605,779,571 bytes / 1,568 LiDAR frames. Incomplete earlier trainval archives are retained outside the catalog. These are subsets, not full datasets. Raw data is never rewritten by the adapter.
 
 Verification: `npm run test:server`, `npm test -- --run`, `npm run build` in frontend; `backend/.venv/bin/pytest backend/tests`; `npm run test:access` exercises login/catalog/both real sources in isolated userData; `npm run test:e2e -- <nuscenes-root> <evidence-dir>` checks the existing runner in a temporary workspace. Evidence and rollback snapshots: `planning/34_2026-10-13_dataset-intake/`. Rollback must preserve Claude's pre-existing dirty changes and user account/catalog/settings; do not reset the whole worktree.
+
+**0.23.2:** thanh icon: Mở rộng · Cảnh nguồn · OpenSCENARIO · Môi trường · **Cài đặt** (dữ liệu đang dùng/đổi dữ liệu, thư mục lưu). Bỏ mục Cảnh báo và Dữ liệu; cảnh báo dữ liệu chỉ còn ở chip trong khung 3D.
+
+**0.24.0:** thanh icon: Mở rộng · Cảnh nguồn · OpenSCENARIO · Cài đặt. Bỏ Môi trường (thời tiết sẽ nằm trong phần tạo kịch bản; 3D giữ ClearNoon). Cài đặt: Giao diện (Tối/Sáng/Theo hệ thống, `data-theme` trên `.studio`, màu qua biến CSS), Chất lượng đồ hoạ (Tự động/Cao/Cân bằng); nhớ theo trình duyệt (`preferences.ts`).

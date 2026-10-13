@@ -61,7 +61,7 @@ try {
   await notBusy(); await p.waitForTimeout(500);
   // 1. dataset via prompt
   p.once("dialog", d => d.accept(dataset));
-  await tool("Dữ liệu");
+  await tool("Cài đặt");
   await p.locator("button", { hasText: /Đổi dữ liệu|Chọn thư mục dữ liệu/ }).click();
   step("dataset", await waitFooter(/Đã đọc \d+ cảnh/));
   await tool("Cảnh nguồn");

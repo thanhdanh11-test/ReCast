@@ -66,12 +66,12 @@ def resolve_dataset(path, version=None):
                 raise ScenarioError("DATASET_INVALID", f"Missing tables: {missing[0]}")
             raise ScenarioError("DATASET_INVALID", "No supported dataset version found in directory.")
 
-def inspect_dataset(path):
+def inspect_dataset(path, load=None):
     root, version = resolve_dataset(path)
     from topeye.scenario.extract import list_scenes
     
     try:
-        adapter = create_adapter(root, version)
+        adapter = (load or create_adapter)(root, version)
         scenes = list_scenes(adapter)
         for scene in adapter.scenes():
             record = adapter._scenes[scene]

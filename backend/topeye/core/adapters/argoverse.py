@@ -55,6 +55,23 @@ def _rotation(row):
     return q
 
 
+def _matrices(quaternions):
+    """Row-wise `quaternion_to_matrix` (w,x,y,z), same validation and arithmetic."""
+    q = np.asarray(quaternions, dtype=np.float64).reshape(-1, 4)
+    if not np.isfinite(q).all() or not np.any(q, axis=1).all():
+        raise ValueError("Quaternion must contain four finite values and be nonzero")
+    q = q / np.max(np.abs(q), axis=1, keepdims=True)
+    w, x, y, z = (q / np.linalg.norm(q, axis=1, keepdims=True)).T
+    return np.stack(
+        [
+            np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], -1),
+            np.stack([2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], -1),
+            np.stack([2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)], -1),
+        ],
+        axis=1,
+    )
+
+
 def _translation(row):
     t = np.array([row[k] for k in ("tx_m", "ty_m", "tz_m")], dtype=float)
     if not np.isfinite(t).all():
@@ -140,16 +157,27 @@ class ArgoverseAdapter(NuScenesAdapter):
         poses = {r["timestamp_ns"]: r for r in pose_rows}
         if len(poses) != len(pose_rows):
             raise DatasetError("Duplicate AV2 pose timestamp")
-        annotations = self._feather.read_table(
-            self._path(str(log / "annotations.feather"))
-        ).to_pylist()
+        ann = self._feather.read_table(self._path(str(log / "annotations.feather")))
+        col = {name: ann[name].to_numpy(zero_copy_only=False) for name in ann.column_names}
+        ann_ns = col["timestamp_ns"].astype(np.int64)
         by_time = defaultdict(list)
-        for row in annotations:
-            by_time[row["timestamp_ns"]].append(row)
+        for i, ns in enumerate(ann_ns.tolist()):
+            by_time[ns].append(i)
         clouds = sorted(log.glob("sensors/lidar/*.feather"), key=lambda p: int(p.stem))
         if len(clouds) < 3 or {int(p.stem) for p in clouds} != set(by_time):
             raise DatasetError(f"AV2 LiDAR/annotation timeline incomplete: {log.name}")
+        # All cuboids of the log at once: ego-frame box -> world with that sweep's exact ego pose.
+        size_all = np.column_stack([col[k] for k in ("width_m", "length_m", "height_m")]).astype(
+            float
+        )
+        if not np.isfinite(size_all).all() or (len(size_all) and size_all.min() <= 0):
+            raise DatasetError("Invalid AV2 cuboid dimensions")
+        ann_t = np.column_stack([col[k] for k in ("tx_m", "ty_m", "tz_m")]).astype(float)
+        if not np.isfinite(ann_t).all():
+            raise DatasetError("AV2 pose contains non-finite translation")
+        ann_r = _matrices(np.column_stack([col[k] for k in ("qw", "qx", "qy", "qz")]))
         samples, data, tracks = [], [], defaultdict(list)
+        pose_r, pose_t, ann_rows = [], [], []
         for path in clouds:
             path = self._path(str(path))
             ns = int(path.stem)
@@ -158,6 +186,9 @@ class ArgoverseAdapter(NuScenesAdapter):
             pose = poses[ns]
             q, t = _rotation(pose), _translation(pose)
             matrix = quaternion_to_matrix(q)
+            pose_r.extend([matrix] * len(by_time[ns]))
+            pose_t.extend([t] * len(by_time[ns]))
+            ann_rows.extend(by_time[ns])
             sample_id, pose_id = _token(log.name, ns), _token(log.name, ns, "pose")
             tables["ego_pose"].append(
                 {
@@ -187,35 +218,36 @@ class ArgoverseAdapter(NuScenesAdapter):
                     "is_key_frame": True,
                 }
             )
-            seen = set()
-            for a in by_time[ns]:
-                track = _token(log.name, a["track_uuid"])
-                if track in seen:
-                    raise DatasetError("Duplicate AV2 track at a timestamp")
-                seen.add(track)
-                category = a["category"]
-                categories.setdefault(category, _token(category))
-                size = [a[k] for k in ("width_m", "length_m", "height_m")]
-                if not np.isfinite(size).all() or min(size) <= 0:
-                    raise DatasetError("Invalid AV2 cuboid dimensions")
-                rot = (
-                    Rotation.from_matrix(matrix @ quaternion_to_matrix(_rotation(a)))
-                    .as_quat(scalar_first=True)
-                    .tolist()
-                )
-                annotation = {
-                    "token": _token(log.name, ns, track),
-                    "sample_token": sample_id,
-                    "instance_token": track,
-                    "translation": (matrix @ _translation(a) + t).tolist(),
-                    "rotation": rot,
-                    "size": size,
-                    "original_category": category,
-                    "attribute_tokens": [],
-                    "num_lidar_pts": a["num_interior_pts"],
-                }
-                tracks[track].append(annotation)
-                tables["sample_annotation"].append(annotation)
+        idx = np.asarray(ann_rows, dtype=np.int64)
+        if len(idx):
+            pose_r, pose_t = np.asarray(pose_r), np.asarray(pose_t)
+            world_t = np.einsum("nij,nj->ni", pose_r, ann_t[idx]) + pose_t
+            world_q = Rotation.from_matrix(pose_r @ ann_r[idx]).as_quat(scalar_first=True).tolist()
+            world_t = world_t.tolist()
+        seen = set()
+        for k, i in enumerate(idx.tolist()):
+            ns = int(ann_ns[i])
+            if k == 0 or ns != int(ann_ns[idx[k - 1]]):
+                seen = set()
+            track = _token(log.name, col["track_uuid"][i])
+            if track in seen:
+                raise DatasetError("Duplicate AV2 track at a timestamp")
+            seen.add(track)
+            category = col["category"][i]
+            categories.setdefault(category, _token(category))
+            annotation = {
+                "token": _token(log.name, ns, track),
+                "sample_token": _token(log.name, ns),
+                "instance_token": track,
+                "translation": world_t[k],
+                "rotation": world_q[k],
+                "size": size_all[i].tolist(),
+                "original_category": category,
+                "attribute_tokens": [],
+                "num_lidar_pts": int(col["num_interior_pts"][i]),
+            }
+            tracks[track].append(annotation)
+            tables["sample_annotation"].append(annotation)
         _chain(samples)
         _chain(data)
         for track, rows in tracks.items():

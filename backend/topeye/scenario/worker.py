@@ -28,6 +28,7 @@ SOURCE_CACHE_SIZE = 12  # whole v1.0-mini (10 scenes); bounded for full datasets
 class Service:
     def __init__(self):
         self.adapter = None
+        self.spare_adapter = None  # last successfully inspected dataset
         self.scenarios = {}
         self.sources = {}
         self.source_cache = OrderedDict()
@@ -148,6 +149,24 @@ class Service:
             raise gone from exc
         return result
 
+    def use_adapter(self, root, version):
+        root = Path(root).expanduser().resolve()
+        if (
+            self.adapter is None
+            or self.adapter.root != root
+            or getattr(self.adapter, "version", "v1.0-mini") != version
+        ):
+            spare, self.spare_adapter = self.spare_adapter, None
+            if spare is not None and (spare.root, spare.version) == (root, version):
+                self.adapter = spare
+            else:
+                self.adapter = create_adapter(root, version)
+            self.scenarios.clear()
+            self.sources.clear()
+            self.source_cache.clear()
+            self.imports.clear()
+        return self.adapter
+
     def call(self, method, params, progress=lambda *args: None):
         require(
             method
@@ -174,20 +193,27 @@ class Service:
         if method == "inspect_dataset":
             from topeye.scenario.dataset import inspect_dataset
 
-            return inspect_dataset(params["dataset"])
+            # Inspection must not disturb the active dataset; keep its adapter aside so
+            # switching to it right after (chooseDataset -> list_scenes) does not reload it.
+            loaded = []
+
+            def load(root, version):
+                if self.adapter is not None and (
+                    self.adapter.root,
+                    getattr(self.adapter, "version", None),
+                ) == (root, version):
+                    return self.adapter
+                loaded.append(create_adapter(root, version))
+                return loaded[0]
+
+            result = inspect_dataset(params["dataset"], load=load)
+            if loaded:
+                self.spare_adapter = loaded[0]
+            return result
 
         root = Path(params["dataset"]).expanduser().resolve()
         version = params.get("dataset_version") or "v1.0-mini"
-        if (
-            self.adapter is None
-            or self.adapter.root != root
-            or getattr(self.adapter, "version", "v1.0-mini") != version
-        ):
-            self.adapter = create_adapter(root, version)
-            self.scenarios.clear()
-            self.sources.clear()
-            self.source_cache.clear()
-            self.imports.clear()
+        self.use_adapter(root, version)
         if method == "scenario_metrics":
             # Runs on its own worker; like lidar_frame it must not run workspace recovery.
             return self.scenario_metrics(params, progress)

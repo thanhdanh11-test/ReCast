@@ -2,6 +2,21 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.24.0 — Settings: light/dark theme and graphics quality — 2026-10-13T09:41:34+07:00
+- Owner request: "Môi trường" (weather) removed from the rail — weather will move into scenario authoring; the 3D view stays on ClearNoon (`EnvironmentMenu.tsx` kept for that work).
+- "Cài đặt" (also in web demo): Giao diện Tối/Sáng/Theo hệ thống (`.studio[data-theme]`, colors moved to CSS tokens; 3D HUD overlays stay dark in both) and Chất lượng đồ hoạ Tự động/Cao/Cân bằng; both remembered per browser (`preferences.ts`, localStorage wrapped). Dataset/save folder/model credits only in the local app.
+- Vitest 351, server 30, typecheck/build, local E2E 14 steps + access E2E pass; light/dark screenshots checked.
+
+## v0.23.2 — Settings replaces Warnings and Data on the icon rail — 2026-10-13T09:30:31+07:00
+- Owner request: rail items "Cảnh báo" and "Dữ liệu" removed; one "Cài đặt" item (bottom) holds dataset in use/change and save folder. Data warnings remain in the 3D view's "⚠ N cảnh báo dữ liệu" chip. Rail: Mở rộng · Cảnh nguồn · OpenSCENARIO · Môi trường · Cài đặt.
+- Vitest 351 pass; local E2E 14 steps + access E2E pass.
+
+## v0.23.1 — Faster AV2 opening — 2026-10-13T09:22:19+07:00
+- AV2 adapter transforms all cuboids of a log in one numpy/scipy batch (6.3 s → 1.2 s for 10 logs; annotation poses equal within 1.8e-12 m).
+- Worker keeps the adapter built by `inspect_dataset` as a spare, used when that dataset becomes active (no second load); inspection still never changes the active dataset.
+- Source static environment processes LiDAR sweeps in a thread pool, frame order kept, cancel stops pending sweeps (AV2 scene 11.2 s → 7.6 s, identical buildings/trees/poles). Rejected: 2 Hz sweep sampling (3× faster but −25% buildings, −40% trees/poles).
+- AV2 open path inspect+list+source: 25 s → 10 s. Backend 667 pass; local E2E 14 steps + access E2E pass.
+
 ## v0.23.0 — Local login, dataset library and native AV2 — 2026-10-13T01:55:58+07:00
 - Username/password local account → racing-style dataset cards + equal-size add tile. Salted scrypt, session cookie, auth gates and independent revocation/preview probes.
 - Native AV2 Sensor adapter preserves raw data, applies ego→city pose once, reads each log's vector map and measured LiDAR. Downloaded10 validation logs (30,362 files/11.6GB); reused nuScenes mini10. No incomplete trainval catalog entry.

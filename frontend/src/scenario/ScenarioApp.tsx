@@ -1,20 +1,20 @@
 import topeyeLogo from "./assets/topeye-logo.png";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ImportedEntry, Replay, Scene, Scenario, Settings } from "./types";
 import { TrackView } from "./TrackView";
 import { LidarView } from "./LidarView";
 import { TacticalMap } from "./TacticalMap";
 import { playbackEnd } from "./trajectory";
-import { EnvironmentPanel } from "./EnvironmentMenu";
-import { defaultEnvironmentSettings } from "./weather";
+import { environmentSettingsFor, type SceneQuality } from "./weather";
+import { loadPreferences, savePreferences, useResolvedTheme, type Appearance, type Preferences } from "./preferences";
 import { ModelCredits } from "./ModelCredits";
 import { IconRail, type RailItem } from "./IconRail";
 import { ScenarioRunner } from "./ScenarioRunner";
 import type { MetricsState } from "./MetricsPanel";
-import { Clapperboard, CloudSun, Database, LoaderCircle, Map, Maximize2, MessageSquare, Minimize2, TriangleAlert, X } from "lucide-react";
+import { Clapperboard, Database, LoaderCircle, Map, Maximize2, MessageSquare, Minimize2, Settings as SettingsIcon, X } from "lucide-react";
 import "./scenario.css";
 const api = window.scenarioApp;
-type Tool = "scene" | "environment" | "warnings" | "data";
+type Tool = "scene" | "settings";
 type View = "scene" | "runner";
 export default function ScenarioApp({ onLibrary }: { onLibrary?: () => void } = {}) {
     const [settings, setSettings] = useState<Settings | null>(null), [scenes, setScenes] = useState<Scene[]>([]), [sceneName, setSceneName] = useState("");
@@ -25,7 +25,15 @@ export default function ScenarioApp({ onLibrary }: { onLibrary?: () => void } = 
     const [scenario, setScenario] = useState<Scenario | null>(null), [replay, setReplay] = useState<Replay | null>(null);
     const [busy, setBusy] = useState(false), [message, setMessage] = useState("Sẵn sàng"), [error, setError] = useState("");
     const [time, setTime] = useState(0), [playing, setPlaying] = useState(false);
-    const [environmentSettings, setEnvironmentSettings] = useState(defaultEnvironmentSettings);
+    // Weather moves to scenario authoring; the 3D view keeps ClearNoon and only the quality is a setting.
+    const [preferences, setPreferences] = useState<Preferences>(loadPreferences);
+    const theme = useResolvedTheme(preferences.appearance);
+    const environmentSettings = useMemo(() => environmentSettingsFor("ClearNoon", preferences.quality), [preferences.quality]);
+    const updatePreferences = (change: Partial<Preferences>) => setPreferences(current => {
+        const next = { ...current, ...change };
+        savePreferences(next);
+        return next;
+    });
     const [expanded, setExpanded] = useState<"track" | "lidar" | "map" | null>(null);
     const [view, setView] = useState<View>("scene");
     // True from the start of a scene load until the 3D view has drawn that scene (no blank/white gap).
@@ -295,10 +303,8 @@ export default function ScenarioApp({ onLibrary }: { onLibrary?: () => void } = 
     const railItems: RailItem[] = [
         { id: "scene", label: "Cảnh nguồn", icon: <Map size={20} aria-hidden/> },
         ...(!demo ? [{ id: "runner", label: "OpenSCENARIO", icon: <Clapperboard size={20} aria-hidden/>, separatorBefore: true }] : []),
-        { id: "environment", label: "Môi trường", icon: <CloudSun size={20} aria-hidden/>, separatorBefore: demo },
-        { id: "warnings", label: `Cảnh báo${warnings.length ? ` (${warnings.length})` : ""}`, icon: <TriangleAlert size={20} aria-hidden/>, badge: warnings.length > 0, bottom: true },
         ...(demo && import.meta.env.VITE_FEEDBACK_URL ? [{ id: "feedback", label: "Góp ý", icon: <MessageSquare size={20} aria-hidden/>, bottom: true }] : []),
-        ...(!demo ? [{ id: "data", label: "Dữ liệu", icon: <Database size={20} aria-hidden/>, bottom: true }] : []),
+        { id: "settings", label: "Cài đặt", icon: <SettingsIcon size={20} aria-hidden/>, bottom: true },
     ];
     function onRail(id: string) {
         if (id === "feedback") { feedback(); return; }
@@ -328,10 +334,15 @@ export default function ScenarioApp({ onLibrary }: { onLibrary?: () => void } = 
               <strong>{s.scene}</strong><small>{s.duration_s.toFixed(1).replace(".", ",")} s · {s.tracks.length} đối tượng</small>
             </button></li>;
           })}
-        </ul> : <p className="sensor-note">Chưa có dữ liệu. Mở “Dữ liệu” để chọn thư mục nuScenes.</p> },
-        environment: { title: "Môi trường", body: <EnvironmentPanel settings={environmentSettings} onChange={setEnvironmentSettings}/> },
-        warnings: { title: "Cảnh báo dữ liệu", body: warnings.length ? warnings.map((w, i) => <p className="sensor-note" key={i}>{w}</p>) : <p className="sensor-note">Không có cảnh báo cho cảnh hiện tại.</p> },
-        data: { title: "Dữ liệu", body: <>
+        </ul> : <p className="sensor-note">Chưa có dữ liệu. Mở “Cài đặt” để chọn thư mục dữ liệu.</p> },
+        settings: { title: "Cài đặt", body: <>
+          <label className="field">Giao diện<select aria-label="Giao diện" value={preferences.appearance} onChange={e => updatePreferences({ appearance: e.target.value as Appearance })}>
+            <option value="dark">Tối</option><option value="light">Sáng</option><option value="system">Theo hệ thống</option>
+          </select></label>
+          <label className="field">Chất lượng đồ hoạ<select aria-label="Chất lượng đồ hoạ" value={preferences.quality} onChange={e => updatePreferences({ quality: e.target.value as SceneQuality })}>
+            <option value="auto">Tự động (giảm khi máy chậm)</option><option value="high">Cao</option><option value="balanced">Cân bằng</option>
+          </select></label>
+          {!demo && <>
           <p className="popover-note">{settings?.dataset ? `Đang dùng: ${settings.dataset} · ${settings.datasetVersion || 'nuScenes'}` : 'Chưa chọn dữ liệu'}</p>
           <button className="dataset-button full-width" disabled={busy} title={settings?.dataset ?? undefined} onClick={() => void job("Đang mở dữ liệu", async () => {
             const res = await checked(api.chooseDataset());
@@ -348,6 +359,8 @@ export default function ScenarioApp({ onLibrary }: { onLibrary?: () => void } = 
         })}>{settings?.dataset ? 'Đổi dữ liệu' : 'Chọn thư mục dữ liệu'}</button>
           <p className="popover-note">Lưu kịch bản tại: {settings?.workspace || '—'}</p>
           <button className="full-width" disabled={busy} title={settings?.workspace} onClick={() => void job('Chọn nơi lưu', async () => { await checked(api.chooseWorkspace()); setSettings(await checked(api.settings())); setMessage('Đã cập nhật nơi lưu'); })}>Thư mục lưu</button>
+          <ModelCredits/>
+          </>}
         </> },
     };
     /**
@@ -385,7 +398,7 @@ export default function ScenarioApp({ onLibrary }: { onLibrary?: () => void } = 
     }
     const drawer = tool ? drawers[tool] : null;
     const activeRail = view === "runner" && !tool ? "runner" : tool;
-    return <div className="studio">
+    return <div className="studio" data-theme={theme}>
     <header className="studio-header">
       <div className="studio-brand"><img className="brand-mark" src={topeyeLogo} alt="Logo Topeye"/><h1>Topeye</h1></div>
       {onLibrary && <button type="button" className="studio-library-button" disabled={busy} onClick={onLibrary}><Database size={14} aria-hidden/>Thư viện map</button>}

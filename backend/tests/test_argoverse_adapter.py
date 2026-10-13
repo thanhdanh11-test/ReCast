@@ -170,3 +170,22 @@ def test_symlink_cloud_cannot_escape_dataset(av2, tmp_path):
             ArgoverseAdapter(root)
     finally:
         outside.unlink()
+
+
+def test_inspected_adapter_is_reused_once_the_dataset_is_chosen(av2, tmp_path, monkeypatch):
+    from topeye.scenario import worker
+
+    built = []
+    real = worker.create_adapter
+    monkeypatch.setattr(worker, "create_adapter", lambda *a: built.append(a) or real(*a))
+    service = worker.Service()
+    info = service.call("inspect_dataset", {"dataset": str(av2[0])})
+    assert service.adapter is None  # inspection never switches the active dataset
+    params = {
+        "dataset": info["root"],
+        "dataset_version": info["version"],
+        "workspace": str(tmp_path.parent / (tmp_path.name + "-out")),
+    }
+    assert service.call("list_scenes", params)[0]["scene"] == "av2-" + LOG
+    assert len(built) == 1
+    assert service.spare_adapter is None

@@ -1,7 +1,9 @@
 """Read-only original scene: annotations, vector map and measured static geometry."""
 
 import json
+import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -96,9 +98,9 @@ def static_environment(adapter, scene, origin, progress):
 
     record = adapter._scene(scene)[0]
     frames = adapter.frames(scene)
-    gathered, sweep_ids = [], []
-    for i, frame in enumerate(frames):
-        progress("Đang dựng nhà/cây từ LiDAR", i, len(frames))
+    scene_shift = adapter.scene_origin(scene) - origin
+
+    def sweep(frame):
         points = adapter.load_points(frame)[:, :3]
         keep = np.linalg.norm(points[:, :2], axis=1) > 3
         boxes = adapter.mask_boxes(frame) or []
@@ -122,11 +124,21 @@ def static_environment(adapter, scene, origin, progress):
                 )
                 keep[idx[inside]] = False
         local = points[keep] @ frame.T_world_lidar[:3, :3].T + frame.T_world_lidar[:3, 3]
-        local += adapter.scene_origin(scene) - origin
+        local += scene_shift
         # Voxelize each frame first to bound memory without density bias.
-        local = _unique_rows(np.floor(local / 0.3).astype(np.int32)) * 0.3 + 0.15
-        gathered.append(local)
-        sweep_ids.append(np.full(len(local), i, dtype=np.int32))
+        return _unique_rows(np.floor(local / 0.3).astype(np.int32)) * 0.3 + 0.15
+
+    # Sweeps are independent and numpy/scipy release the GIL; map keeps frame order.
+    gathered, sweep_ids = [], []
+    pool = ThreadPoolExecutor(max_workers=min(8, os.cpu_count() or 1))
+    try:
+        for i, local in enumerate(pool.map(sweep, frames)):
+            progress("Đang dựng nhà/cây từ LiDAR", i, len(frames))
+            gathered.append(local)
+            sweep_ids.append(np.full(len(local), i, dtype=np.int32))
+    finally:
+        # A cancel raised by progress must not wait for the remaining sweeps.
+        pool.shutdown(cancel_futures=True)
     if not gathered:
         raise DatasetError("Missing LiDAR keyframes")
     xyz = np.concatenate(gathered)
