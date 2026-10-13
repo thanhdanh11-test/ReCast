@@ -180,3 +180,5 @@ Fixed large white pavement patches: nuScenes stop_line polygons are semantic sto
 
 ## Done — Native app logo v0.12.3 — 2026-10-10T15:57:06+07:00
 - Supplied logo embedded as Dock/Finder application icon; same original header logo verified.282tests/build/signature/installed UI+icon checks PASS. Installed0.12.3; no commit/push.
+
+- ✅ v0.31.1: visible red bonnet in cabin only;24triangles, same driver eye and actor poses;17focused tests.

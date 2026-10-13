@@ -275,3 +275,6 @@ Fixed large white pavement patches: nuScenes stop_line polygons are semantic sto
 ## v0.12.3 — 2026-10-10T15:57:06+07:00 — local PATCH
 - Replace default native Electron icon with owner-supplied logo; make generation automatic for future packages.
 - v0.12.3 installed: supplied logo is now the native macOS app icon; header PNG already matched owner source byte-for-byte and is preserved. Packaging derives10 standard icon PNGs (16–1024px, alpha) and ICNS from frontend/src/scenario/assets/topeye-logo.png via sips/iconutil.282frontend tests/build/signature pass;installed native ICNS hash matches generated icon, UI logo SHA matches owner image,0renderer errors. ~/Applications/Topeye 0.12.3.app;plan18.
+
+## v0.31.1 — 2026-10-13T21:31:34+07:00
+Display a lightweight red bonnet at the bottom of driver view; hide it outside cabin or without ego pose. No actor/data/physics changes.

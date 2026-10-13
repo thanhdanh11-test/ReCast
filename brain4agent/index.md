@@ -169,3 +169,5 @@ Stop-region PATCH0.10.1: sourceEnvironment.ts omits semanticstop_line fill (not 
 - `frontend/server/local-auth.mjs`, `dataset-catalog.mjs`: account/session and local dataset registry; local-server routes.
 - `backend/topeye/core/adapters/argoverse.py`: native AV2 Sensor; `scenario/dataset.py::create_adapter` factory.
 - Operations/contracts: [scenario](../docs/scenario.md), [plan34](../planning/34_2026-10-13_dataset-intake/plan.md).
+
+- v0.31.1 cabin bonnet: `cabinCamera.ts#createCabinHood`, TrackView camera subtree; docs/scenario.md / plan42 P03.

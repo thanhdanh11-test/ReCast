@@ -114,6 +114,22 @@ const press = (name: string) =>
   act(() => void fireEvent.click(screen.getByRole("button", { name })));
 
 describe("TrackView cabin wiring", () => {
+  it("hides the bonnet without an ego pose and disposes it with the scene", () => {
+    const s = scenario("hood");
+    const { rerender, unmount } = render(<TrackView scenario={s} time={5} replay={null} />);
+    press("Trong xe");
+    frames(2);
+    const hood = camera().getObjectByName("cabin-hood") as THREE.Mesh;
+    expect(hood.visible).toBe(true);
+    const disposeGeometry = vi.spyOn(hood.geometry, "dispose");
+    const disposeMaterial = vi.spyOn(hood.material as THREE.Material, "dispose");
+    rerender(<TrackView scenario={s} time={30} replay={null} />);
+    frames(1);
+    expect(hood.visible).toBe(false);
+    unmount();
+    expect(disposeGeometry).toHaveBeenCalledOnce();
+    expect(disposeMaterial).toHaveBeenCalledOnce();
+  });
   it("renders the driver eye at 1.2 m without orbit updates, and restores modes on exit", () => {
     const update = vi.spyOn(OrbitControls.prototype, "update");
     const s = scenario("a");
@@ -141,6 +157,7 @@ describe("TrackView cabin wiring", () => {
       frames(2);
       expect(host().dataset.cameraMode).toBe(mode);
       expect(camera().fov).toBe(mode === "cabin" ? 70 : 48);
+      expect(camera().getObjectByName("cabin-hood")?.visible).toBe(mode === "cabin");
       if (mode !== "cabin") expect(host().dataset.cabinEyeM).toBeUndefined();
     }
   });

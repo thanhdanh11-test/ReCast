@@ -1,6 +1,37 @@
-import type * as THREE from "three";
+import * as THREE from "three";
 import type { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Actor, Pose } from "./types";
+
+/** Lightweight bonnet visible below the road in driver view; no change to actor geometry. */
+export function createCabinHood(): THREE.Mesh {
+  const vertices: number[] = [], indices: number[] = [];
+  const rows = [
+    [0.55, -0.62, 1.02],
+    [1.0, -0.65, 0.99],
+    [1.7, -0.78, 0.92],
+    [2.2, -0.92, 0.83],
+  ];
+  for (const [distance, height, width] of rows) {
+    for (const side of [-1, -0.75, 0, 0.75, 1])
+      vertices.push(side * width, height + (1 - Math.abs(side)) * 0.055, -distance);
+  }
+  for (let row = 0; row < rows.length - 1; row++) {
+    for (let col = 0; col < 4; col++) {
+      const a = row * 5 + col, b = a + 5;
+      indices.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const hood = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+    color: 0xda291c, roughness: 0.42, metalness: 0.15, side: THREE.DoubleSide,
+  }));
+  hood.name = "cabin-hood";
+  hood.visible = false;
+  return hood;
+}
 
 /**
  * Driver-eye camera for the ego: 1.2 m above the displayed ground, 5 % of the length ahead of

@@ -1043,5 +1043,14 @@
       "lidar_cold": 1.2
     },
     "output": "identical static env; annotation pose diff <=1.8e-12 m"
+  },
+  "cabin_hood": {
+    "version": "0.31.1",
+    "status": "local_web_verified",
+    "triangles": 24,
+    "tests": 17,
+    "gpu_visual": "not measured; user browser",
+    "completed_at": "2026-10-13T21:33:11+07:00",
+    "http_verified": true
   }
 }

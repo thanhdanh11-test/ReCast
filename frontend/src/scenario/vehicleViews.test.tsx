@@ -2,7 +2,7 @@
 import { render, screen, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { applyCabinView, cabinCamera, setCabinMode } from "./cabinCamera";
+import { applyCabinView, cabinCamera, createCabinHood, setCabinMode } from "./cabinCamera";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createDrivingOverlay } from "./drivingOverlay";
 import { TacticalMap } from "./TacticalMap";
@@ -206,5 +206,21 @@ describe("integrated map class colours", () => {
       <LidarView scenario={scenario} time={0} replay={null} />,
     );
     expect(container.innerHTML).not.toContain("map-class-");
+  });
+});
+
+
+describe("visible cabin bonnet", () => {
+  it.each([1, 2, 3])("stays in the lower quarter at viewport aspect %s", (aspect) => {
+    const camera = new THREE.PerspectiveCamera(70, aspect, .1, 1600);
+    const hood = createCabinHood();
+    const positions = hood.geometry.attributes.position;
+    const projected = Array.from({length:positions.count}, (_, i) => new THREE.Vector3().fromBufferAttribute(positions, i).project(camera));
+    expect(projected.every(p => Number.isFinite(p.y) && p.y < -.5 && p.z > -1 && p.z < 1)).toBe(true);
+    expect(projected.some(p => p.y > -1 && Math.abs(p.x) < 1)).toBe(true);
+    expect(hood.geometry.index!.count / 3).toBe(24);
+    expect(hood.visible).toBe(false);
+    hood.geometry.dispose();
+    (hood.material as THREE.Material).dispose();
   });
 });

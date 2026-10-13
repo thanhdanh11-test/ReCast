@@ -310,3 +310,6 @@ Verification: `npm run test:server`, `npm test -- --run`, `npm run build` in fro
 **0.23.2:** thanh icon: Mở rộng · Cảnh nguồn · OpenSCENARIO · Môi trường · **Cài đặt** (dữ liệu đang dùng/đổi dữ liệu, thư mục lưu). Bỏ mục Cảnh báo và Dữ liệu; cảnh báo dữ liệu chỉ còn ở chip trong khung 3D.
 
 **0.24.0:** thanh icon: Mở rộng · Cảnh nguồn · OpenSCENARIO · Cài đặt. Bỏ Môi trường (thời tiết sẽ nằm trong phần tạo kịch bản; 3D giữ ClearNoon). Cài đặt: Giao diện (Tối/Sáng/Theo hệ thống, `data-theme` trên `.studio`, màu qua biến CSS), Chất lượng đồ hoạ (Tự động/Cao/Cân bằng); nhớ theo trình duyệt (`preferences.ts`).
+
+## v0.31.1 — Visible cabin bonnet
+`cabinCamera.createCabinHood()` creates a red24-triangle cosmetic bonnet attached to the perspective camera. TrackView shows it only in cabin with a valid visible ego pose; follow/overview/missing pose hide it. Camera eye1.2m,70° FOV and original actor models/poses remain unchanged. Scene disposal traverses the camera subtree. Projection tests across1:1,2:1,3:1 verify all vertices below NDC y=-0.5 and some inside the frustum.17 focused camera/vehicle/pastel tests pass; no GPU screenshot while owner controls browser.

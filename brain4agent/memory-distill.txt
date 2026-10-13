@@ -79,3 +79,5 @@
 - Tư duy phân lập lỗi 4 tầng (Mạng/Hạ tầng vs DOM/Race vs Anti-bot vs Code) & tự phục hồi thích ứng.
 </memory_management>
 </kernel_instructions>
+
+- v0.31.1: cabin-only24triangle red bonnet in lowerquarter; driver eye1.2m and actor models unchanged.17scopedcamera tests; plan42P03.

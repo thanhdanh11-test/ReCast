@@ -52,3 +52,6 @@
 - 09:22 v0.23.1: AV2 mở nhanh hơn (adapter vector hoá, worker giữ adapter đã kiểm tra, quét LiDAR song song); bỏ phương án lấy mẫu 2 Hz vì mất chi tiết.
 - 09:30 v0.23.2: thanh icon bỏ Cảnh báo + Dữ liệu, thêm Cài đặt (chủ dự án yêu cầu); cảnh báo vẫn ở chip 3D.
 - 09:41 v0.24.0: bỏ Môi trường khỏi thanh icon; Cài đặt có giao diện sáng/tối/hệ thống + chất lượng đồ hoạ (nhớ theo trình duyệt).
+
+### 2026-10-13T21:31:34+07:00 — cabin bonnet
+Owner wants visible hood in driver view.24triangle camera-attached red bonnet, lowerquarter, onlyvalid cabin.17scopedtests passed. Mainweb5180 rebuild/restart/HTTPverified 2026-10-13T21:33:11+07:00; no browser takeover.

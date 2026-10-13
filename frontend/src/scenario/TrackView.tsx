@@ -15,7 +15,7 @@ import {
 } from "./weather";
 import { loadVinfastTemplate } from "./vinfastModels";
 import { environmentIssues, formatContactNotice } from "./sourceEnvironment";
-import { applyCabinView, cabinCamera, setCabinMode } from "./cabinCamera";
+import { applyCabinView, cabinCamera, createCabinHood, setCabinMode } from "./cabinCamera";
 import {
   loadActorTemplates,
   instantiateAssetModel,
@@ -228,6 +228,9 @@ export function TrackView({
     );
     const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 1600),
       controls = new OrbitControls(camera, renderer.domElement);
+    const cabinHood = createCabinHood();
+    camera.add(cabinHood);
+    scene.add(camera);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI * 0.48;
     controls.minDistance = 7;
@@ -241,6 +244,7 @@ export function TrackView({
     function leaveCabin() {
       if (!cabin) return;
       cabin = false;
+      cabinHood.visible = false;
       cabinGround = null;
       setCabinMode(camera, controls, false);
       delete host.dataset.cabinEyeM;
@@ -415,6 +419,7 @@ export function TrackView({
         }
         previous = pos;
       }
+      cabinHood.visible = false;
       if (cabin) {
         const cabinPose = supportedPose(
           ego.rows,
@@ -434,6 +439,7 @@ export function TrackView({
             scenario?.mode === "imported",
           );
           applyCabinView(camera, controls, ego.mesh, view);
+          cabinHood.visible = true;
           cabinGround =
             egoPosition[1] -
             (scenario?.mode === "imported"
