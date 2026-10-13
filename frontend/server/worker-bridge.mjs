@@ -64,9 +64,18 @@ export function createWorkerBridge({ command, args = [], cwd, env, log, onProgre
     const child = worker;
     if (!child) return;
     const group = -child.pid;
+    const exited = () => child.exitCode !== null || child.signalCode !== null;
     const signal = (name) => {
       try { process.kill(group, name); return true; }
-      catch (e) { if (e.code === "ESRCH") return false; throw e; }
+      catch (e) {
+        if (e.code === "ESRCH") return false;
+        if (e.code !== "EPERM") throw e;
+        // macOS answers EPERM for a group whose leader has exited (possibly still an unreaped
+        // zombie). Fall back to the leader itself; the stop loop keeps polling until Node reaps it.
+        if (exited()) return false;
+        try { process.kill(child.pid, name); return true; }
+        catch (inner) { if (inner.code === "ESRCH") return false; throw inner; }
+      }
     };
     shutdown = (async () => {
       signal("SIGTERM");
@@ -80,16 +89,30 @@ export function createWorkerBridge({ command, args = [], cwd, env, log, onProgre
     try { await shutdown; } finally { shutdown = null; }
   }
 
-  async function request(method, params) {
-    if (pending) throw fail("BUSY", "Một tác vụ đang chạy");
-    await start();
-    if (pending) throw fail("BUSY", "Một tác vụ đang chạy");
-    return new Promise((resolve, reject) => {
+  // Requests are queued, not refused: two tabs (or a reload during a slow call) must not get BUSY.
+  // `current` is claimed synchronously so only one request is ever dispatched; stop() rejects all.
+  let queue = [];
+  let current = null;
+  function pump() {
+    if (current || !queue.length) return;
+    const item = (current = queue.shift());
+    const done = () => { if (current === item) current = null; setTimeout(pump); };
+    start().then(() => {
+      if (item.cancelled) return done();
       const id = randomUUID();
-      pending = { id, resolve, reject };
-      worker.stdin.write(JSON.stringify({ id, method, params }) + "\n");
-    });
+      pending = { id, resolve: (v) => { item.resolve(v); done(); }, reject: (e) => { item.reject(e); done(); } };
+      worker.stdin.write(JSON.stringify({ id, method: item.method, params: item.params }) + "\n");
+    }, (e) => { item.reject(e); done(); });
+  }
+  function request(method, params) {
+    return new Promise((resolve, reject) => { queue.push({ method, params, resolve, reject }); pump(); });
+  }
+  async function stopAll() {
+    const dropped = queue; queue = [];
+    for (const item of dropped) item.reject(fail("CANCELLED", "Operation interrupted"));
+    if (current && !pending) { current.cancelled = true; current.reject(fail("CANCELLED", "Operation interrupted")); }
+    await stop();
   }
 
-  return { request, stop, get busy() { return !!pending; }, get running() { return !!worker; } };
+  return { request, stop: stopAll, get busy() { return !!current || queue.length > 0; }, get running() { return !!worker; } };
 }

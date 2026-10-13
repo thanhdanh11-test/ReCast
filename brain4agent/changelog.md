@@ -2,6 +2,60 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.23.0 — Local login, dataset library and native AV2 — 2026-10-13T01:55:58+07:00
+- Username/password local account → racing-style dataset cards + equal-size add tile. Salted scrypt, session cookie, auth gates and independent revocation/preview probes.
+- Native AV2 Sensor adapter preserves raw data, applies ego→city pose once, reads each log's vector map and measured LiDAR. Downloaded10 validation logs (30,362 files/11.6GB); reused nuScenes mini10. No incomplete trainval catalog entry.
+- Backend666/frontend350/server30 pass; final AccessApp4/build pass; access browser0errors; existing runner14steps/0owned workers left/13metadata unchanged; 10AV2 scene smoke pass; independent7security probes pass. [Plan34](../planning/34_2026-10-13_dataset-intake/plan.md).
+
+## v0.22.0 — Automatic scenario metrics in the OpenSCENARIO runner — 2026-10-13T01:04:08+07:00
+- Runner report column (under Map 2D) shows "Chỉ số kịch bản", computed automatically on a third worker when a scenario opens; cached in `<workspace>/<id>/metrics/`. Backend `scene_metrics.py` + worker `scenario_metrics`; server `scenarioMetrics`; UI `MetricsPanel.tsx`. (First cut as a separate rail tool measuring source scenes was rejected by the owner.)
+- Definitions (SPEC §1, scene-metrics-v3): pilot = the scenario's own XOSC replayed in esmini 3.9.0 vs its trajectory vertices; baseline = constant velocity from the first two vertices. Rare: TTC < 1.5 s with ego ≥ 5 m/s (v1 distance rule / v2 without ego speed rejected after measuring 10 nuScenes scenes).
+- E2E found: deleting a scenario mid-measurement → raw errno and possible re-creation of its folder; now NOT_FOUND, `mkdir` without parents, engine scratch in system temp. Owner scenario: Topeye 0.000 m vs baseline 7.81 m. Backend 659, frontend 346, server 17, E2E 14/14. [Plan33](../planning/33_2026-10-13_scene-metrics/plan.md).
+
+## v0.21.1 — Loading overlay, end-of-scene pose fix, request queue — 2026-10-13T00:15:54+07:00
+- Loading overlay (spinner + "Đang tải dữ liệu") from load start until TrackView draws the first frame (onReady).
+- End of scene no longer hides the scene with "Thiếu pose": pose t_s are rounded to 1 µs but interval ends are not (scene-0061/1094 off by ~1.7e-7 s); supportedPose tolerance 1e-7 → 1e-6.
+- Worker bridge queues requests instead of returning BUSY (two tabs/reload left one tab blank). Frontend 343, server 16, E2E 13/13. [Plan32](../planning/32_2026-10-13_loading-end/plan.md).
+
+## v0.21.0 — Runner: 2D map replaces the esmini run block — 2026-10-13T00:01:36+07:00
+- Owner: removed "Chạy ESMINI"/"Chạy lại kịch bản này"; the 2D map (with legend) now heads the report column and the minimap overlay on 3D is gone. The UI can no longer start esmini; latest result/history come from saved runs. Backend replay_imported + real-engine backend tests unchanged; E2E 13/13 without run steps. [Plan31](../planning/31_2026-10-12_runner-map/plan.md).
+
+## v0.20.0 — Scenario library management — 2026-10-12T23:43:28+07:00
+- Owner: library header buttons and per-row checkboxes removed; "Chạy kịch bản đã chọn" → always-red "Tạo kịch bản" (dialog: map · download map context · pick .xosc); per-row icons Xuất/Sửa/Xoá. Batch run removed. Edit = XML editor + rename, saved via the normal validation as a new package, old one trashed only on success. Delete = confirm → `<workspace>/.trash`. Unnamed packages show the XOSC FileHeader description.
+- 21 E2E mockup packages (fixture hash) moved to ~/.Trash. E2E now cleans up its own scenarios. Found by E2E: create button ignored clicks while busy → always opens now.
+- Backend 649, server 15, frontend 339, E2E 16/16. [Plan30](../planning/30_2026-10-12_scenario-manage/plan.md).
+
+## v0.19.2 — Fix scene view after visiting the runner — 2026-10-12T23:17:36+07:00
+- Bug (owner): after opening a scenario in the OpenSCENARIO runner, returning to Cảnh nguồn still displayed the imported scenario (simulated LiDAR, ego-only map, 2 s timeline). Views shared one `scenario`. Fix: scene view always shows the loaded source; runner scenario/result kept in a snapshot and restored on return. Regression test + 2 mutations red; Chrome repro now measured LiDAR; E2E 14/14. Scene drawer narrowed to 200 px (owner). [Plan29](../planning/29_2026-10-12_lidar-return-fix/plan.md).
+
+## v0.19.1 — Source scenes as a list — 2026-10-12T23:07:16+07:00
+- Scene drawer lists every scene (name · duration · objects); click opens it, re-clicking the loaded scene returns to its original data without reloading. Removed the "Xem cảnh gốc" button and the map toggle; the integrated map is always shown. Frontend 337/337, E2E 14/14. [Plan28](../planning/28_2026-10-12_scene-list/plan.md).
+
+## v0.19.0 — Remove extract/variant/verification from the UI — 2026-10-12T23:00:56+07:00
+- Owner request: the UI no longer offers Trích đoạn, Biến thể, Kiểm chứng; also removed Xuất kịch bản, click-to-select vehicles and the timeline extract window (only served extraction). Picking code and CSS deleted. esmini runs only through the OpenSCENARIO runner. Backend/worker/server/CLI extract/variant/replay/export unchanged.
+- Frontend 336/336, typecheck 0, E2E 14/14 (cancel/re-run now in the runner). [Plan27](../planning/27_2026-10-12_drop-extract-ui/plan.md).
+
+## v0.18.0 — Icon rail shell + dedicated OpenSCENARIO runner — 2026-10-12T22:52:25+07:00
+- Owner-approved mockup C: brand-only top bar ("Topeye"), icon rail with expand/collapse on top and per-tool drawers, status bar removed (sr-only live region + top-bar progress/cancel + error toast). Camera buttons flush bottom-left, warning chip bottom-right in 3D.
+- OpenSCENARIO runner: workspace library (worker `list_imported`, display_name from the uploaded file name), status per package, batch run queue (sequential, continue on failure, cancel stops), latest result, actor table, run history, diagnostics.
+- Bug found by E2E and fixed: entering the runner read the library outside the job lock, so the next action hit BUSY.
+- Backend 647/647, server 14/14, frontend 341/341, E2E 20/20 (real batch of 2 → Đạt/Đạt). [Plan26](../planning/26_2026-10-12_icon-rail-runner/plan.md).
+
+## v0.17.1 — Chrome-free sensor panels — 2026-10-12T22:07:50+07:00
+- Owner request: removed panel title bars, guides, captions, LiDAR −/+/Top/Tilt buttons and map zoom buttons; only a floating expand control per panel; map keeps the class legend. Simulated LiDAR keeps a small "MÔ PHỎNG" tag (reason in tooltip) so it is never mistaken for measured data. Double-click resets views (LiDAR 3D → top view).
+- worker-bridge: EPERM on the first SIGTERM (exited, unreaped leader) now falls back to the leader PID. E2E 19/19 twice, frontend 336/336, server 13/13. [Plan25](../planning/25_2026-10-12_clean-panels/plan.md).
+
+## v0.17.0 — Usable layout + orbitable 3D LiDAR — 2026-10-12T21:50:59+07:00
+- Measured LiDAR is now a Three.js point cloud with OrbitControls (drag up/down tilts, sideways orbits, right-drag pans; Top/Tilt presets; render on demand).
+- Layout: header "Dữ liệu" menu (dataset/workspace) + sidebar toggle; sticky run step; variant step collapsed until an extract exists; sentence-case sidebar labels; extract window shaded on the source timeline; dismissible error toast; 3D data warnings in a chip; click-to-select tracks on 3D (raycast, ≤4 px) and map (only extractable tracks; drag capture deferred ≥3 px, post-drag click suppressed).
+- Frontend 336/336, server 13/13, backend 643/643, E2E 19/19; 2 new mutations red→green. [Plan24](../planning/24_2026-10-12_layout-lidar3d/plan.md).
+
+## v0.16.0 — Measured LiDAR, drag-to-pan sensors, panel expand — 2026-10-12T21:31:54+07:00
+- LiDAR panel now draws the measured nuScenes LIDAR_TOP sweep nearest the timeline (ego frame, height-coloured canvas, offset shown) for source scenes and baseline extracts/replays; variants and imported XOSC keep the labelled 180-ray simulation (no recording matches moved actors). New worker method `lidar_frame` served by a dedicated LiDAR worker so timeline reads never hit BUSY or touch workspace recovery.
+- `useViewTransform` (drag-to-pan + 0.5–8× zoom, ⌖/double-click recentre) for LiDAR and map; expand/restore button on 3D, LiDAR and map panels (Esc restores).
+- Fixed: server shutdown threw on macOS EPERM when a worker group had only an exited leader; dataset switch no longer kills the LiDAR worker mid-request.
+- Backend 643/643, frontend 329/329, server 13/13, E2E 17/17 (34,750 measured points on scene-0103); 4 mutations red then green. [Plan23](../planning/23_2026-10-12_lidar-layout/plan.md).
+
 ## v0.15.0 — Drop Electron desktop app — 2026-10-12T19:37:49+07:00
 - Owner decision: remove the desktop app; the localhost web app (`npm run web:local`) is the only runtime. Cloudflare Pages project `topeye-demo` deleted (first API call failed with Cloudflare 8000000, retry succeeded; project list empty).
 - Removed electron/, scenario.html, desktop dev/package/test scripts, PyInstaller entry and `sys.frozen` branches, electron/@electron/packager/pyinstaller deps. `npm run build` now builds dist-local. New `scripts/test-local-web.mjs` (`npm run test:e2e`) replaces the installed-app acceptance.

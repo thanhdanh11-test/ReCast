@@ -32,7 +32,7 @@ NUSC_DETECTION_MAP = {
 
 
 class NuScenesAdapter:
-    def __init__(self, root: str | Path, version: str = "v1.0-mini"):
+    def __init__(self, root: str | Path, version: str = "v1.0-mini", *, tables=None):
         self.root = Path(root).expanduser().resolve()
         self.version = version
         self.tables = {}
@@ -48,8 +48,7 @@ class NuScenesAdapter:
                 "category",
                 "sensor",
             ):
-                path = self._path(f"{version}/{name}.json")
-                rows = json.loads(path.read_text())
+                rows = tables[name] if tables is not None else json.loads(self._path(f"{version}/{name}.json").read_text())
                 self.tables[name] = {row["token"]: row for row in rows}
                 if len(self.tables[name]) != len(rows):
                     raise ValueError(f"Duplicate token in {name}")

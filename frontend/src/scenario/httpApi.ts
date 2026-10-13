@@ -58,7 +58,10 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
     let body: { value?: T; code?: string; message?: string };
     try { body = await response.json(); }
     catch { throw failure("INTERNAL", `Phản hồi không hợp lệ (HTTP ${response.status})`); }
-    if (!response.ok) throw failure(body.code || "INTERNAL", body.message || `HTTP ${response.status}`);
+    if (!response.ok) {
+      if (body.code === "UNAUTHENTICATED" && typeof window !== "undefined") window.dispatchEvent(new Event("topeye-session-expired"));
+      throw failure(body.code || "INTERNAL", body.message || `HTTP ${response.status}`);
+    }
     return body.value as T;
   }
   const askPath = (message: string) => {
@@ -76,25 +79,35 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
     replay: (args) => call("replay", args),
     mapContext: (args) => call("mapContext", args),
     replayImported: (args) => call("replayImported", args),
+    lidarFrame: (args) => call("lidarFrame", args),
+    scenarioMetrics: (args) => call("scenarioMetrics", args),
     cancelJob: () => call("cancelJob"),
     chooseDataset: async () => {
-      const path = askPath("Đường dẫn thư mục nuScenes (chứa v1.0-mini):");
+      const path = askPath("Đường dẫn thư mục nuScenes hoặc Argoverse 2 Sensor:");
       return path ? call("chooseDataset", { path }) : null;
     },
     chooseWorkspace: async () => {
       const path = askPath("Đường dẫn thư mục lưu kịch bản:");
       return path ? call("chooseWorkspace", { path }) : null;
     },
-    openImported: async ({ source_id }) => {
-      const path = askPath("Đường dẫn thư mục import/ của kịch bản đã lưu:");
+    listImported: () => call("listImported"),
+    openImported: async ({ source_id, path: known }) => {
+      const path = known ?? askPath("Đường dẫn thư mục import/ của kịch bản đã lưu:");
       return path ? call("openImported", { source_id, path }) : null;
     },
-    importXosc: async ({ source_id }) => {
+    readImported: (args) => call("readImported", args),
+    deleteImported: (args) => call("deleteImported", args),
+    importXosc: async ({ source_id, xml, file_name }) => {
+      if (xml !== undefined) {
+        const bytes = new TextEncoder().encode(xml);
+        if (bytes.length > MAX_XOSC) throw failure("RESOURCE_LIMIT", "XOSC tối đa 2 MiB");
+        return call("importXosc", { source_id, xml_base64: toBase64(bytes), ...(file_name ? { file_name } : {}) });
+      }
       const file = await pickFile(doc, ".xosc");
       if (!file) return null;
       if (file.size > MAX_XOSC) throw failure("RESOURCE_LIMIT", "XOSC tối đa 2 MiB");
       const xml_base64 = toBase64(new Uint8Array(await file.arrayBuffer()));
-      return call("importXosc", { source_id, xml_base64 });
+      return call("importXosc", { source_id, xml_base64, file_name: file.name });
     },
     exportMapContext: async ({ source_id }) => {
       const context = await call<{ scene: string }>("exportMapContext", { source_id });

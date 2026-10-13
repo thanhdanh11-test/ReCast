@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from topeye.scenario.models import ScenarioError
@@ -7,6 +8,11 @@ TABLES = ('scene', 'sample', 'sample_data', 'calibrated_sensor', 'ego_pose',
 
 def resolve_dataset(path, version=None):
     path = Path(path).expanduser().resolve()
+    if not path.is_dir():
+        raise ScenarioError("DATASET_INVALID", "Không tìm thấy thư mục dữ liệu")
+    from topeye.core.adapters.argoverse import log_directories
+    if version == "av2-sensor" or (version is None and log_directories(path)):
+        return path, "av2-sensor"
     
     def check_metadata(dir_path):
         if not dir_path.is_dir():
@@ -62,12 +68,21 @@ def resolve_dataset(path, version=None):
 
 def inspect_dataset(path):
     root, version = resolve_dataset(path)
-    from topeye.core.adapters.nuscenes import NuScenesAdapter
     from topeye.scenario.extract import list_scenes
     
     try:
-        adapter = NuScenesAdapter(root, version)
+        adapter = create_adapter(root, version)
         scenes = list_scenes(adapter)
+        for scene in adapter.scenes():
+            record = adapter._scenes[scene]
+            for data in adapter._data[record["token"]]["LIDAR_TOP"]:
+                file = adapter._path(data["filename"])
+                if not file.is_file() or not file.stat().st_size:
+                    raise ScenarioError("DATASET_INVALID", f"Thiếu file LiDAR: {file.name}")
+                if version != "av2-sensor" and file.stat().st_size % 20:
+                    raise ScenarioError("DATASET_INVALID", f"File LiDAR không hợp lệ: {file.name}")
+            adapter.load_points(adapter.frames(scene)[0])
+        regions, preview = dataset_details(adapter)
     except Exception as e:
         if isinstance(e, ScenarioError):
             raise
@@ -79,5 +94,38 @@ def inspect_dataset(path):
     return {
         "root": str(root),
         "version": version,
-        "scenes": scenes
+        "scenes": scenes,
+        "regions": regions,
+        "previewPath": preview,
     }
+
+
+def create_adapter(root, version):
+    if version == "av2-sensor":
+        from topeye.core.adapters.argoverse import ArgoverseAdapter
+        return ArgoverseAdapter(root)
+    from topeye.core.adapters.nuscenes import NuScenesAdapter
+    return NuScenesAdapter(root, version)
+
+
+def dataset_details(adapter):
+    regions = set()
+    preview = None
+    for scene in adapter.scenes():
+        info = adapter.scene_map(scene)
+        if adapter.version == "av2-sensor":
+            if info:
+                city = re.search(r"____([A-Z]+)_city", info[1].name)
+                if city:
+                    regions.add(city.group(1))
+                images = sorted((info[1].parent.parent / "sensors/cameras/ring_front_center").glob("*.jpg"))
+                if images and preview is None:
+                    preview = str(adapter._path(str(images[0])).relative_to(adapter.root))
+        else:
+            if info:
+                regions.add(info[0])
+            if preview is None:
+                rows = adapter._data[adapter._scenes[scene]["token"]].get("CAM_FRONT", [])
+                if rows and adapter._path(rows[0]["filename"]).is_file():
+                    preview = rows[0]["filename"]
+    return sorted(regions), preview

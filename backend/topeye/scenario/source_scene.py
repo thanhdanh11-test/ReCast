@@ -219,7 +219,11 @@ def source_scene(adapter, scene, progress=lambda *args: None):
     map_info = adapter.scene_map(scene)
     xy = ego[:, 1:3] - origin[:2]
     bounds = [*(xy.min(axis=0) - 60), *(xy.max(axis=0) + 60)]
-    if map_info:
+    if map_info and hasattr(adapter, "vector_map"):
+        environment["polygons"], environment["lines"] = adapter.vector_map(scene, origin, bounds)
+        environment["provenance"][0] = "Argoverse 2: annotations.feather and exact city_SE3_egovehicle poses"
+        environment["provenance"].append("Argoverse 2 Sensor: per-log vector map")
+    elif map_info:
         candidates = [
             adapter.root / "maps/expansion" / f"{map_info[0]}.json",
             map_directory() / f"{map_info[0]}.json",

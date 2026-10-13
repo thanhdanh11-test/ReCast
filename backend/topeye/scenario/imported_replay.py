@@ -72,7 +72,7 @@ def contact_observations(measured, times):
     return [contacts[pair] for pair in sorted(contacts)]
 
 
-def persist_import(imported, xml_bytes, context, workspace, dataset):
+def persist_import(imported, xml_bytes, context, workspace, dataset, display_name=None):
     require_ipc_budget(imported)
     checked = validate_xosc(xml_bytes, context)
     require(
@@ -104,6 +104,8 @@ def persist_import(imported, xml_bytes, context, workspace, dataset):
                 "scenario_id": imported["id"],
                 "map_id": context["map_id"],
                 "files": {n: sha256(package / n) for n in PAYLOADS},
+                # Display only (library name); deliberately outside the hashed payload set.
+                **({"display_name": display_name} if display_name else {}),
             },
         )
         os.rename(temp, destination)

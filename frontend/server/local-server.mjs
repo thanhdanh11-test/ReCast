@@ -7,6 +7,8 @@ import { join, resolve, basename, dirname, extname, sep } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { createAuth } from "./local-auth.mjs";
+import { createCatalog } from "./dataset-catalog.mjs";
 import { createWorkerBridge, fail } from "./worker-bridge.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,9 +22,14 @@ export const allowed = {
   replay: ["scenario_id"],
   mapContext: ["source_id"],
   exportMapContext: ["source_id"],
-  importXosc: ["source_id", "xml_base64"],
+  importXosc: ["source_id", "xml_base64", "file_name"],
   openImported: ["source_id", "path"],
   replayImported: ["scenario_id"],
+  lidarFrame: ["scene", "time_s"],
+  scenarioMetrics: ["scenario_id"],
+  listImported: [],
+  readImported: ["scenario_id"],
+  deleteImported: ["scenario_id"],
   chooseDataset: ["path"],
   chooseWorkspace: ["path"],
   listScenes: [],
@@ -39,18 +46,25 @@ export function validateArgs(name, args) {
   if (["mapContext", "exportMapContext", "importXosc", "openImported"].includes(name) &&
       (typeof args.source_id !== "string" || !ID.test(args.source_id)))
     throw fail("INVALID_INPUT", "Invalid source identity");
-  if (name === "replayImported" && (typeof args.scenario_id !== "string" || !ID.test(args.scenario_id)))
+  if (["replayImported", "readImported", "deleteImported"].includes(name) && (typeof args.scenario_id !== "string" || !ID.test(args.scenario_id)))
     throw fail("INVALID_INPUT", "Invalid scenario identity");
   if (["chooseDataset", "chooseWorkspace", "openImported"].includes(name) &&
       (typeof args.path !== "string" || !args.path.trim() || args.path.length > 4096))
     throw fail("INVALID_INPUT", "Invalid path");
+  if (name === "lidarFrame" && (typeof args.scene !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(args.scene) ||
+      typeof args.time_s !== "number" || !Number.isFinite(args.time_s)))
+    throw fail("INVALID_INPUT", "Invalid LiDAR request");
+  if (name === "scenarioMetrics" && (typeof args.scenario_id !== "string" || !/^[a-f0-9]{32}$/.test(args.scenario_id)))
+    throw fail("INVALID_INPUT", "Invalid scenario");
+  if (name === "importXosc" && args.file_name !== undefined && (typeof args.file_name !== "string" || args.file_name.length > 240))
+    throw fail("INVALID_INPUT", "Invalid file name");
   if (name === "importXosc" && (typeof args.xml_base64 !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(args.xml_base64)))
     throw fail("INVALID_INPUT", "Invalid XOSC payload");
   return args;
 }
 
 const statusFor = (code) =>
-  code === "FORBIDDEN" ? 403 : ["BUSY", "CANCELLED"].includes(code) ? 409 :
+  code === "UNAUTHENTICATED" || code === "INVALID_CREDENTIALS" ? 401 : code === "RATE_LIMITED" ? 429 : code === "ACCOUNT_EXISTS" ? 409 : code === "FORBIDDEN" ? 403 : ["BUSY", "CANCELLED"].includes(code) ? 409 :
   ["INVALID_INPUT", "RESOURCE_LIMIT", "PATH_ESCAPE", "DATASET_INVALID", "NOT_FOUND"].includes(code) ? 400 : 500;
 
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
@@ -67,9 +81,11 @@ export function createLocalServer({
   engine = join(root, "backend", ".tools", "esmini", "build", "EnvironmentSimulator", "Libraries", "esminiLib", "libesminiLib.dylib"),
   version = JSON.parse(fs.readFileSync(join(root, "frontend", "package.json"), "utf8")).version,
   bridgeFactory = createWorkerBridge,
+  catalogSeeds = fs.existsSync(join(root, "backend/data/dataset-library.json")) ? JSON.parse(fs.readFileSync(join(root, "backend/data/dataset-library.json"), "utf8")) : [],
 } = {}) {
   const token = randomBytes(32).toString("hex");
   fs.mkdirSync(userData, { recursive: true });
+  const auth = createAuth({ path: join(userData, "local-account.json") });
   const settingsPath = join(userData, "scenario-settings.json");
   let settings;
   try { settings = JSON.parse(fs.readFileSync(settingsPath, "utf8")); } catch { settings = {}; }
@@ -79,19 +95,28 @@ export function createLocalServer({
     fs.writeFileSync(temporary, JSON.stringify(settings), { flag: "wx", mode: 0o600 });
     fs.renameSync(temporary, settingsPath);
   };
-  const clients = new Set();
+  const clients = new Map();
   const log = fs.createWriteStream(join(userData, "scenario-worker.log"), { flags: "a" });
-  const bridge = bridgeFactory({
+  const workerOptions = {
     command: python,
     args: ["-m", "topeye.scenario.worker"],
     cwd: userData,
     env: { ...process.env, PYTHONPATH: join(root, "backend"), PYTHONUNBUFFERED: "1" },
     log,
+  };
+  const bridge = bridgeFactory({
+    ...workerOptions,
     onProgress: (msg) => {
       const line = `data: ${JSON.stringify({ phase: msg.phase, completed: msg.completed, total: msg.total })}\n\n`;
-      for (const res of clients) res.write(line);
+      for (const [res, req] of clients) {
+        if (auth.authenticated(req)) res.write(line); else { res.end(); clients.delete(res); }
+      }
     },
   });
+  // Separate worker so timeline LiDAR reads never contend with (or are cancelled with) scenario jobs.
+  const lidarBridge = bridgeFactory({ ...workerOptions, role: "lidar" });
+  // Scenario metrics run esmini for seconds; a third worker keeps viewing responsive meanwhile.
+  const metricsBridge = bridgeFactory({ ...workerOptions, role: "metrics" });
   const params = (args) => ({
     ...args,
     dataset: settings.dataset,
@@ -99,9 +124,9 @@ export function createLocalServer({
     workspace: settings.workspace,
     engine,
   });
-  const call = (method, args = {}) => {
+  const call = (method, args = {}, worker = bridge) => {
     if (!settings.dataset) throw fail("DATASET_INVALID", "Chọn thư mục nuScenes trước");
-    return bridge.request(method, params(args));
+    return worker.request(method, params(args));
   };
   const realDir = (input) => {
     let path;
@@ -110,7 +135,15 @@ export function createLocalServer({
     return path;
   };
 
-  async function handle(name, args) {
+  const inspect = async (input) => {
+    const path = realDir(input);
+    return bridge.request("inspect_dataset", { dataset: path, workspace: settings.workspace || "", engine });
+  };
+  const catalog = createCatalog({ path: join(userData, "dataset-catalog.json"),
+    seeds: [...catalogSeeds, ...(settings.dataset ? [{ root: settings.dataset }] : [])], inspect });
+
+  async function handle(name, args, authorize = () => {}) {
+    authorize();
     const checked = validateArgs(name, args);
     if (name === "cancelJob") { await bridge.stop(); return true; }
     if (name === "settings")
@@ -125,15 +158,16 @@ export function createLocalServer({
       return { name: basename(path) };
     }
     if (name === "chooseDataset") {
-      if (bridge.busy) throw fail("BUSY", "Dừng tác vụ trước khi đổi thư mục");
+      if (bridge.busy || lidarBridge.busy || metricsBridge.busy) throw fail("BUSY", "Dừng tác vụ trước khi đổi dữ liệu");
       const path = realDir(checked.path);
       const result = await bridge.request("inspect_dataset", { dataset: path, workspace: settings.workspace || "", engine });
+      authorize();
       settings.dataset = result.root;
       settings.datasetVersion = result.version;
       saveSettings();
       return { name: basename(result.root), version: result.version, scenes: result.scenes };
     }
-    if (bridge.busy && ["mapContext", "exportMapContext", "importXosc", "openImported", "replayImported"].includes(name))
+    if (bridge.busy && ["mapContext", "exportMapContext", "importXosc", "openImported", "replayImported", "readImported", "deleteImported"].includes(name))
       throw fail("BUSY", "Dừng tác vụ trước khi nạp kịch bản");
     if (name === "mapContext" || name === "exportMapContext") return call("map_context", { source_id: checked.source_id });
     if (name === "replayImported") return call("replay_imported", checked);
@@ -146,8 +180,13 @@ export function createLocalServer({
     if (name === "importXosc") {
       const bytes = Buffer.from(checked.xml_base64, "base64");
       if (bytes.length > 2097152) throw fail("RESOURCE_LIMIT", "XOSC tối đa 2 MiB");
-      return call("import_xosc", { source_id: checked.source_id, xml_base64: bytes.toString("base64") });
+      return call("import_xosc", { source_id: checked.source_id, xml_base64: bytes.toString("base64"), ...(checked.file_name ? { file_name: checked.file_name } : {}) });
     }
+    if (name === "lidarFrame") return call("lidar_frame", checked, lidarBridge);
+    if (name === "scenarioMetrics") return call("scenario_metrics", checked, metricsBridge);
+    if (name === "listImported") return call("list_imported");
+    if (name === "readImported") return call("read_imported", checked);
+    if (name === "deleteImported") return call("delete_imported", checked);
     if (name === "listScenes") return call("list_scenes");
     return call(name === "sourceScene" ? "source_scene" : name, checked);
   }
@@ -179,30 +218,78 @@ export function createLocalServer({
     if (!hostOk || !originOk) return send(403, { code: "FORBIDDEN", message: "Invalid host or origin" });
     if (!url.pathname.startsWith("/api/")) {
       if (req.method !== "GET") return send(405, { code: "INVALID_INPUT", message: "Method not allowed" });
-      return serveStatic(req, res, url.pathname);
+      try { return serveStatic(req, res, url.pathname); }
+      catch { return send(400, { code: "INVALID_INPUT", message: "Invalid static path" }); }
+    }
+    // Preview URLs are server-owned catalog IDs; never accept an arbitrary file path.
+    if (url.pathname.startsWith("/api/catalog/preview/") && req.method === "GET") {
+      if (!auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
+      try {
+        const preview = catalog.preview(url.pathname.slice("/api/catalog/preview/".length));
+        res.writeHead(200, { "Content-Type": preview.type, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+        return res.end(preview.bytes);
+      } catch { return send(404, { code: "NOT_FOUND", message: "Không có ảnh xem trước" }); }
+    }
+    if (url.pathname === "/api/auth/session" && req.method === "GET") {
+      if (req.headers["x-topeye-token"] !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
+      return send(200, { value: auth.status(req) });
+    }
+    if (url.pathname === "/api/catalog" && req.method === "GET") {
+      if (req.headers["x-topeye-token"] !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
+      if (!auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
+      try {
+        const value = await catalog.list();
+        if (!auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Phiên đăng nhập đã kết thúc" });
+        return send(200, { value });
+      }
+      catch (e) { return send(statusFor(e.code), { code: e.code || "INTERNAL", message: "Không đọc được thư viện dữ liệu" }); }
     }
     if (url.pathname === "/api/events" && req.method === "GET") {
       if (url.searchParams.get("token") !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
+      if (!auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
       res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive" });
       res.write(": ok\n\n");
-      clients.add(res);
+      clients.set(res, req);
       req.on("close", () => clients.delete(res));
       return;
     }
     if (req.method !== "POST") return send(405, { code: "INVALID_INPUT", message: "Method not allowed" });
     if (req.headers["x-topeye-token"] !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
     const name = url.pathname.slice("/api/".length);
-    if (!Object.hasOwn(allowed, name)) return send(404, { code: "NOT_FOUND", message: "Unknown method" });
+    const authMethod = ["auth/setup", "auth/login", "auth/logout"].includes(name);
+    const catalogMethod = ["catalog/add", "catalog/select"].includes(name);
+    if (!authMethod && !auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
+    if (!authMethod && !catalogMethod && !Object.hasOwn(allowed, name)) return send(404, { code: "NOT_FOUND", message: "Unknown method" });
     let raw = "";
     let size = 0;
-    for await (const chunk of req) {
+    try { for await (const chunk of req) {
       size += chunk.length;
       if (size > 4 * 1024 * 1024) return send(400, { code: "INVALID_INPUT", message: "Request too large" });
       raw += chunk;
+    } } catch {
+      if (!res.destroyed) send(400, { code: "INVALID_INPUT", message: "Incomplete request body" });
+      return;
     }
     let args;
     try { args = raw ? JSON.parse(raw) : {}; } catch { return send(400, { code: "INVALID_INPUT", message: "Invalid JSON" }); }
-    try { send(200, { value: await handle(name, args) }); }
+    try {
+      const authorize = () => { if (!auth.authenticated(req)) throw fail("UNAUTHENTICATED", "Phiên đăng nhập đã kết thúc"); };
+      if (!authMethod) authorize();
+      let value;
+      if (name === "auth/setup") value = await auth.setup(args, res);
+      else if (name === "auth/login") value = await auth.login(args, res);
+      else if (name === "auth/logout") {
+        value = auth.logout(req, res);
+        for (const [client, request] of clients) if (!auth.authenticated(request)) { client.end(); clients.delete(client); }
+      } else if (catalogMethod) {
+        const keys = name === "catalog/add" ? ["path", "name"] : ["id"];
+        if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).some(k => !keys.includes(k))) throw fail("INVALID_INPUT", "Invalid catalog input");
+        if (name === "catalog/add") value = await catalog.add(args.path, args.name, authorize);
+        else value = await handle("chooseDataset", { path: catalog.get(args.id).root }, authorize);
+      } else value = await handle(name, args, authorize);
+      if (!authMethod && !auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Phiên đăng nhập đã kết thúc" });
+      send(200, { value });
+    }
     catch (e) {
       const code = e.code && /^[A-Z_]+$/.test(e.code) ? e.code : "INTERNAL";
       const message = String(e.message || e).replace(/^[A-Z_]+: /, "");
@@ -211,8 +298,8 @@ export function createLocalServer({
   });
 
   async function close() {
-    for (const res of clients) res.end();
-    await bridge.stop();
+    for (const res of clients.keys()) res.end();
+    await Promise.all([bridge.stop(), lidarBridge.stop(), metricsBridge.stop()]);
     await new Promise((r) => server.close(r));
     log.end();
   }

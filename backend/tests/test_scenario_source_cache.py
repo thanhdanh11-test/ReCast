@@ -25,7 +25,7 @@ def service(tmp_path, monkeypatch):
     roots = {}
     monkeypatch.setattr(
         worker,
-        "NuScenesAdapter",
+        "create_adapter",
         lambda root, version: roots.setdefault(
             (root, version), SimpleNamespace(root=root, version=version)
         ),

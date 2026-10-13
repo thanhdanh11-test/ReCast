@@ -3,9 +3,21 @@
 Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại OpenSCENARIO từ nuScenes; đo quỹ đạo và số kịch bản hợp lệ. Blender/NuRec/perception là nghiên cứu phụ, chưa nghiệm thu và không tự chạy tiếp.
 
 ## Mục tiêu hiện tại (Active)
+- [x] [Plan34](../planning/34_2026-10-13_dataset-intake/plan.md) v0.23.0: local login/catalog + native AV2 10 logs + nuScenes mini10; local E2E đạt.
 - [x] v0.8.0: [Plan09](../planning/09_2026-10-09_sensor-views/plan.md) — 3D/LiDAR quét ngang/map nuScenes theo timeline;160frontend,independent24,standalone2/2esmini đạt; đã cài/mở app.
 - [ ] Chủ dự án nghiệm thu bằng mắt 0.8.1→0.12.3 (thay các mục nghiệm thu v0.5/v0.8; LiDAR giả lập 2D, nhà/cây ước lượng LiDAR).
 - [x] [Plan19](../planning/19_2026-10-12_audit-fixes/plan.md) audit fixes 0.12.4 (installed, desktop test PASS).
+- [x] [Plan23](../planning/23_2026-10-12_lidar-layout/plan.md) LiDAR đo thực + kéo/zoom + phóng to khung 0.16.0.
+- [x] [Plan33](../planning/33_2026-10-13_scene-metrics/plan.md) chỉ số kịch bản tự động trong OpenSCENARIO (Topeye vs baseline) 0.22.0.
+- [x] [Plan32](../planning/32_2026-10-13_loading-end/plan.md) màn hình tải + giữ hình cuối cảnh + xếp hàng yêu cầu 0.21.1.
+- [x] [Plan31](../planning/31_2026-10-12_runner-map/plan.md) bỏ khối chạy esmini, map 2D lên cột phải 0.21.0.
+- [x] [Plan30](../planning/30_2026-10-12_scenario-manage/plan.md) quản lý kịch bản (tạo/xuất/sửa/xoá) 0.20.0.
+- [x] [Plan29](../planning/29_2026-10-12_lidar-return-fix/plan.md) sửa LiDAR/map sai khi từ OpenSCENARIO về Cảnh nguồn 0.19.2.
+- [x] [Plan28](../planning/28_2026-10-12_scene-list/plan.md) cảnh nguồn dạng danh sách 0.19.1.
+- [x] [Plan27](../planning/27_2026-10-12_drop-extract-ui/plan.md) bỏ Trích đoạn/Biến thể/Kiểm chứng khỏi giao diện 0.19.0.
+- [x] [Plan26](../planning/26_2026-10-12_icon-rail-runner/plan.md) thanh icon + giao diện chạy OpenSCENARIO 0.18.0.
+- [x] [Plan25](../planning/25_2026-10-12_clean-panels/plan.md) khung xem không chữ hướng dẫn 0.17.1.
+- [x] [Plan24](../planning/24_2026-10-12_layout-lidar3d/plan.md) bố cục 9 mục + LiDAR 3D xoay/nghiêng 0.17.0.
 - [x] [Plan22](../planning/22_2026-10-12_drop-desktop/plan.md) bỏ app desktop Electron 0.15.0; Cloudflare project đã xoá.
 - [x] [Plan21](../planning/21_2026-10-12_local-web-full/plan.md) web localhost đầy đủ 0.14.0 (`npm run web:local`).
 - [ ] [Plan20](../planning/20_2026-10-12_web-demo/plan.md) web demo tĩnh 0.13.0: code giữ; Cloudflare project ĐÃ XOÁ theo chủ dự án (chưa cần deploy). Mở lại khi cần chia sẻ.
@@ -40,6 +52,10 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
 *Nơi lưu trữ các ý tưởng hay, kiến trúc mở rộng chưa ưu tiên làm ngay nhưng cần giữ lại để tham khảo.*
+- [ ] **Chạy esmini trên giao diện** (bỏ ở 0.21.0 theo chủ dự án): nếu cần lại, gợi ý icon ▶ trên dòng kịch bản; backend replay_imported vẫn sẵn.
+- [ ] **Trình sửa kịch bản trực quan** (0.20.0): hiện "Sửa" là sửa XML; có thể kéo điểm quỹ đạo trên map/3D rồi sinh XOSC.
+- [ ] **Khôi phục từ .trash trong app** (0.20.0): hiện phải chuyển thư mục tay.
+- [x] ~~**E2E dùng thư mục lưu riêng**~~ (0.20.0: E2E tự xoá kịch bản nó tạo; vẫn dùng workspace thật, các gói vào `.trash`): `test-local-web.mjs` đang ghi gói/run vào workspace thật của chủ dự án (thư viện hiện ~20 gói `fixture.xosc`/"kịch bản <mã>"); nên cho E2E workspace tạm + nút xoá kịch bản trong thư viện.
 - [x] **Dọn artifact desktop cũ** (2026-10-12, chủ dự án đồng ý): 17 `.app` + `frontend/{release,build,dist}` + `backend/build` (≈15 GB) chuyển vào `~/.Trash/topeye-desktop-20261012-195140` (khôi phục được tới khi dọn Thùng rác).
 - [ ] **Một lệnh khởi động không cần Terminal** (0.15.0): ví dụ script `.command` mở `npm run web:local`, vì bản web cần repo/venv/Node.
 - [ ] **Bỏ phụ thuộc shadcn CLI** (plan19): chỉ dùng `shadcn/tailwind.css` trong `src/index.css`; vendor file CSS đó để gỡ 7 high dev-only (braces chain).

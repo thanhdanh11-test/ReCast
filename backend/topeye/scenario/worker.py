@@ -2,15 +2,19 @@
 
 import copy
 import json
+import os
 import sys
+import tempfile
 import traceback
 import uuid
 from collections import OrderedDict
 from pathlib import Path
 
-from topeye.core.adapters.nuscenes import NuScenesAdapter
+from topeye.scenario.dataset import create_adapter
 from topeye.scenario.export import export_bundle
 from topeye.scenario.extract import extract_scene, list_scenes
+from topeye.scenario.library import delete_imported, display_name, list_imported, read_imported
+from topeye.scenario.lidar_frame import lidar_frame
 from topeye.scenario.models import ScenarioError, guard_output, require, write_json
 from topeye.scenario.replay import run_replay
 from topeye.scenario.source_scene import source_scene
@@ -80,6 +84,70 @@ class Service:
                 # A damaged prior project must not prevent opening a different one.
                 continue
 
+    def scenario_metrics(self, params, progress):
+        """Metrics of one imported scenario: its XOSC replayed in esmini vs a constant-velocity baseline."""
+        from topeye.scenario.imported_replay import load_imported
+        from topeye.scenario.library import _project
+        from topeye.scenario.map_context import build_map_context
+        from topeye.scenario.scene_metrics import VERSION, scene_metrics
+
+        workspace = guard_output(params["workspace"], self.adapter.root)
+        _, project = _project(workspace, params.get("scenario_id"))
+        path = project / "metrics" / f"{VERSION}.json"
+        if path.is_file():
+            try:
+                cached = json.loads(path.read_text())
+                if cached.get("version") == VERSION:
+                    return cached
+            except ValueError:
+                pass
+        package = project / "import"
+        gone = ScenarioError("NOT_FOUND", "Kịch bản đã bị xoá")
+        try:
+            stored = json.loads((package / "scenario.json").read_text())
+            source = self.call("source_scene", {**params, "scene": stored["source"]["scene"]})
+            # Reverifies hashes, XML and map before anything is measured.
+            imported = load_imported(package, build_map_context(source), self.adapter.root)
+        except FileNotFoundError as exc:  # deleted (moved to .trash) meanwhile
+            raise gone from exc
+        scenario = {
+            "source": imported["source"],
+            "interval_s": imported["interval_s"],
+            "environment": source["environment"],
+            # Every authored vertex is a reference point ("observed" marks dataset labels only).
+            "actors": [
+                {**a, "samples": [{**r, "observed": True} for r in a["reference_samples"]]}
+                for a in imported["actors"]
+            ],
+        }
+        # Engine bundles are scratch: outside the package so a concurrent delete moves nothing half-written.
+        with tempfile.TemporaryDirectory(prefix="topeye-metrics-") as scratch:
+            try:
+                result = scene_metrics(
+                    scenario,
+                    params.get("engine"),
+                    cache_dir=scratch,
+                    progress=progress,
+                    pilot_bundle=package,
+                    # Scenario trajectories are authored, not sampled labels: every span is comparable.
+                    max_gap=float("inf"),
+                )
+            except (FileNotFoundError, ScenarioError) as exc:
+                # A delete mid-run surfaces as a missing file or a failed engine child.
+                if not (package / "manifest.json").is_file():
+                    raise gone from exc
+                raise
+        result["scenario_id"] = imported["id"]
+        try:
+            # parents=False: never recreate the folder of a scenario deleted while measuring.
+            path.parent.mkdir(exist_ok=True)
+            temporary = path.with_suffix(f".{uuid.uuid4().hex}.tmp")
+            write_json(temporary, result)
+            os.replace(temporary, path)
+        except FileNotFoundError as exc:
+            raise gone from exc
+        return result
+
     def call(self, method, params, progress=lambda *args: None):
         require(
             method
@@ -95,6 +163,11 @@ class Service:
                 "import_xosc",
                 "open_imported",
                 "replay_imported",
+                "lidar_frame",
+                "list_imported",
+                "read_imported",
+                "delete_imported",
+                "scenario_metrics",
             },
             "Unknown operation",
         )
@@ -110,17 +183,30 @@ class Service:
             or self.adapter.root != root
             or getattr(self.adapter, "version", "v1.0-mini") != version
         ):
-            self.adapter = NuScenesAdapter(root, version)
+            self.adapter = create_adapter(root, version)
             self.scenarios.clear()
             self.sources.clear()
             self.source_cache.clear()
             self.imports.clear()
+        if method == "scenario_metrics":
+            # Runs on its own worker; like lidar_frame it must not run workspace recovery.
+            return self.scenario_metrics(params, progress)
+        if method == "lidar_frame":
+            # Read-only and stateless: must not run workspace recovery (a sibling worker may own runs).
+            return lidar_frame(self.adapter, params["scene"], params["time_s"])
         workspace = guard_output(params["workspace"], self.adapter.root)
         if workspace not in self.recovered_workspaces:
             self.recover(workspace, self.adapter.root)
             self.recovered_workspaces.add(workspace)
         if method == "list_scenes":
             return list_scenes(self.adapter)
+        if method == "list_imported":
+            return list_imported(workspace)
+        if method == "read_imported":
+            return read_imported(workspace, params.get("scenario_id"))
+        if method == "delete_imported":
+            self.imports.pop(params.get("scenario_id"), None)
+            return delete_imported(workspace, params.get("scenario_id"))
         if method == "source_scene":
             scene = params["scene"]
             if scene in self.source_cache:
@@ -167,7 +253,14 @@ class Service:
                 imported["environment"] = source["environment"]
                 require_ipc_budget(imported)
                 self.public_import(imported)
-                package = persist_import(imported, xml_bytes, context, workspace, self.adapter.root)
+                package = persist_import(
+                    imported,
+                    xml_bytes,
+                    context,
+                    workspace,
+                    self.adapter.root,
+                    display_name(params.get("file_name")),
+                )
             else:
                 package = Path(params["package_path"])
                 imported = load_imported(package, context, self.adapter.root)

@@ -170,3 +170,22 @@ Owner reports floating vehicles and wall penetration in0.10.1. Read-only source 
 - Vite rejects mode name `local` (clashes with `.env.local`); the localhost web build uses mode `localweb`.
 - Vitest must exclude `frontend/server/**` (node:test files); run them with `npm run test:server`.
 - Cloudflare API can return `code: 8000000` (unknown) on `pages project delete`; a single retry succeeded — verify with `pages project list`.
+- macOS `process.kill(-pgid, 0)` returns EPERM (not ESRCH) when the group leader has exited and only zombies remain; worker-bridge treats EPERM as stopped only when the child has exited.
+- Worker method `lidar_frame` must stay ahead of workspace recovery: the dedicated LiDAR worker would otherwise mark a sibling worker's running replay as interrupted.
+- Lucide icons are `<svg>` too: selectors like `.map-panel svg` now match the expand icon — target `.sensor-view > svg`.
+- Map drag-to-pan + click-to-pick: capture the pointer only after ≥3 px movement and swallow the click that ends a drag, else pointer capture retargets clicks to the <svg> and footprints never receive them.
+- Source scenes have 124 annotated objects but only ~58 extractable tracks; picking must be limited to `list_scenes` track tokens or clicks silently do nothing.
+- Any worker call made outside `job()` (e.g. a background library refresh) races the single-request worker and makes the user's next action fail with BUSY — run it as a job.
+- `scripts/test-local-web.mjs` writes into the real workspace from `scenario-settings.json`; each run adds import packages/runs there.
+- Scene view and OpenSCENARIO runner must not share the displayed scenario: switch through `showScene()`/`showRunner()` (scene = loaded source; runner = snapshot), otherwise the scene view shows the imported scenario with simulated LiDAR.
+- Buttons that open a dialog must not silently ignore clicks while a job runs (e.g. the library read right after opening the runner); open the dialog and disable its actions instead.
+- In E2E, waiting for the status text of the *previous* scene ("Cảnh gốc…") passes immediately — wait for the clicked scene to become `aria-current`.
+- Pose `t_s` are rounded to 1 µs (6 decimals) but `interval_s` ends are not: time comparisons need ≥1e-6 tolerance or the last frame of scene-0061/1094 reads as "Thiếu pose".
+- The main worker serves one request at a time; the Node bridge must queue (not refuse) concurrent requests — browsers reload, users open two tabs.
+- Worker chỉ số (plan33) chạy song song với thao tác thư viện: xoá kịch bản giữa lúc đo làm mất file gói. Ghi cache bằng `mkdir` KHÔNG `parents` + kiểm `manifest.json` ⇒ `NOT_FOUND`, không hồi sinh thư mục đã chuyển vào `.trash`.
+- E2E đếm mọi tiến trình `topeye.scenario.worker` trên máy: tắt server localhost đang mở trước khi chạy, nếu không `workersLeft` > 0.
+
+## Plan34 — Auth revocation and AV2 coordinates
+- Auth checked only before reading a POST body is insufficient: logout while body/inspection is pending could still mutate settings. Check after body and after async inspect, immediately before writes. Independent delayed-body/inspect probes and fault injections cover this.
+- AV2 merged LiDAR and cuboids are already ego-frame; applying up/down sensor extrinsics again corrupts alignment. Exact city pose once; dimensions width/length/height; source ns retained while internal µs round.
+- JSX literal HTML pattern must contain one backslash before hyphen under modern browser Unicode-v regex. Use a JS string expression; browser E2E checks console errors.

@@ -74,7 +74,7 @@ def test_switching_versions_invalidates_old_scenarios(tmp_path, monkeypatch):
     from topeye.scenario import worker
     metadata(tmp_path)
     metadata(tmp_path, 'v1.0-trainval')
-    monkeypatch.setattr(worker, 'NuScenesAdapter', lambda root, version='v1.0-mini': SimpleNamespace(root=root, version=version))
+    monkeypatch.setattr(worker, 'create_adapter', lambda root, version='v1.0-mini': SimpleNamespace(root=root, version=version))
     monkeypatch.setattr(worker, 'list_scenes', lambda adapter: [{'scene':adapter.version}])
     service=Service()
     params={'dataset':str(tmp_path),'workspace':str(tmp_path.parent / 'output')}

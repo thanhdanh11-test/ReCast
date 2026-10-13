@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { useSensorZoom } from "./useSensorZoom";
-import { SensorZoomControls } from "./SensorZoomControls";
+import { useViewTransform } from "./useViewTransform";
 import type { Scenario, Replay } from "./types";
 import { visibleActors, footprint, polygonPath } from "./sensors";
 import { vehicleClass, VEHICLE_CLASS_LABELS } from "./vehicleClass";
@@ -30,17 +29,19 @@ export function TacticalMap({
   );
   const actors = scenario ? visibleActors(scenario, replay, time) : [],
     ego = actors.find((a) => a.actor.role === "ego");
-  const controls = useSensorZoom(scenario?.id, !!ego && !!paths.length);
-  const span = 130 / controls.zoom;
+  const controls = useViewTransform<SVGSVGElement>(scenario?.id, !!ego && !!paths.length, 130);
+  const span = controls.span;
+  // Frame centre follows the ego; dragging offsets it (screen y down = world −y).
+  const centre = ego ? { x: ego.pose.x_m + controls.pan.x, y: ego.pose.y_m - controls.pan.y } : null;
   // Legend lists only classes inside the current (zoomed) map frame around the ego.
   const present = new Set(
     actors
       .filter(
         (a) =>
           a.actor.role !== "ego" &&
-          !!ego &&
-          Math.abs(a.pose.x_m - ego.pose.x_m) <= span / 2 &&
-          Math.abs(a.pose.y_m - ego.pose.y_m) <= span / 2,
+          !!centre &&
+          Math.abs(a.pose.x_m - centre.x) <= span / 2 &&
+          Math.abs(a.pose.y_m - centre.y) <= span / 2,
       )
       .map((a) => vehicleClass(a.actor.category)),
   );
@@ -54,14 +55,13 @@ export function TacticalMap({
           : "Trích đoạn dùng đường tổng hợp. Về cảnh gốc để xem map nuScenes."}
       </div>
     );
-  if (!ego)
+  if (!ego || !centre)
     return <div className="view-empty">Thiếu pose ego tại thời điểm này.</div>;
   return (
     <div className="sensor-view" data-testid="map-view" data-time={time}>
-      <SensorZoomControls label="map" {...controls} />
       <svg
-        ref={controls.svgRef}
-        viewBox={`${ego.pose.x_m - span / 2} ${-ego.pose.y_m - span / 2} ${span} ${span}`}
+        ref={controls.ref}
+        viewBox={`${centre.x - span / 2} ${-centre.y - span / 2} ${span} ${span}`}
         role="img"
         aria-label="Bản đồ nuScenes và vị trí đối tượng"
       >
@@ -84,7 +84,8 @@ export function TacticalMap({
           points={ego.actor.samples.map((p) => `${p.x_m},${-p.y_m}`).join(" ")}
           className="map-trajectory"
         />
-        {actors.map(({ actor, pose }) => (
+        {actors.map(({ actor, pose }) => {
+          return (
           <path
             key={actor.id}
             d={polygonPath([footprint(actor, pose)])}
@@ -93,12 +94,14 @@ export function TacticalMap({
                 ? "map-ego"
                 : `map-actor map-class-${vehicleClass(actor.category)}`
             }
+            data-actor={actor.id}
           >
             <title>
               {actor.category} · {actor.id}
             </title>
           </path>
-        ))}
+          );
+        })}
         <path
           d={`M${ego.pose.x_m} ${-ego.pose.y_m}l${Math.cos(ego.pose.yaw_rad) * 6} ${-Math.sin(ego.pose.yaw_rad) * 6}`}
           className="map-heading"
@@ -122,12 +125,6 @@ export function TacticalMap({
           ),
         )}
       </ul>
-      <span className="sensor-stat">
-        {actors.length} đối tượng hiện tại · Bắc ↑
-      </span>
-      <p className="sensor-note">
-        Map nuScenes · khung {span.toFixed(0)}m · bám vị trí ego. Cuộn để zoom.
-      </p>
     </div>
   );
 }

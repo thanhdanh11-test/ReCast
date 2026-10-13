@@ -14,12 +14,13 @@ function fixture(t, calls = []) {
   const dataset = join(dir, "dataset");
   fs.mkdirSync(dataset);
   const host = createLocalServer({
-    staticDir, userData: join(dir, "user"), engine: join(dir, "missing.dylib"), version: "test",
-    bridgeFactory: () => ({
-      busy: false,
+    staticDir, userData: join(dir, "user"), catalogSeeds: [], engine: join(dir, "missing.dylib"), version: "test",
+    bridgeFactory: ({ role = "main" }) => ({
+      get busy() { return role === "main" && calls.mainBusy === true; },
       stop: async () => {},
       request: async (method, params) => {
-        calls.push({ method, params });
+        if (role === "main" && calls.mainBusy) throw Object.assign(new Error("BUSY: Một tác vụ đang chạy"), { code: "BUSY" });
+        calls.push({ method, params, role });
         return method === "inspect_dataset" ? { root: params.dataset, version: "v1.0-mini", scenes: [] } : { ok: method };
       },
     }),
@@ -31,11 +32,15 @@ async function start(t, calls) {
   const f = fixture(t, calls);
   const port = await f.host.listen(0);
   const url = `http://127.0.0.1:${port}`;
+  let cookie = "";
   const post = (name, body = {}, headers = {}) => fetch(`${url}/api/${name}`, {
     method: "POST", body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json", "X-Topeye-Token": f.host.token, ...headers },
+    headers: { "Content-Type": "application/json", "X-Topeye-Token": f.host.token, Cookie: cookie, ...headers },
   });
-  return { ...f, port, url, post };
+  const setup = await post("auth/setup", { username: "test-owner", password: "test-only-passphrase" });
+  assert.equal(setup.status, 200);
+  cookie = setup.headers.get("set-cookie").split(";")[0];
+  return { ...f, port, url, post, cookie };
 }
 
 test("binds loopback only", async (t) => {
@@ -69,9 +74,9 @@ test("rejects foreign Origin and Host (DNS rebinding)", async (t) => {
 });
 
 test("event stream needs the token", async (t) => {
-  const { url, host } = await start(t);
+  const { url, host, cookie } = await start(t);
   assert.equal((await fetch(`${url}/api/events?token=bad`)).status, 403);
-  const ok = await fetch(`${url}/api/events?token=${host.token}`);
+  const ok = await fetch(`${url}/api/events?token=${host.token}`, { headers: { Cookie: cookie } });
   assert.equal(ok.status, 200);
   await ok.body.cancel();
 });
@@ -128,4 +133,69 @@ test("validateArgs enforces the request allowlist", () => {
   assert.throws(() => validateArgs("replayImported", { scenario_id: "../x" }), /Invalid scenario identity/);
   assert.throws(() => validateArgs("extract", []), /Invalid request/);
   assert.doesNotThrow(() => validateArgs("extract", { scene: "s", actor_tokens: [], start_s: 1, end_s: 2 }));
+});
+
+test("lidarFrame validates input and uses its own worker while the main worker is busy", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  for (const bad of [{ scene: "../x", time_s: 1 }, { scene: "scene-0103", time_s: "1" }, { scene: "scene-0103" }, { scene: "scene-0103", time_s: 1, path: "/" }])
+    assert.equal((await post("lidarFrame", bad)).status, 400, JSON.stringify(bad));
+  calls.mainBusy = true;
+  assert.equal((await post("listScenes")).status, 409);
+  const ok = await post("lidarFrame", { scene: "scene-0103", time_s: 6 });
+  assert.equal(ok.status, 200);
+  const last = calls.at(-1);
+  assert.deepEqual([last.method, last.role, last.params.scene, last.params.time_s], ["lidar_frame", "lidar", "scene-0103", 6]);
+});
+
+test("library listing and named imports pass through the allowlist", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  assert.equal((await post("listImported", { path: "/" })).status, 400);
+  assert.equal((await post("listImported")).status, 200);
+  assert.equal(calls.at(-1).method, "list_imported");
+  const xml_base64 = Buffer.from("<x/>").toString("base64");
+  assert.equal((await post("importXosc", { source_id: "a".repeat(32), xml_base64, file_name: "x".repeat(241) })).status, 400);
+  await post("importXosc", { source_id: "a".repeat(32), xml_base64, file_name: "cut-in.xosc" });
+  assert.equal(calls.at(-1).params.file_name, "cut-in.xosc");
+});
+
+test("read/delete library packages only by scenario id", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  for (const name of ["readImported", "deleteImported"]) {
+    assert.equal((await post(name, { scenario_id: "../../etc" })).status, 400);
+    assert.equal((await post(name, { scenario_id: "a".repeat(32), path: "/" })).status, 400);
+    assert.equal((await post(name, { scenario_id: "a".repeat(32) })).status, 200);
+  }
+  assert.deepEqual(calls.slice(-2).map(c => [c.method, c.params.scenario_id]), [["read_imported", "a".repeat(32)], ["delete_imported", "a".repeat(32)]]);
+});
+
+test("worker bridge queues concurrent requests instead of refusing them", async () => {
+  const { createWorkerBridge } = await import("./worker-bridge.mjs");
+  // Tiny JSONL echo worker: answers each request after 30 ms.
+  const script = `process.stdout.write(JSON.stringify({type:"ready"})+"\\n");let b="";process.stdin.on("data",d=>{b+=d;let i;while((i=b.indexOf("\\n"))>=0){const m=JSON.parse(b.slice(0,i));b=b.slice(i+1);setTimeout(()=>process.stdout.write(JSON.stringify({id:m.id,type:"result",value:m.method})+"\\n"),30);}});`;
+  const bridge = createWorkerBridge({ command: process.execPath, args: ["-e", script], env: process.env });
+  try {
+    const results = await Promise.all(["a", "b", "c"].map((m) => bridge.request(m, {})));
+    assert.deepEqual(results, ["a", "b", "c"]);
+    const slow = bridge.request("x", {}).catch((e) => e), queued = bridge.request("y", {}).catch((e) => e);
+    await bridge.stop();
+    assert.match(String(await queued), /CANCELLED/);
+    assert.match(String(await slow), /CANCELLED|ENGINE_FAILED/);
+  } finally { await bridge.stop(); }
+});
+
+test("scenarioMetrics validates the scenario id and runs on its own worker", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  const id = "a".repeat(32);
+  assert.equal((await post("scenarioMetrics", { scenario_id: "../x" })).status, 400);
+  assert.equal((await post("scenarioMetrics", { scenario_id: id, extra: 1 })).status, 400);
+  assert.equal((await post("scenarioMetrics", { scenario_id: id })).status, 200);
+  assert.deepEqual([calls.at(-1).method, calls.at(-1).role, calls.at(-1).params.scenario_id], ["scenario_metrics", "metrics", id]);
 });

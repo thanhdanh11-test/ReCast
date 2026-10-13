@@ -5,8 +5,8 @@ import "../index.css";
 
 window.scenarioApp = createHttpApi();
 // ScenarioApp captures window.scenarioApp at module evaluation time.
-void import("./ScenarioApp").then(({ default: ScenarioApp }) => {
+void import("./AccessApp").then(({ default: AccessApp }) => {
   ReactDOM.createRoot(document.getElementById("root")!).render(
-    <React.StrictMode><ScenarioApp /></React.StrictMode>,
+    <React.StrictMode><AccessApp /></React.StrictMode>,
   );
 });

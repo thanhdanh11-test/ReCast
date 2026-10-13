@@ -11,6 +11,18 @@
 </agent_startup_protocol>
 
 <project_foundation>
+- v0.23.0 (plan34): local single-account login → dataset catalog (+ equal tile); native AV2 Sensor adapter, 10 logs + existing nuScenes mini10; raw immutable. Auth/catalog userData, RAM sessions; docs/scenario.md.
+- v0.22.0 (plan33): scenario metrics in runner report (3rd worker, scenario_metrics, cache <ws>/<id>/metrics); pilot=esmini replay of the XOSC, baseline=constant velocity; defs plan33 SPEC §1.
+- v0.21.1 (plan32): loading overlay until first 3D frame; supportedPose TIME_EPS 1e-6 (1 µs t_s rounding); worker bridge queues requests (no BUSY across tabs).
+- v0.21.0 (plan31): runner has NO esmini run button (owner); 2D map heads the report column; results/history from saved runs only.
+- v0.20.0 (plan30): runner library = rows with status + Xuất/Sửa(XML)/Xoá(.trash) icons, always-red Tạo kịch bản dialog (map · map context · .xosc); no checkboxes/batch/header buttons; worker read_imported/delete_imported.
+- v0.19.2 (plan29): scene view always shows the loaded source; runner scenario/result snapshotted across view switches (fixes simulated LiDAR/wrong map after runner).
+- v0.19.1 (plan28): scene drawer = clickable scene list (re-click = original data); no source button/map toggle; map always on.
+- v0.19.0 (plan27): UI has no extract/variant/verification/export/click-pick; rail = Cảnh nguồn · OpenSCENARIO · Môi trường · Cảnh báo · Dữ liệu; esmini only via runner; backend APIs kept.
+- v0.18.0 (plan26): shell = top bar logo+Topeye, left IconRail (expand on top) + tool drawers, no status bar; OpenSCENARIO runner (library via worker list_imported, batch run, history). BE647/FE341/server14/E2E20.
+- v0.17.1 (plan25): sensor panels chrome-free (no titles/guides/captions/extra buttons; expand icon only; map legend kept; simulated LiDAR tagged MÔ PHỎNG).
+- v0.17.0 (plan24): LiDAR = orbitable Three.js point cloud (drag tilt/orbit); layout: Dữ liệu menu, sidebar toggle, sticky run step, collapsed variant step, click-to-select tracks on 3D/map, timeline clip shading, error toast, warning chip. FE336/server13/BE643/E2E19.
+- v0.16.0 (plan23): LiDAR panel = measured LIDAR_TOP sweep (ego frame, canvas) via dedicated LiDAR worker `lidar_frame`; variants/XOSC keep labelled simulation. Drag-to-pan + 0.5–8× zoom on LiDAR/map, expand button on 3D/LiDAR/map. BE643/FE329/server13/E2E17.
 - v0.15.0 (plan22): Electron desktop REMOVED; only runtime = `cd frontend && npm run web:local` (http://127.0.0.1:5180). E2E `npm run test:e2e -- <nuscenes>`. Cloudflare demo project deleted (static demo code kept, not deployed). FE320/server12/BE638/E2E14.
 - v0.14.0 (plan21): `npm run web:local` full-feature browser app at http://127.0.0.1:5180 (Node localhost server + same Python worker, token/Host/Origin guarded). FE320/server12/E2E14 pass.
 - v0.13.0 (plan20): static web demo `npm run build:web`→dist-web (index.html); staticApi over precomputed JSON from backend/scripts/export_web_demo.py (10 scenes, 8 real esmini replays); unlisted noindex; Cloudflare Pages preview live https://preview.topeye-demo.pages.dev (production pending owner visual OK); feedback URL pending. FE314/BE638, installed 0.13.0 desktop PASS.
@@ -36,7 +48,7 @@
 - Historical Tech Stack: Python 3.12 `backend/topeye` (core = adapter nuScenes JSON, geometry, ground Patchwork++, colorize; sim = camera/layout/labels/cli) ↔ Blender headless `topeye/sim/blender/build_scene.py` (bpy, Python 3.13, KHÔNG import topeye) — giao tiếp CHỈ qua file (layout.json, PLY, PNG, scenario.toml).
 - Lệnh: `topeye-sim-layout --scene S` → `topeye-sim-render --scene S --scenario topeye/sim/blender/scenarios/<day|night|rain|fog>.toml`. Chi tiết: `docs/sim.md`.
 - HistoricalNuRec/StreetGS/Blendergeneratedoutputs+isolatedtools movedtoTrash byusercleanup2026-10-09; oldviewer8770–8775stopped. Recoverypath/counts inplan04/evidence/local/cleanup-manifest.json. OriginalnuScenes andsource preserved; no newpaidjob.
-- Kế hoạch tính năng mới nhất đã hoàn thành local: `planning/12_2026-10-09_scene-detail/`; plan04 desktop implemented; plan02 Blender and plan03 NuRec are secondary research, no automatic continuation/paidjob. Currentapplication0.15.0; browser on localhost only (no installer/.app).
+- Kế hoạch tính năng mới nhất đã hoàn thành local: `planning/12_2026-10-09_scene-detail/`; plan04 desktop implemented; plan02 Blender and plan03 NuRec are secondary research, no automatic continuation/paidjob. Currentapplication0.22.0; browser on localhost only (no installer/.app).
 - 2026-10-08: tiếp nhận phiên Claude bị giới hạn; Kaggle StreetGS 30k historicalCOMPLETE, PSNR test23,08; outputnowinTrash, viewerclosed. Mesh TSDF+LiDAR+atlas (149.999 tam giác) còn thủng, dừng sau 60/234 góc; chưa dùng train/đổi thời tiết. Script `backend/scripts/streetgs_mesh.py`; backend 525 test pass. Bản sửa local v0.1.1, chưa phát hành v2.0.0.
 - 2026-10-08 S15 local v0.2.0: completion nhà từ facade (opt-in), cây kiểm va theo slab XYZ có đối chiếu mesh, BVH chia sẻ geometry giữa instance. Pilot lookdev_s15_v3: 4 camera/frame + góc tự do; backend 531 pass; chưa đạt CARLA, chưa đo full-scene 20 phút.
 - Source delivery 2026-10-08: monorepo P-056/source-tool/topeye (backend + frontend); giữ origin/workspace local, không bundle dữ liệu/model/venv.

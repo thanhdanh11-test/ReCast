@@ -110,6 +110,59 @@ export interface Settings {
   engineAvailable: boolean;
   version: string;
 }
+/** Measured LIDAR_TOP sweep in the ego frame (x forward, y left, z up); see backend lidar_frame.py. */
+export interface LidarFrame {
+  scene: string;
+  sensor: "LIDAR_TOP";
+  frame: "ego";
+  time_s: number;
+  offset_s: number;
+  timestamp_us: number;
+  count: number;
+  range_m: number;
+  xyz_cm_b64: string;
+  intensity_b64: string;
+}
+/** One imported OpenSCENARIO package in the workspace (backend library.py). */
+export interface ImportedRun {
+  run_id: string;
+  at: string;
+  status: "completed" | "running" | "interrupted" | "failed";
+  execution?: "pass" | "fail";
+  map_conformance?: "pass" | "fail";
+  coverage?: number;
+  max_xy_m?: number;
+  max_yaw_rad?: number;
+  contacts?: number;
+}
+export interface ImportedEntry {
+  scenario_id: string;
+  package_path: string;
+  name: string;
+  scene: string;
+  map_id: string;
+  actors: number;
+  duration_s: number;
+  created_at: string;
+  runs: ImportedRun[];
+}
+/** Automatic scene metrics (backend scene_metrics.py, definitions in plan33 SPEC §1). */
+export interface ObjectMetrics {
+  category: string; role: string; length_m: number; width_m: number; height_m: number | null;
+  keyframes: number; span_s: number; grid_t: number[];
+  pilot_err: (number | null)[] | null; baseline_err: number[];
+  pilot_lon_lat: [number, number][] | null; baseline_lon_lat: [number, number][];
+  pilot_ade_m: number | null; pilot_max_m: number | null; baseline_ade_m: number; baseline_max_m: number;
+}
+export interface SceneMetrics {
+  version: string; scene: string; generated_at: string; engine: string | null;
+  objects: { total: number; moving: number };
+  replay: { pilot: { ade_m: number; max_m: number } | null; baseline: { ade_m: number; max_m: number }; objects: number };
+  variants: { per_object: number; total: number; pilot_valid: number | null; baseline_valid: number; map_checked: boolean };
+  rare: { pilot: number | null; original: number };
+  per_object: Record<string, ObjectMetrics>;
+  notes: string[]; scenario_id?: string;
+}
 export interface DesktopAPI {
   chooseDataset(): Promise<{ name: string; version: string; scenes: Scene[] } | null>;
   chooseWorkspace(): Promise<{ name: string } | null>;
@@ -132,9 +185,15 @@ export interface DesktopAPI {
   replay(args: { scenario_id: string }): Promise<Replay>;
   mapContext(args: { source_id: string }): Promise<MapContext>;
   exportMapContext(args: { source_id: string }): Promise<{path: string} | null>;
-  importXosc(args: { source_id: string }): Promise<ImportedScenario | null>;
-  openImported(args: { source_id: string }): Promise<ImportedScenario | null>;
+  /** With `xml` the given text is imported (editor); otherwise a file is picked. */
+  importXosc(args: { source_id: string; xml?: string; file_name?: string }): Promise<ImportedScenario | null>;
+  openImported(args: { source_id: string; path?: string }): Promise<ImportedScenario | null>;
+  listImported(): Promise<ImportedEntry[]>;
+  readImported(args: { scenario_id: string }): Promise<{ scenario_id: string; name: string; file_name: string; xml: string }>;
+  deleteImported(args: { scenario_id: string }): Promise<{ trash_path: string }>;
   replayImported(args: { scenario_id: string }): Promise<ImportedReplay>;
+  lidarFrame(args: { scene: string; time_s: number }): Promise<LidarFrame>;
+  scenarioMetrics(args: { scenario_id: string }): Promise<SceneMetrics>;
   cancelJob(): Promise<boolean>;
   onProgress(
     callback: (value: {

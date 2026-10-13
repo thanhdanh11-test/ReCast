@@ -30,3 +30,6 @@ Generatedoutputs/isolatedtools của hướng cũ đã chuyển vào macOSTrash 
 
 
 Scenario Studio v0.9.0 adds local map-bound OpenSCENARIO import for future AI generation: ego/vehicles/pedestrians, timed world-coordinate paths, native context export/import and measured esmini playback. Existing Electron/React/Python JSONL architecture remains; Shapely2.1.2 handles polygon/swept collision envelopes. No AI provider/API or cloud service introduced.
+
+### v0.23.0 local entry flow
+The current localhost app opens with a single local username/password account, then a racing-style dataset library with an equal-size add tile. Both nuScenes and native Argoverse 2 Sensor are supported for source maps, actors and measured LiDAR. This does not change the existing OpenSCENARIO runner/metrics workflow.

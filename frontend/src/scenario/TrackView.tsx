@@ -31,17 +31,24 @@ export function TrackView({
   time,
   replay,
   environmentSettings = defaultEnvironmentSettings(),
+  warnings = [],
+  onReady,
 }: {
   scenario: Scenario | null;
   time: number;
   replay: Replay | null;
   environmentSettings?: SceneEnvironmentSettings;
+  /** Source/environment warnings shown in the collapsible warning chip. */
+  warnings?: string[];
+  /** Called once per built scene after its first frame is drawn (or when 3D cannot start). */
+  onReady?: () => void;
 }) {
   const mount = useRef<HTMLDivElement>(null),
     latest = useRef({
       time,
       environmentSettings,
       lead: null as LeadVehicle | null,
+      onReady: undefined as (() => void) | undefined,
     }),
     leadBadge = useRef<HTMLDivElement>(null),
     actions = useRef<{
@@ -54,7 +61,8 @@ export function TrackView({
     [geometryNotice, setGeometryNotice] = useState(""),
     [contactNotice, setContactNotice] = useState("");
   const lead = nearestLeadVehicle(scenario, replay, time);
-  latest.current = { time, environmentSettings, lead };
+  latest.current = { time, environmentSettings, lead, onReady };
+  const [showWarnings, setShowWarnings] = useState(false);
   const ego = scenario?.actors.find((a) => a.role === "ego");
   const rows = ego ? replayRows(ego, replay) : [];
   const missing =
@@ -100,6 +108,7 @@ export function TrackView({
       });
     } catch {
       setError("Không khởi tạo được WebGL. Hãy mở lại app để xem cảnh 3D.");
+      latest.current.onReady?.();
       return;
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -314,6 +323,7 @@ export function TrackView({
       setError("Kết nối GPU bị gián đoạn. Chọn lại cảnh để khởi tạo khung 3D.");
     };
     renderer.domElement.addEventListener("webglcontextlost", onLost);
+    let readyNotified = false;
     function draw() {
       if (lost || !active) return; // a frame queued before cleanup must not touch the host
       const now = performance.now();
@@ -482,6 +492,10 @@ export function TrackView({
       if (cabin && cabinGround !== null)
         host.dataset.cabinEyeM = (camera.position.y - cabinGround).toFixed(2);
       renderer.render(scene, camera);
+      if (!readyNotified) {
+        readyNotified = true;
+        latest.current.onReady?.();
+      }
       if (now - metricTime > 1000) {
         host.dataset.grounded = String(grounded);
         host.dataset.groundUnknown = String(unknownGround);
@@ -562,15 +576,6 @@ export function TrackView({
               : "XEM TRƯỚC"}
         </span>
       </div>
-      {contactNotice && (
-        <div
-          className="scene3d-contact-notice"
-          role="status"
-          data-testid="contact-notice"
-        >
-          {contactNotice}
-        </div>
-      )}
       <div className="camera-controls">
         <button
           onClick={() => actions.current?.follow()}
@@ -591,23 +596,20 @@ export function TrackView({
           Trong xe
         </button>
       </div>
-      <div className="scene3d-guide">
-        {mode === "Trong xe"
-          ? "Trong xe · Góc nhìn tài xế ego"
-          : `${mode} · Kéo để xoay · Cuộn để zoom`}
-        <span>
-          {scenario.mode === "source" || scenario.mode === "imported"
-            ? "Bản đồ nuScenes · Nhà/cây ước lượng · Dải xanh: quỹ đạo kịch bản"
-            : "Đường tổng hợp · Các đối tượng được chọn"}
-        </span>
-      </div>
-      {geometryNotice && (
-        <div
-          className="scene3d-geometry-notice"
-          role="status"
-          data-testid="geometry-notice"
-        >
-          {geometryNotice}
+      {(geometryNotice || contactNotice || warnings.length > 0) && (
+        <div className="scene3d-warnings">
+          <button
+            className="scene3d-warning-chip"
+            aria-expanded={showWarnings}
+            onClick={() => setShowWarnings((v) => !v)}
+          >
+            ⚠ {[geometryNotice, contactNotice].filter(Boolean).length + warnings.length} cảnh báo dữ liệu
+          </button>
+          <div className="scene3d-warning-list" hidden={!showWarnings}>
+            {warnings.map((w, i) => <p key={i}>{w}</p>)}
+            {geometryNotice && <p className="scene3d-geometry-notice" data-testid="geometry-notice">{geometryNotice}</p>}
+            {contactNotice && <p className="scene3d-contact-notice" data-testid="contact-notice">{contactNotice}</p>}
+          </div>
         </div>
       )}
       {(!current || error || missing.length > 0) && (

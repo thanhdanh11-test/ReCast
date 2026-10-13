@@ -154,6 +154,8 @@ Stop-region PATCH0.10.1: sourceEnvironment.ts omits semanticstop_line fill (not 
 
 **Vehicle style v0.12.0:** [Plan15](../planning/15_2026-10-10_vehicle-lights-map/plan.md), [docs](../docs/scenario.md). `frontend/src/scenario/vehicleClass.ts` (category→class, map legend labels), `vehicleMaterials.ts` (palette, lamp materials), `cabinCamera.ts` (driver-eye view); bus/truck templates in `detailModels.ts`, GLB lamp split in `assetModels.ts`, fading corridor in `drivingOverlay.ts`, class colours in `TacticalMap.tsx`.
 
+**Scenario metrics v0.22.0:** [Plan33](../planning/33_2026-10-13_scene-metrics/plan.md). `backend/topeye/scenario/scene_metrics.py` (định nghĩa pilot/baseline/biến thể/hiếm, chạy esmini con), worker `scenario_metrics` (cache `<ws>/<id>/metrics/`), server `scenarioMetrics` trên worker thứ 3; UI `frontend/src/scenario/MetricsPanel.tsx` trong cột báo cáo `ScenarioRunner.tsx`.
+
 **Map polish v0.12.1:** [Plan16](../planning/16_2026-10-10_map-load-polish/plan.md). Worker `SOURCE_CACHE_SIZE` LRU in `backend/topeye/scenario/worker.py`; `_unique_rows` + cKDTree box mask in `source_scene.py`; `presentation.trees/poles` filter in `presentation.py`.
 
 
@@ -161,3 +163,9 @@ Stop-region PATCH0.10.1: sourceEnvironment.ts omits semanticstop_line fill (not 
 
 
 **Native logo0.12.3:** [Plan18](../planning/18_2026-10-10_app-logo/plan.md), [module](../docs/scenario.md). Existing packaging script generates macOS ICNS from the shared unchanged header PNG; no new module. 2026-10-10T15:57:06+07:00.
+
+## Plan34 / v0.23.0 access and datasets
+- `frontend/src/scenario/AccessApp.tsx` + accessApi/access.css: login and dataset catalog before ScenarioApp.
+- `frontend/server/local-auth.mjs`, `dataset-catalog.mjs`: account/session and local dataset registry; local-server routes.
+- `backend/topeye/core/adapters/argoverse.py`: native AV2 Sensor; `scenario/dataset.py::create_adapter` factory.
+- Operations/contracts: [scenario](../docs/scenario.md), [plan34](../planning/34_2026-10-13_dataset-intake/plan.md).

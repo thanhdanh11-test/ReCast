@@ -1,4 +1,4 @@
-# Scenario Studio — N3-09B, v0.15.0
+# Topeye Scenario — N3-09B, v0.22.0
 
 ## Tóm tắt phiên bản hiện hành
 
@@ -12,6 +12,17 @@
 - 0.12.4: Vite 8/Vitest 5, viewer cũ ra khỏi build.
 - 0.13.0: web demo tĩnh.
 - 0.14.0: web localhost đầy đủ tính năng.
+- 0.22.0: khối **Chỉ số kịch bản** trong cột báo cáo OpenSCENARIO (dưới Map 2D). Mở một kịch bản ⇒ app tự tính ở worker riêng (`scenarioMetrics` → `scenario_metrics`, cache `<thư mục lưu>/<id>/metrics/scene-metrics-v3.json`). 4 thẻ: sai số phát lại Topeye (esmini chạy chính XOSC, so với mốc quỹ đạo) vs baseline (vận tốc không đổi), vật thể chuyển động (≥ 2 m và ≥ 0,5 m/s), biến thể hợp lệ (tốc độ ×0,8–1,2 × dịch ±2/±4 m; kiểm động học, map, va chạm, esmini ≤ 0,25/0,5 m), tình huống hiếm (TTC < 1,5 s với ego ≥ 5 m/s). Vật thể đang chọn: độ lệch tại thời điểm xem (dọc/ngang), biểu đồ theo thời gian. Xoá kịch bản lúc đang đo ⇒ `NOT_FOUND`, không tạo lại thư mục. Định nghĩa: `planning/33_2026-10-13_scene-metrics/specs/00-SPEC.md`.
+- 0.21.1: vòng tải "Đang tải dữ liệu" khi nạp/dựng cảnh; giữ hình ở cuối cảnh (ngưỡng thời gian 1 µs); server xếp hàng yêu cầu (nhiều tab không còn BUSY).
+- 0.21.0: màn OpenSCENARIO bỏ khối "Chạy ESMINI" (không còn nút chạy esmini trên giao diện); map 2D ở đầu cột phải thay map nhỏ trong 3D. Kết quả/lịch sử đọc từ các lần chạy đã lưu.
+- 0.20.0: thư viện OpenSCENARIO: nút "Tạo kịch bản" (hộp thoại chọn map · tải thông tin map · chọn .xosc), mỗi kịch bản có Xuất/Sửa (XML)/Xoá (vào .trash); bỏ ô tick, chạy hàng loạt và nút ở tiêu đề; tên mặc định lấy từ description của .xosc.
+- 0.19.2: sửa lỗi quay từ OpenSCENARIO về Cảnh nguồn vẫn hiện kịch bản nạp (LiDAR mô phỏng, map sai); màn xem cảnh luôn hiện cảnh gốc đang nạp, runner nhớ kịch bản/kết quả; ngăn Cảnh nguồn rộng 200 px.
+- 0.19.1: ngăn Cảnh nguồn = danh sách cảnh bấm để mở (bấm lại = về dữ liệu gốc); bỏ nút "Xem cảnh gốc" và ô tick map; map luôn hiển thị.
+- 0.19.0: bỏ Trích đoạn / Biến thể / Kiểm chứng / Xuất kịch bản / chọn xe bằng click khỏi giao diện; chạy esmini chỉ qua màn OpenSCENARIO (backend/CLI giữ nguyên).
+- 0.18.0: thanh icon trái + ngăn kéo, thanh trên chỉ logo "Topeye", bỏ thanh trạng thái; giao diện riêng chạy OpenSCENARIO (thư viện, chạy hàng loạt, lịch sử) (mục cuối).
+- 0.17.1: 3 khung không còn tiêu đề/hướng dẫn/chú thích/nút phụ — chỉ biểu tượng phóng to; map giữ chú giải loại; LiDAR giả lập có nhãn nhỏ "MÔ PHỎNG".
+- 0.17.0: LiDAR 3D xoay/nghiêng, bố cục mới (menu Dữ liệu, ẩn thanh bên, bước chạy luôn thấy, chip cảnh báo, chọn xe bằng click, vùng trích đoạn trên timeline, toast lỗi) (mục cuối).
+- 0.16.0: LiDAR đo thực trong khung LiDAR, kéo để di chuyển LiDAR/map, nút phóng to từng khung.
 - 0.15.0: **bỏ app desktop Electron**; chạy duy nhất bằng `npm run web:local` (mục cuối). Các đoạn bên dưới nhắc "app/desktop/Electron/.app" là lịch sử ≤0.14.0.
 
 
@@ -238,3 +249,60 @@ Dữ liệu: 10 cảnh mini, 5 trích đoạn (preset scene-0103 + mặc định
 ## Bỏ app desktop 0.15.0
 
 Đã xoá `frontend/electron/`, `frontend/scenario.html`, `frontend/scripts/{dev,package,test,test-imported}-desktop.mjs`, `backend/scripts/scenario_worker.py` (PyInstaller), dependency `electron`/`@electron/packager`, `pyinstaller` khỏi extra `scenario-build`, và nhánh `sys.frozen` trong `replay.py`/`imported_replay.py`/`source_scene.py`. `npm run build` = build web localhost (`dist-local/`). Code desktop còn trong lịch sử git đến commit `3ef337d` (0.13.0) / bản 0.14.0; các `.app` đã cài trong `~/Applications` không bị gỡ. SPEC: planning/22_2026-10-12_drop-desktop/.
+
+
+## LiDAR đo thực, kéo/zoom, phóng to khung 0.16.0
+
+- **LiDAR đo thực:** khung LiDAR vẽ sweep `LIDAR_TOP` (20 Hz) gần nhất với thời điểm timeline, đổi sang khung xe ego (x trước, y trái, z lên) bằng `calibrated_sensor` của chính sweep, nhìn từ trên, đầu xe hướng lên, màu theo độ cao; không lọc/nội suy/bù chuyển động. Backend `topeye/scenario/lidar_frame.py` (worker method `lidar_frame`), cắt |x|,|y| ≤ 100 m, lượng tử 1 cm (int16) + intensity uint8, base64. Lệch thời gian sweep hiển thị (ms); > 0,1 s ⇒ `LIDAR_UNAVAILABLE`.
+- Áp dụng cho cảnh gốc và trích đoạn/phát lại **bản gốc** (thời điểm nguồn = `selected_interval_s[0] + t`). Biến thể (tốc độ ≠ 1 hoặc dịch ≠ 0) và kịch bản nạp XOSC không có LiDAR đo tương ứng ⇒ quét giả lập 180 tia cũ, có ghi rõ lý do. Bản demo tĩnh không có LiDAR đo ⇒ quét giả lập.
+- Server dùng **worker LiDAR riêng** (`lidarFrame`), không chung hàng đợi BUSY với trích đoạn/phát lại; worker này không chạy khôi phục workspace. Frontend `measuredLidar.ts`: tối đa 1 request đang chạy, chỉ lấy thời điểm mới nhất, cache 48 sweep, vẽ canvas.
+- **Kéo/zoom:** `useViewTransform.ts` (thay `useSensorZoom`) cho LiDAR và map: kéo chuột để di chuyển, cuộn/±/0,5–8×, nút ⌖ hoặc bấm đúp để về giữa; đổi kịch bản tự reset. Chỉ đổi khung nhìn.
+- **Phóng to khung:** nút ở góc khung 3D, LiDAR, map; Esc hoặc bấm lại để trả về bố cục.
+- Kiểm: backend 643 (5 mới, dataset thật), frontend 329, server 13, E2E 17 bước (`npm run test:e2e`). SPEC: planning/23_2026-10-12_lidar-layout/.
+
+
+## Bố cục 0.17.0 và LiDAR 3D
+
+- **LiDAR 3D** (`LidarPointCloud3D.tsx`): đám mây điểm đo thực trong không gian 3D quanh xe ego. Kéo trái lên/xuống để nghiêng, kéo ngang để xoay, chuột phải để dời, cuộn để zoom; nút −/+, "Từ trên", "Nghiêng". Vòng 20–100 m trên mặt đất, hộp đỏ = xe ego. Chỉ vẽ lại khi dữ liệu/camera đổi.
+- **Header:** nút ẩn/hiện thanh thiết lập · Môi trường · OpenSCENARIO · **Dữ liệu** (đổi dataset, thư mục lưu, hiện đường dẫn đang dùng).
+- **Thanh bên:** nhãn chữ thường; bước 02 thu gọn tới khi có trích đoạn; bước 03 "Kiểm chứng" ghim đáy (luôn thấy "Chạy phát lại", kết quả cuộn riêng).
+- **Chọn xe:** bấm xe trên khung 3D hoặc map ở cảnh gốc để chọn/bỏ (tối đa 3, chỉ track trích đoạn được); xe đã chọn viền trắng trên map; danh sách vẫn còn.
+- **Timeline:** vùng đỏ = khoảng trích đoạn Từ–Đến trên cảnh gốc.
+- **Cảnh báo/lỗi:** cảnh báo dữ liệu 3D gom vào chip "⚠ N cảnh báo dữ liệu"; lỗi hiện toast giữa vùng xem (đóng được), vẫn ghi ở thanh trạng thái.
+- SPEC/bằng chứng: planning/24_2026-10-12_layout-lidar3d/.
+
+**0.17.1:** khung 3D/LiDAR/map không còn thanh tiêu đề, chữ hướng dẫn, chú thích hay nút −/+/Từ trên/Nghiêng; chỉ biểu tượng phóng to ở góc. Thao tác: cuộn = zoom, kéo = dời (map) hoặc xoay/nghiêng (LiDAR 3D, chuột phải = dời), bấm đúp = về mặc định. Map chỉ giữ chú giải loại. LiDAR giả lập có nhãn nhỏ "MÔ PHỎNG" (lý do trong tooltip).
+
+
+## Thanh icon và giao diện OpenSCENARIO 0.18.0
+
+- **Thanh trên:** chỉ logo + "Topeye"; khi có tác vụ, góc phải hiện tiến trình + nút "Huỷ tác vụ". Thanh trạng thái cuối màn hình đã bỏ (thông điệp vẫn ở vùng `role=status` ẩn cho trình đọc màn hình/test); lỗi hiện thông báo nổi.
+- **Thanh icon trái** (`IconRail.tsx`): nút mở rộng/thu gọn trên cùng (mở rộng = hiện chữ). Trên → dưới: Cảnh nguồn · Trích đoạn · Biến thể · Kiểm chứng · Xuất kịch bản (hành động) · OpenSCENARIO · Môi trường · … · Cảnh báo (chấm vàng khi có) · Dữ liệu. Bấm công cụ ⇒ mở ngăn kéo 300 px của công cụ đó; bấm lại hoặc Esc ⇒ đóng.
+- **Giao diện OpenSCENARIO** (`ScenarioRunner.tsx`): cột trái = thư viện kịch bản trong thư mục lưu (tên file .xosc lúc nạp; gói cũ = "kịch bản <mã>"), trạng thái Đạt/Không đạt/Đang chạy/Đã huỷ/Chưa chạy, nút Nạp .xosc / Mở gói đã lưu / Xuất thông tin map, ô chọn + "Chạy N kịch bản đã chọn" (tuần tự; mục lỗi ghi lỗi rồi chạy tiếp; Huỷ dừng cả hàng). Giữa = 3D + map nhỏ + thanh thời gian, chip Đúng map/Động học hợp lệ/cảnh báo. Phải = chạy/chạy lại, kết quả gần nhất, bảng đối tượng (V tối đa), lịch sử chạy, cảnh báo.
+- Backend: worker `list_imported` (`topeye/scenario/library.py`, chỉ đọc workspace: `*/import/manifest.json` + `runs/*/{status,report}.json`, bỏ symlink/hỏng); `import_xosc` nhận `file_name` ⇒ manifest `display_name` (ngoài tập hash). Server/API: `listImported`, `importXosc{file_name}`, `openImported{path}`.
+- SPEC/bằng chứng: planning/26_2026-10-12_icon-rail-runner/.
+
+**0.19.0:** giao diện không còn Trích đoạn, Biến thể, Kiểm chứng, Xuất kịch bản, chọn xe bằng click và vùng trích đoạn trên timeline. Thanh icon: Mở rộng · Cảnh nguồn · OpenSCENARIO · Môi trường · Cảnh báo · Dữ liệu. Chạy esmini qua màn OpenSCENARIO. `extract/variant/replay/export` vẫn có ở worker/server/CLI (`topeye.scenario.cli accept`) — các mục bên trên mô tả chúng là năng lực backend.
+
+
+## Quản lý kịch bản 0.20.0
+
+- **Tạo kịch bản** (nút đỏ cuối cột thư viện, luôn bấm được): hộp thoại chọn map (cảnh nguồn) → "Tải thông tin map" (context cho công cụ sinh kịch bản) → "Chọn file .xosc" (kiểm như cũ, nạp xong mở ngay).
+- Mỗi dòng: tên (bấm = mở) · trạng thái · **Xuất** (tải original.xosc) · **Sửa** (đổi tên + sửa XML; lưu ⇒ kiểm lại với map, hợp lệ mới tạo gói mới và chuyển gói cũ vào .trash; không hợp lệ giữ nguyên) · **Xoá** (hỏi xác nhận ⇒ `<thư mục lưu>/.trash/<id>-<thời điểm>`, khôi phục bằng cách chuyển thư mục về lại).
+- Worker: `read_imported`, `delete_imported` (chỉ theo scenario_id, trong workspace, chặn symlink). Tên gói không có tên file = `description` của FileHeader.
+- Bỏ: ô tick, chạy hàng loạt, nút Nạp/Mở gói/Xuất map ở tiêu đề. E2E tự xoá kịch bản nó tạo. SPEC: planning/30_2026-10-12_scenario-manage/.
+
+
+## v0.23.0 — Local login, dataset library and native AV2
+
+Run `cd frontend && npm run web:local`, then open http://127.0.0.1:5180. First use creates one local account (username 3–64 ASCII letters/digits/`_.-`, password 12–128 characters). There is no default password. Later visits log in before selecting a dataset; the “+” tile opens a local directory-path form. Dataset tiles and the add tile share the same size. “Thư viện map” returns from Studio; logout revokes that browser session.
+
+`AccessApp.tsx` wraps the existing ScenarioApp. `server/local-auth.mjs` stores only salted scrypt credentials in `~/Library/Application Support/Topeye/local-account.json` (0600). Sessions live in server RAM for eight hours and use HttpOnly/SameSite=Strict cookies; restarting requires login again. This is a single-account localhost application, not remote hosting or multi-user access control. Existing token, Host and Origin checks remain required. Invalid credentials are throttled; malformed account storage fails closed.
+
+`server/dataset-catalog.mjs` persists schemaVersion 1 / entries in `dataset-catalog.json` beside scenario-settings.json. Optional ignored seed file `backend/data/dataset-library.json` is an array of `{root,name,format}` (`format`: `nuscenes` or `av2`). Each entry is inspected before admission. POST `/api/catalog/add` accepts `{path,name?}`; POST `/api/catalog/select` accepts `{id}`; GET `/api/catalog` returns `{value:entries}`. Preview requests resolve registered IDs, never caller filenames. Selection during worker activity returns BUSY; failed inspection preserves the previous settings. Request authorization is rechecked after body receipt and after asynchronous inspection before any user-requested configuration write.
+
+`scenario.dataset.create_adapter(root, version)` chooses NuScenesAdapter or ArgoverseAdapter. Native AV2 Sensor requires `pyarrow` (`uv pip install --python backend/.venv/bin/python 'pyarrow>=18,<27'`, also in the `av2` extra). Input is a directory of log UUIDs, or one log, containing annotations.feather, city_SE3_egovehicle.feather, sensors/lidar and per-log map JSON. AV2 point clouds and annotations are already ego-frame; apply the city pose once, never sensor extrinsics again. Preserve raw timestamps, convert ns to internal µs, and reorder cuboid dimensions to width/length/height. Exact poses and all referenced LiDAR files are required. Source scenes use the log's own lane/drivable/crossing map and measured LiDAR; camera streams are retained, not added as new Studio camera views.
+
+Machine-local library: nuScenes mini (10 existing scenes) plus Argoverse 2 Sensor (10 downloaded validation logs across PIT/MIA/WDC/DTW/PAO). AV2 raw: `backend/data/dataset-intake-20261013/argoverse2`, 30,362 files / 11,605,779,571 bytes / 1,568 LiDAR frames. Incomplete earlier trainval archives are retained outside the catalog. These are subsets, not full datasets. Raw data is never rewritten by the adapter.
+
+Verification: `npm run test:server`, `npm test -- --run`, `npm run build` in frontend; `backend/.venv/bin/pytest backend/tests`; `npm run test:access` exercises login/catalog/both real sources in isolated userData; `npm run test:e2e -- <nuscenes-root> <evidence-dir>` checks the existing runner in a temporary workspace. Evidence and rollback snapshots: `planning/34_2026-10-13_dataset-intake/`. Rollback must preserve Claude's pre-existing dirty changes and user account/catalog/settings; do not reset the whole worktree.

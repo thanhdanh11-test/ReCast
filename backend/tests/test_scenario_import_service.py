@@ -22,7 +22,7 @@ def service(tmp_path, monkeypatch):
     source = source_fixture()
     source["id"] = "a" * 32
     adapter = SimpleNamespace(root=tmp_path / "dataset", version="v1.0-mini")
-    monkeypatch.setattr(worker, "NuScenesAdapter", lambda root, version: adapter)
+    monkeypatch.setattr(worker, "create_adapter", lambda root, version: adapter)
     monkeypatch.setattr(
         worker, "source_scene", lambda adapter, scene, progress: copy.deepcopy(source)
     )

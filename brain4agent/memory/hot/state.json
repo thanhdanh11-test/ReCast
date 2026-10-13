@@ -1,31 +1,24 @@
 {
-  "current_version": "0.15.0",
+  "current_version": "0.23.0",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-12T19:37:49+07:00",
-    "scope": "0.15.0 drop desktop (plan22)",
+    "timestamp": "2026-10-13T01:55:58+07:00",
+    "scope": "0.23.0 plan34 local auth/catalog/AV2",
+    "backend_tests": {
+      "total": 666,
+      "pass": 666
+    },
     "frontend_tests": {
-      "total": 320,
-      "pass": 320,
-      "fail": 0,
-      "skip": 0
+      "total": 350,
+      "pass": 350
     },
     "server_tests": {
-      "total": 12,
-      "pass": 12
-    },
-    "backend_tests": {
-      "total": 638,
-      "pass": 638,
-      "fail": 0,
-      "skip": 0
+      "total": 30,
+      "pass": 30
     },
     "e2e_local_web": "14/14",
-    "dataset_metadata_unchanged": true,
-    "electron": "removed",
-    "cloudflare_project": "deleted",
-    "evidence": "planning/22_2026-10-12_drop-desktop/evidence"
+    "evidence": "planning/34_2026-10-13_dataset-intake/evidence"
   },
   "active_plans_completed": 1,
   "engine_sha": "1e68b141926025230d15ac986b2022c3d70a1e33",
@@ -1004,5 +997,34 @@
     "typecheck_build_package_signature_exit": 0,
     "evidence": "planning/17_2026-10-10_vehicle-contact/evidence",
     "limitations": "estimated single display surface; approximate axle support; not exact tire/suspension/multilevel physics"
+  },
+  "dataset_library": {
+    "version": "0.23.0",
+    "completed_at": "2026-10-13T01:55:58+07:00",
+    "plan": "planning/34_2026-10-13_dataset-intake/plan.md",
+    "datasets": {
+      "nuscenes_mini": {
+        "scenes": 10,
+        "reused": true
+      },
+      "av2_sensor": {
+        "scenes": 10,
+        "files": 30362,
+        "bytes": 11605779571,
+        "lidar_frames": 1568
+      }
+    },
+    "tests": {
+      "backend": 666,
+      "frontend": 350,
+      "server": 30,
+      "security_independent": 7,
+      "regression_steps": 14,
+      "access_errors": 0
+    },
+    "raw_changed": 0,
+    "url": "http://127.0.0.1:5180/",
+    "owner_account_created": false,
+    "commit": false
   }
 }

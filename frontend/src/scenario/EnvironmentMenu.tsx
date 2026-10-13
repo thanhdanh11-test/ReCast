@@ -33,7 +33,11 @@ export function HeaderPopover({label, children, primary = false}: {label: string
 }
 
 export function EnvironmentMenu({settings, onChange}: {settings: SceneEnvironmentSettings; onChange: (settings: SceneEnvironmentSettings) => void}) {
-    return <HeaderPopover label="Môi trường">
+    return <HeaderPopover label="Môi trường"><EnvironmentPanel settings={settings} onChange={onChange}/></HeaderPopover>;
+}
+/** Weather/quality controls, shared by the header popover and the rail drawer. */
+export function EnvironmentPanel({settings, onChange}: {settings: SceneEnvironmentSettings; onChange: (settings: SceneEnvironmentSettings) => void}) {
+    return <>
         <label className="field">Thời tiết CARLA 0.9.15<select aria-label="Thời tiết CARLA 0.9.15" value={settings.preset} onChange={event => onChange(environmentSettingsFor(event.target.value as WeatherPresetId, settings.quality))}>
             {Object.keys(CARLA_WEATHER_VALUES).map(preset => <option key={preset} value={preset}>{preset}</option>)}
         </select></label>
@@ -41,5 +45,5 @@ export function EnvironmentMenu({settings, onChange}: {settings: SceneEnvironmen
             <option value="auto">Tự động</option><option value="high">Chi tiết cao</option><option value="balanced">Cân bằng</option>
         </select></label>
         <p className="sensor-note">Thời tiết chỉ thay đổi hiển thị; mô phỏng hình ảnh qua Three.js.</p><ModelCredits/>
-    </HeaderPopover>;
+    </>;
 }

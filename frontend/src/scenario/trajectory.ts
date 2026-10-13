@@ -24,6 +24,11 @@ export function replayRows(actor: Actor, replay: Replay | null): Pose[] {
     ? replay.observed.filter((p) => p.id === actor.id)
     : actor.samples;
 }
+/**
+ * Pose timestamps are rounded to 1 µs by the backend while scene intervals are not, so the
+ * timeline end can sit ~1e-7 s past the last sample (scene-0061, scene-1094). Compare at 1 µs.
+ */
+const TIME_EPS = 1e-6;
 export function supportedPose(
   rows: Pose[],
   time: number,
@@ -31,14 +36,14 @@ export function supportedPose(
 ): Pose | null {
   if (
     !rows.length ||
-    time < rows[0].t_s - 1e-7 ||
-    time > rows[rows.length - 1].t_s + 1e-7
+    time < rows[0].t_s - TIME_EPS ||
+    time > rows[rows.length - 1].t_s + TIME_EPS
   )
     return null;
   const next = rows.findIndex((p) => p.t_s >= time);
   if (
     next > 0 &&
-    Math.abs(rows[next].t_s - time) > 1e-7 &&
+    Math.abs(rows[next].t_s - time) > TIME_EPS &&
     rows[next].t_s - rows[next - 1].t_s > maxGap
   )
     return null;

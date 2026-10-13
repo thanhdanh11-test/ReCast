@@ -1,30 +1,50 @@
 import topeyeLogo from "./assets/topeye-logo.png";
-import { useEffect, useRef, useState } from "react";
-import { Replay, Scene, Scenario, Settings } from "./types";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ImportedEntry, Replay, Scene, Scenario, Settings } from "./types";
 import { TrackView } from "./TrackView";
 import { LidarView } from "./LidarView";
 import { TacticalMap } from "./TacticalMap";
 import { playbackEnd } from "./trajectory";
-import { EnvironmentMenu, HeaderPopover } from "./EnvironmentMenu";
+import { EnvironmentPanel } from "./EnvironmentMenu";
 import { defaultEnvironmentSettings } from "./weather";
 import { ModelCredits } from "./ModelCredits";
+import { IconRail, type RailItem } from "./IconRail";
+import { ScenarioRunner } from "./ScenarioRunner";
+import type { MetricsState } from "./MetricsPanel";
+import { Clapperboard, CloudSun, Database, LoaderCircle, Map, Maximize2, MessageSquare, Minimize2, TriangleAlert, X } from "lucide-react";
 import "./scenario.css";
 const api = window.scenarioApp;
-export default function ScenarioApp() {
+type Tool = "scene" | "environment" | "warnings" | "data";
+type View = "scene" | "runner";
+export default function ScenarioApp({ onLibrary }: { onLibrary?: () => void } = {}) {
     const [settings, setSettings] = useState<Settings | null>(null), [scenes, setScenes] = useState<Scene[]>([]), [sceneName, setSceneName] = useState("");
-    const [selected, setSelected] = useState<string[]>([]), [start, setStart] = useState(3), [end, setEnd] = useState(8);
-    const [original, setOriginal] = useState<Scenario | null>(null);
-    const [base, setBase] = useState<Scenario | null>(null), [scenario, setScenario] = useState<Scenario | null>(null), [replay, setReplay] = useState<Replay | null>(null);
+    const [original, setOriginalState] = useState<Scenario | null>(null);
+    // Latest source for sequential jobs (batch runs read it across awaits, after re-renders).
+    const originalRef = useRef<Scenario | null>(null);
+    const setOriginal = (value: Scenario | null) => { originalRef.current = value; setOriginalState(value); };
+    const [scenario, setScenario] = useState<Scenario | null>(null), [replay, setReplay] = useState<Replay | null>(null);
     const [busy, setBusy] = useState(false), [message, setMessage] = useState("Sẵn sàng"), [error, setError] = useState("");
-    const [time, setTime] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(1), [offset, setOffset] = useState(0), [target, setTarget] = useState("vehicle_1");
-    const [runs, setRuns] = useState<{
-        id: string;
-        valid: boolean;
-    }[]>([]);
+    const [time, setTime] = useState(0), [playing, setPlaying] = useState(false);
     const [environmentSettings, setEnvironmentSettings] = useState(defaultEnvironmentSettings);
-    const [showMap, setShowMap] = useState(true);
+    const [expanded, setExpanded] = useState<"track" | "lidar" | "map" | null>(null);
+    const [view, setView] = useState<View>("scene");
+    // True from the start of a scene load until the 3D view has drawn that scene (no blank/white gap).
+    const [sceneLoading, setSceneLoading] = useState(false);
+    // Scenario metrics are computed automatically in the background (own worker) for the opened scenario.
+    const [metrics, setMetrics] = useState<MetricsState | null>(null);
+    const metricsCache = useRef(new globalThis.Map<string, MetricsState>());
+    const [tool, setTool] = useState<Tool | null>(null);
+    const [railWide, setRailWide] = useState(false);
+    const [library, setLibrary] = useState<ImportedEntry[]>([]);
+    const [activeEntry, setActiveEntry] = useState<string | null>(null);
+    const runnerSnapshot = useRef<{ scenario: Scenario; replay: Replay | null } | null>(null);
+    useEffect(() => {
+        if (!expanded && !tool) return;
+        const key = (event: KeyboardEvent) => { if (event.key !== "Escape") return; if (expanded) setExpanded(null); else setTool(null); };
+        window.addEventListener("keydown", key);
+        return () => window.removeEventListener("keydown", key);
+    }, [expanded, tool]);
     const demo = settings?.mode === "web-demo";
-    const demoVariants = demo && base ? window.scenarioDemo?.demoVariants(base.id) ?? [] : [];
     const workspaceRef = useRef<HTMLElement>(null);
     function feedback() {
         const url = new URL(import.meta.env.VITE_FEEDBACK_URL, window.location.href);
@@ -48,7 +68,6 @@ export default function ScenarioApp() {
         return value;
     }
     const timelineEnd = playbackEnd(scenario, replay);
-    const current = scenes.find((s) => s.scene === sceneName);
     async function job<T>(label: string, work: () => Promise<T>): Promise<T | undefined> {
         if (busyRef.current)
             return;
@@ -74,29 +93,27 @@ export default function ScenarioApp() {
             }
         }
     }
-    async function loadSource(s: Scene) {
+    async function loadSource(s: Scene): Promise<Scenario> {
+        setSceneLoading(true);
         const source = await checked(api!.sourceScene({ scene: s.scene }));
         setOriginal(source);
         setScenario(source);
         setReplay(null);
         setTime(0);
         setMessage(`Cảnh gốc: ${source.actors.length} đối tượng · ${source.environment?.buildings.length || 0} khối nhà`);
+        return source;
     }
     function selectScene(s: Scene) {
         setOriginal(null);
-        const pilot = s.scene === "scene-0103" && s.tracks.find((t) => t.token === "ec0e6425eae2442698ff7b43d405d279");
         setSceneName(s.scene);
-        setSelected(pilot ? [pilot.token] : s.tracks.slice(0, 1).map((t) => t.token));
-        setStart(pilot ? 8 : 3);
-        setEnd(pilot ? 13 : 8);
         setScenario(null);
-        setBase(null);
         setReplay(null);
         setTime(0);
     }
     async function refresh() {
         if (!api)
             return;
+        setSceneLoading(true);
         setSettings(await checked(api.settings()));
         const rows = await checked(api.listScenes());
         setScenes(rows);
@@ -134,7 +151,7 @@ export default function ScenarioApp() {
         setMessage("Đang huỷ tác vụ");
         try {
             await api.cancelJob();
-            setOriginal(null); setBase(null); setScenario(null); setReplay(null); setTime(0);
+            setOriginal(null); setScenario(null); setReplay(null); setTime(0); runnerSnapshot.current = null;
             setMessage("Đã huỷ · tạo lại kịch bản để tiếp tục");
         }
         catch (e) {
@@ -146,6 +163,28 @@ export default function ScenarioApp() {
             setBusy(false);
         }
     }
+    useEffect(() => { if (!busy && !scenario) setSceneLoading(false); }, [busy, scenario]);
+    const sceneReady = () => setSceneLoading(false);
+    const metricsScene = view === "runner" && scenario?.mode === "imported" && settings?.mode !== "web-demo" ? scenario.id : null;
+    useEffect(() => {
+        if (!metricsScene || !api?.scenarioMetrics) { setMetrics(null); return; }
+        const cached = metricsCache.current.get(metricsScene);
+        if (cached && cached.status !== "error") { setMetrics(cached); return; }
+        let stale = false;
+        const loading: MetricsState = { key: metricsScene, status: "loading" };
+        metricsCache.current.set(metricsScene, loading);
+        setMetrics(loading);
+        api.scenarioMetrics({ scenario_id: metricsScene }).then(data => {
+            const ready: MetricsState = { key: metricsScene, status: "ready", data };
+            metricsCache.current.set(metricsScene, ready);
+            if (!stale) setMetrics(ready);
+        }, (e: unknown) => {
+            const failed: MetricsState = { key: metricsScene, status: "error", error: String(e instanceof Error ? e.message : e) };
+            metricsCache.current.set(metricsScene, failed);
+            if (!stale) setMetrics(failed);
+        });
+        return () => { stale = true; };
+    }, [metricsScene]);
     useEffect(() => {
         if (!playing || !scenario)
             return;
@@ -164,33 +203,137 @@ export default function ScenarioApp() {
         }, 40);
         return () => clearInterval(timer);
     }, [playing, scenario, timelineEnd]);
-    const canRun = !!scenario && scenario.mode !== "source" && (settings?.engineAvailable || demo) && !busy;
     const imported = scenario?.mode === "imported";
-    const hasSourceMap = !!original?.environment?.polygons.length;
-    const sourceLabel = replay ? "ESMINI · ĐÃ ĐO" : scenario?.mode === "source" ? "DỮ LIỆU GỐC" : imported ? "ĐÃ NẠP · XEM TRƯỚC" : "XEM TRƯỚC";
     const resetPlayback = () => { setReplay(null); setTime(0); setPlaying(false); };
-    async function importScenario(reopen: boolean) {
-        if (!original) return;
-        const s = await checked(reopen ? api!.openImported({source_id: original.id}) : api!.importXosc({source_id: original.id}));
-        if (!s) { setMessage("Đã đóng hộp chọn · giữ nguyên cảnh đang xem"); return; }
-        setScenario(s); resetPlayback();
-        setMessage(`Đã nạp OpenSCENARIO · ${s.actors.length} đối tượng · đúng map hiện tại`);
+    // ---- OpenSCENARIO library (plan26) -------------------------------------------------------
+    async function refreshLibrary() {
+        if (!api?.listImported) return;
+        setLibrary(await checked(api.listImported()));
     }
-    const selectTrack = (token: string) => setSelected(previous => previous.includes(token)
-        ? previous.filter(t => t !== token) : previous.length < 3 ? [...previous, token] : previous);
+    // Runs as a normal job: the worker serves one request at a time, so a concurrent read would make the next action BUSY.
+    useEffect(() => { if (view === "runner" && settings?.dataset) void job("Đang đọc thư viện kịch bản", refreshLibrary); }, [view, settings?.dataset]);
+    /** Make `scene` the loaded source (reusing it when already loaded) and return it. */
+    async function ensureSource(scene: string): Promise<Scenario> {
+        const loaded = originalRef.current;
+        if (loaded && loaded.source.scene === scene) return loaded;
+        const row = scenes.find(s => s.scene === scene);
+        if (!row) throw new Error(`DATASET_INVALID: Không có cảnh ${scene} trong dữ liệu đang mở`);
+        selectScene(row);
+        return loadSource(row);
+    }
+    /** Imported scenario becomes the runner's active one. */
+    function showImported(s: Scenario, label: string, entryId = s.id) {
+        setScenario(s); resetPlayback(); setActiveEntry(entryId);
+        setMessage(label);
+    }
+    /** Load the entry's source scene when needed, then open its saved package (no picker). */
+    async function openEntry(entry: ImportedEntry): Promise<Scenario> {
+        const source = await ensureSource(entry.scene);
+        const s = await checked(api!.openImported({ source_id: source.id, path: entry.package_path }));
+        if (!s) throw new Error("CANCELLED");
+        showImported(s, `Đã mở ${entry.name}`, entry.scenario_id);
+        return s;
+    }
+    function createScenario(scene: string) {
+        return job('Đang nạp OpenSCENARIO', async () => {
+            const source = await ensureSource(scene);
+            const s = await checked(api!.importXosc({ source_id: source.id }));
+            if (!s) { setMessage("Đã đóng hộp chọn · giữ nguyên cảnh đang xem"); return false; }
+            showImported(s, `Đã nạp OpenSCENARIO · ${s.actors.length} đối tượng · đúng map hiện tại`);
+            await refreshLibrary();
+            return true;
+        });
+    }
+    function exportMap(scene: string) {
+        return job('Đang xuất thông tin map', async () => {
+            const source = await ensureSource(scene);
+            const r = await checked(api!.exportMapContext({ source_id: source.id }));
+            setMessage(r ? `Đã xuất thông tin map: ${r.path}` : 'Đã đóng hộp chọn · giữ nguyên cảnh đang xem');
+        });
+    }
+    function exportEntry(entry: ImportedEntry) {
+        return job(`Đang xuất ${entry.name}`, async () => {
+            const data = await checked(api!.readImported({ scenario_id: entry.scenario_id }));
+            const url = URL.createObjectURL(new Blob([data.xml], { type: "application/xml" }));
+            const link = document.createElement("a");
+            link.href = url; link.download = data.file_name;
+            document.body.appendChild(link); link.click(); link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+            setMessage(`Đã xuất ${data.file_name} (thư mục Tải về)`);
+        });
+    }
+    function loadEntryXml(entry: ImportedEntry) {
+        return job(`Đang mở ${entry.name} để sửa`, () => checked(api!.readImported({ scenario_id: entry.scenario_id })));
+    }
+    /** Packages are immutable: a valid edit is imported as a new package, then the old one is trashed. */
+    function saveEdit(entry: ImportedEntry, name: string, xml: string) {
+        return job(`Đang lưu ${name}`, async () => {
+            const source = await ensureSource(entry.scene);
+            const s = await checked(api!.importXosc({ source_id: source.id, xml, file_name: name }));
+            if (!s) return false;
+            await checked(api!.deleteImported({ scenario_id: entry.scenario_id }));
+            if (runnerSnapshot.current?.scenario.id === entry.scenario_id) runnerSnapshot.current = null;
+            showImported(s, `Đã lưu ${name}`);
+            await refreshLibrary();
+            return true;
+        });
+    }
+    function deleteEntry(entry: ImportedEntry) {
+        if (!window.confirm(`Xoá kịch bản “${entry.name}”? Gói và lịch sử chạy được chuyển vào thư mục .trash trong thư mục lưu.`)) return;
+        void job(`Đang xoá ${entry.name}`, async () => {
+            await checked(api!.deleteImported({ scenario_id: entry.scenario_id }));
+            if (activeEntry === entry.scenario_id) setActiveEntry(null);
+            if (scenario?.id === entry.scenario_id) { setScenario(originalRef.current); resetPlayback(); }
+            if (runnerSnapshot.current?.scenario.id === entry.scenario_id) runnerSnapshot.current = null;
+            setMessage(`Đã xoá ${entry.name}`);
+            await refreshLibrary();
+        });
+    }
     if (!api)
-        return <main className="studio view-empty"><h1>Topeye · Scenario Studio</h1><p>Mở ứng dụng Topeye trên máy để dùng mô phỏng.</p></main>;
-    return <div className="studio">
-    <header className="studio-header">
-      <div className="studio-brand"><img className="brand-mark" src={topeyeLogo} alt="Logo Topeye"/><div><h1>Topeye <span>Scenario Studio</span></h1><small>{demo ? "BẢN DEMO WEB · dữ liệu tính sẵn" : "Không gian mô phỏng"}</small></div></div>
-      <div className="header-actions">
-        <EnvironmentMenu settings={environmentSettings} onChange={setEnvironmentSettings}/>
-        {!demo && <><HeaderPopover label="OpenSCENARIO" primary>
-          <button className="primary full-width" disabled={busy || !hasSourceMap} onClick={() => void job('Đang nạp OpenSCENARIO', () => importScenario(false))}>Nạp OpenSCENARIO</button>
-          <button className="full-width" disabled={busy || !hasSourceMap} onClick={() => void job('Đang xuất thông tin map', async () => { const r = await checked(api.exportMapContext({source_id: original!.id})); setMessage(r ? `Đã xuất thông tin map: ${r.path}` : 'Đã đóng hộp chọn · giữ nguyên cảnh đang xem'); })}>Xuất thông tin map</button>
-          <button className="full-width" disabled={busy || !hasSourceMap} onClick={() => void job('Đang mở OpenSCENARIO đã lưu', () => importScenario(true))}>Mở kịch bản đã lưu</button>
-        </HeaderPopover>
-        <button className="dataset-button" disabled={busy} title={settings?.dataset ?? undefined} onClick={() => void job("Đang mở dữ liệu", async () => {
+        return <main className="studio view-empty"><h1>Topeye</h1><p>Chạy `npm run web:local` để mở Topeye.</p></main>;
+    const warnings = scenario?.environment?.warnings ?? [];
+    const railItems: RailItem[] = [
+        { id: "scene", label: "Cảnh nguồn", icon: <Map size={20} aria-hidden/> },
+        ...(!demo ? [{ id: "runner", label: "OpenSCENARIO", icon: <Clapperboard size={20} aria-hidden/>, separatorBefore: true }] : []),
+        { id: "environment", label: "Môi trường", icon: <CloudSun size={20} aria-hidden/>, separatorBefore: demo },
+        { id: "warnings", label: `Cảnh báo${warnings.length ? ` (${warnings.length})` : ""}`, icon: <TriangleAlert size={20} aria-hidden/>, badge: warnings.length > 0, bottom: true },
+        ...(demo && import.meta.env.VITE_FEEDBACK_URL ? [{ id: "feedback", label: "Góp ý", icon: <MessageSquare size={20} aria-hidden/>, bottom: true }] : []),
+        ...(!demo ? [{ id: "data", label: "Dữ liệu", icon: <Database size={20} aria-hidden/>, bottom: true }] : []),
+    ];
+    function onRail(id: string) {
+        if (id === "feedback") { feedback(); return; }
+        if (id === "runner") { showRunner(); setTool(null); return; }
+        const next = id as Tool;
+        if (next === "scene") showScene();
+        setTool(tool === next ? null : next);
+    }
+    const playback = <div className="playback-bar">
+      <button aria-label="Về đầu" disabled={!scenario || busy} onClick={() => { setPlaying(false); setTime(0); }}>↤</button>
+      <button className="play-button" aria-label={playing ? 'Tạm dừng' : 'Phát mô phỏng'} disabled={!scenario || busy} onClick={() => {
+            if (time >= timelineEnd)
+                setTime(0);
+            setPlaying(!playing);
+        }}>{playing ? 'Ⅱ' : '▶'}</button>
+      <button aria-label="Về cuối" disabled={!scenario || busy} onClick={() => { setPlaying(false); setTime(timelineEnd); }}>↦</button>
+      <div className="timeline-track">
+        <input aria-label="Thời gian mô phỏng" type="range" min="0" max={timelineEnd || 1} step=".01" value={time} disabled={!scenario || busy} onChange={e => { setPlaying(false); setTime(Number(e.target.value)); }}/>
+      </div>
+      <output>{time.toFixed(2)} <span>/ {timelineEnd.toFixed(2)}s</span></output>
+    </div>;
+    const drawers: Record<Tool, { title: string; body: ReactNode }> = {
+        scene: { title: "Cảnh nguồn", body: scenes.length ? <ul className="scene-list" aria-label="Danh sách cảnh">
+          {scenes.map(s => {
+            const active = s.scene === sceneName && scenario?.mode === "source";
+            return <li key={s.scene}><button aria-current={active ? "true" : undefined} disabled={busy} onClick={() => openScene(s)}>
+              <strong>{s.scene}</strong><small>{s.duration_s.toFixed(1).replace(".", ",")} s · {s.tracks.length} đối tượng</small>
+            </button></li>;
+          })}
+        </ul> : <p className="sensor-note">Chưa có dữ liệu. Mở “Dữ liệu” để chọn thư mục nuScenes.</p> },
+        environment: { title: "Môi trường", body: <EnvironmentPanel settings={environmentSettings} onChange={setEnvironmentSettings}/> },
+        warnings: { title: "Cảnh báo dữ liệu", body: warnings.length ? warnings.map((w, i) => <p className="sensor-note" key={i}>{w}</p>) : <p className="sensor-note">Không có cảnh báo cho cảnh hiện tại.</p> },
+        data: { title: "Dữ liệu", body: <>
+          <p className="popover-note">{settings?.dataset ? `Đang dùng: ${settings.dataset} · ${settings.datasetVersion || 'nuScenes'}` : 'Chưa chọn dữ liệu'}</p>
+          <button className="dataset-button full-width" disabled={busy} title={settings?.dataset ?? undefined} onClick={() => void job("Đang mở dữ liệu", async () => {
             const res = await checked(api.chooseDataset());
             if (res) {
                 setSettings(await checked(api.settings()));
@@ -202,117 +345,104 @@ export default function ScenarioApp() {
                 }
                 setMessage(`Đã đọc ${res.scenes.length} cảnh`);
             }
-        })}>{settings?.dataset ? `Đổi dữ liệu · ${settings.datasetVersion || 'nuScenes'}` : 'Chọn thư mục nuScenes'}</button>
-        <button disabled={busy} title={settings?.workspace} onClick={() => void job('Chọn nơi lưu', async () => { await checked(api.chooseWorkspace()); setSettings(await checked(api.settings())); setMessage('Đã cập nhật nơi lưu'); })}>Thư mục lưu</button></>}
-        {demo && import.meta.env.VITE_FEEDBACK_URL && <button onClick={feedback}>Góp ý</button>}
-      </div>
+        })}>{settings?.dataset ? 'Đổi dữ liệu' : 'Chọn thư mục dữ liệu'}</button>
+          <p className="popover-note">Lưu kịch bản tại: {settings?.workspace || '—'}</p>
+          <button className="full-width" disabled={busy} title={settings?.workspace} onClick={() => void job('Chọn nơi lưu', async () => { await checked(api.chooseWorkspace()); setSettings(await checked(api.settings())); setMessage('Đã cập nhật nơi lưu'); })}>Thư mục lưu</button>
+        </> },
+    };
+    /**
+     * The scene view only ever shows the loaded source scene; the runner shows imported scenarios.
+     * Switching views swaps what is displayed and remembers the runner's scenario/result.
+     */
+    function showScene() {
+        if (view === "runner" && scenario?.mode === "imported") runnerSnapshot.current = { scenario, replay };
+        setView("scene");
+        if (scenario !== originalRef.current) {
+            setScenario(originalRef.current);
+            resetPlayback();
+        }
+    }
+    function showRunner() {
+        setView("runner");
+        const snapshot = runnerSnapshot.current;
+        if (view !== "runner" && snapshot) {
+            setScenario(snapshot.scenario);
+            setReplay(snapshot.replay);
+            setTime(0);
+            setPlaying(false);
+        }
+    }
+    /** Open a scene from the list; re-selecting the loaded scene returns to its original data. */
+    function openScene(s: Scene) {
+        showScene();
+        if (original && original.source.scene === s.scene) {
+            setScenario(original);
+            resetPlayback();
+            return;
+        }
+        selectScene(s);
+        void job('Đang dựng cảnh gốc', () => loadSource(s));
+    }
+    const drawer = tool ? drawers[tool] : null;
+    const activeRail = view === "runner" && !tool ? "runner" : tool;
+    return <div className="studio">
+    <header className="studio-header">
+      <div className="studio-brand"><img className="brand-mark" src={topeyeLogo} alt="Logo Topeye"/><h1>Topeye</h1></div>
+      {onLibrary && <button type="button" className="studio-library-button" disabled={busy} onClick={onLibrary}><Database size={14} aria-hidden/>Thư viện map</button>}
+      {busy && <div className="busy-indicator" data-testid="busy-indicator"><LoaderCircle size={14} className="spin" aria-hidden/><span>{message}</span><button disabled={cancelling.current} onClick={() => void cancel()}>Huỷ tác vụ</button></div>}
     </header>
     <div className="studio-body">
-      <aside className="workflow" aria-label="Thiết lập kịch bản">
-        <section>
-          <div className="section-title"><h2>Cảnh nguồn</h2><span>{scenes.length} cảnh</span></div>
-          <label className="field">Cảnh đang xem<select aria-label="Cảnh đang xem" disabled={busy || !scenes.length} value={sceneName} onChange={e => {
-            const s = scenes.find(r => r.scene === e.target.value);
-            if (s) {
-                selectScene(s);
-                void job('Đang dựng cảnh gốc', () => loadSource(s));
-            }
-        }}>
-            {!scenes.length && <option value="">Chưa có dữ liệu</option>}
-            {scenes.map(s => <option key={s.scene} value={s.scene}>{s.scene} · {s.duration_s.toFixed(1)}s</option>)}
-          </select></label>
-          <button className="full-width" disabled={busy || !current} onClick={() => {
-            if (original) {
-                setScenario(original);
-                resetPlayback();
-            }
-            else if (current)
-                void job('Đang dựng cảnh gốc', () => loadSource(current));
-        }}>Xem cảnh gốc</button>
-          <label className="toggle"><input type="checkbox" checked={showMap} onChange={e => setShowMap(e.target.checked)}/>Hiển thị map tích hợp</label>
+      <IconRail items={railItems} active={activeRail} wide={railWide} onToggleWide={() => setRailWide(v => !v)} onSelect={onRail}/>
+      {drawer && <aside className={`tool-drawer${tool === "scene" ? " narrow" : ""}`} aria-label={drawer.title}>
+        <div className="drawer-head"><h2>{drawer.title}</h2><button className="icon-button" aria-label="Đóng ngăn" onClick={() => setTool(null)}><X size={14} aria-hidden/></button></div>
+        {drawer.body}
+        {demo && <div className="drawer-credits"><ModelCredits/><p className="sensor-note">nuScenes © Motional, CC BY-NC-SA 4.0</p><p className="sensor-note">CARLA weather presets · MIT</p></div>}
+      </aside>}
+      {view === "runner" ? <ScenarioRunner entries={library} activeId={activeEntry}
+          busy={busy} metrics={metrics}
+          scenes={scenes.map(s => s.scene)} currentScene={original?.source.scene ?? scenes[0]?.scene ?? ""}
+          scenario={scenario} replay={replay} time={time} environmentSettings={environmentSettings} playback={playback}
+          loading={sceneLoading && <LoadingOverlay/>} onSceneReady={sceneReady}
+          onSelect={entry => void job(`Đang mở ${entry.name}`, () => openEntry(entry))}
+          onCreate={createScenario} onExportMap={exportMap}
+          onExport={entry => void exportEntry(entry)} onLoadXml={loadEntryXml} onSaveEdit={saveEdit} onDelete={deleteEntry}/>
+      : <main ref={workspaceRef} className={`view-workspace ${expanded ? `expanded expanded-${expanded}` : ''}`}>
+        <section className="viewport-panel primary-view" aria-label="Mô phỏng 3D" data-view-state={!scenario ? "empty" : replay ? "replay" : scenario.mode === "source" ? "source" : imported ? "imported-preview" : "preview"}>
+          <ExpandButton panel="track" label="khung 3D" expanded={expanded} onChange={setExpanded}/>
+          <div className="panel-content"><TrackView scenario={scenario} time={time} replay={replay} environmentSettings={environmentSettings} warnings={warnings} onReady={sceneReady}/></div>
         </section>
-        {imported && <section>
-          <div className="section-title"><h2>OpenSCENARIO</h2><span>Đã nạp</span></div>
-          {imported && <p className="sensor-note">{replay?.report.kind === "imported" ? "Đang hiển thị kết quả đo thực từ esmini." : "Quỹ đạo đã kiểm tra theo map. Xem trước chưa phải kết quả simulator."}</p>}
-          {imported && scenario.import?.diagnostics.map((d, i) => <p className="sensor-note" key={i}>{d.code === "PEDESTRIAN_ROADWAY" ? "Người đi bộ có đoạn đi trên đường ngoài lối qua đường." : d.code === "ESTIMATED_GEOMETRY" ? "Vật cản được ước lượng từ dữ liệu nguồn; chưa xác nhận an toàn vật lý." : d.message}</p>)}
-        </section>}
-        <section>
-          <div className="section-title"><h2>01 · Trích đoạn</h2><span>{selected.length}/3 đối tượng</span></div>
-          <div className="field-pair"><label className="field">Từ (s)<input type="number" min="0" step=".5" value={start} disabled={busy} onChange={e => setStart(Number(e.target.value))}/></label><label className="field">Đến (s)<input type="number" min="2" step=".5" value={end} disabled={busy} onChange={e => setEnd(Number(e.target.value))}/></label></div>
-          <details className="actor-picker"><summary>Chọn đối tượng <span>{current?.tracks.length ?? 0} khả dụng</span></summary>
-            <div className="actor-list">{current?.tracks.map(t => <label key={t.token} className="actor-row"><input type="checkbox" aria-label={`${t.category} ${t.token}`} checked={selected.includes(t.token)} disabled={busy || (!selected.includes(t.token) && selected.length >= 3)} onChange={() => selectTrack(t.token)}/><span><strong>{t.category.replace('vehicle.', '')}</strong><small>{t.token.slice(0, 8)} · {t.start_s.toFixed(1)}–{t.end_s.toFixed(1)}s</small></span></label>)}</div>
-          </details>
-          <button className="primary full-width" disabled={busy || !current || !selected.length} onClick={() => void job('Đang trích quỹ đạo', async () => {
-            const s = await checked(api.extract({ scene: sceneName, actor_tokens: selected, start_s: start, end_s: end }));
-                setBase(s);
-            setScenario(s);
-            resetPlayback();
-            setTarget(s.actors.find(a => a.role === 'traffic')?.id || 'vehicle_1');
-            setSpeed(1);
-            setOffset(0);
-            setMessage('Đã trích quỹ đạo · sẵn sàng phát lại');
-        })}>Trích đoạn thử nghiệm</button>
+        <section className="viewport-panel lidar-panel" aria-label="LiDAR">
+          <ExpandButton panel="lidar" label="khung LiDAR" expanded={expanded} onChange={setExpanded}/>
+          <div className="panel-content"><LidarView scenario={scenario} time={time} replay={replay} loadLidar={api?.lidarFrame}/></div>
         </section>
-        {demo ? (demoVariants.length ? <section>
-          <div className="section-title"><h2>02 · Biến thể</h2></div>
-          <button disabled={busy} onClick={() => { setScenario(base); resetPlayback(); }}>Bản gốc</button>
-          {demoVariants.map(v => <button className="full-width" key={v.key} disabled={busy}
-            onClick={() => void job('Đang tải biến thể tính sẵn', async () => {
-              const s = await checked(api.variant({scenario_id: base!.id, target_actor: v.target_actor, speed_factor: v.speed_factor, gap_offset_m: v.gap_offset_m}));
-              setScenario(s); resetPlayback(); setMessage('Biến thể tính sẵn đã sẵn sàng');
-            })}>{v.target_actor} · {v.speed_factor}× · {v.gap_offset_m}m</button>)}
-        </section> : <p className="sensor-note">Biến thể tự do chỉ có ở bản đầy đủ (npm run web:local)</p>) : <>
-        <section>
-          <div className="section-title"><h2>02 · Biến thể</h2></div>
-          <label className="field">Đối tượng<select value={target} disabled={!base || busy || imported} onChange={e => setTarget(e.target.value)}>{base?.actors.filter(a => a.role === 'traffic').map(a => <option key={a.id} value={a.id}>{a.id}</option>)}</select></label>
-          <label className="field"><span>Tốc độ <output>{speed.toFixed(2)}×</output></span><input aria-label="Hệ số tốc độ" type="range" min=".5" max="1.5" step=".05" value={speed} disabled={!base || busy || imported} onChange={e => setSpeed(Number(e.target.value))}/></label>
-          <label className="field"><span>Dịch dọc <output>{offset.toFixed(1)}m</output></span><input aria-label="Dịch dọc" type="range" min="-10" max="10" step=".5" value={offset} disabled={!base || busy || imported} onChange={e => setOffset(Number(e.target.value))}/></label>
-          <div className="button-pair"><button disabled={!base || busy || imported} onClick={() => { setScenario(base); resetPlayback(); }}>Bản gốc</button><button disabled={!base || busy || imported} onClick={() => void job('Đang tạo biến thể', async () => { const s = await checked(api.variant({ scenario_id: base!.id, target_actor: target, speed_factor: speed, gap_offset_m: offset })); setScenario(s); resetPlayback(); setMessage('Biến thể đã sẵn sàng'); })}>Tạo biến thể</button></div>
-        </section>
-        </>}
-        <section>
-          <div className="section-title"><h2>03 · Kiểm chứng</h2><span>{runs.filter(r => r.valid).length}/{runs.length} đạt</span></div>
-          {!demo && settings && !settings.engineAvailable && scenario && scenario.mode !== "source" && <p className="sensor-note">Chưa tìm thấy bộ mô phỏng esmini; cần kiểm tra cài đặt trước khi chạy kịch bản.</p>}
-          <button className="primary full-width" disabled={!canRun} onClick={() => void job(demo ? 'Đang tải kết quả esmini tính sẵn' : imported ? 'Đang chạy kịch bản đã nạp' : 'Đang khởi động esmini', async () => { const r = await checked(imported ? api.replayImported({ scenario_id: scenario!.id }) : api.replay({ scenario_id: scenario!.id })); setReplay(r); setTime(0); if (r.report.kind !== 'imported') { const valid = r.report.status === 'pass'; setRuns(v => [...v.filter(item => item.id !== scenario!.id), { id: scenario!.id, valid }]); } setMessage(demo ? 'Kết quả esmini đã đo sẵn' : 'Đã lưu kết quả phát lại và báo cáo'); })}>{demo ? 'Xem kết quả esmini tính sẵn' : imported ? 'Chạy kịch bản đã nạp' : 'Chạy phát lại'}</button>
-          {!demo && <button className="full-width" disabled={!scenario || scenario.mode === 'source' || imported || busy} onClick={() => void job('Đang xuất OpenSCENARIO', async () => { const r = await checked(api.export({ scenario_id: scenario!.id })); setMessage(`Đã xuất: ${r.path}`); })}>Xuất kịch bản ↗</button>}
-          {replay && replay.report.kind !== 'imported' && <div className="replay-result"><strong>{replay.report.status === 'pass' ? 'Đạt ngưỡng kiểm chứng' : 'Chưa đạt ngưỡng'}</strong><span>Coverage {(replay.report.coverage * 100).toFixed(1)}%</span>{replay.report.per_actor.map(m => <p key={m.id}>{m.id}: {m.status} · ADE {m.ade_xy_m?.toFixed(3) ?? '—'}m{m.reason ? ` · ${m.reason}` : ''}</p>)}</div>}
-          {replay?.report.kind === 'imported' && <div className="replay-result">
-            <strong>Thực thi: {replay.report.execution}</strong>
-            <span>Bám quỹ đạo: {(replay.report.fidelity.coverage * 100).toFixed(1)}% · XY tối đa {replay.report.fidelity.max_xy_m.toFixed(3)}m · góc tối đa {replay.report.fidelity.max_yaw_rad.toFixed(3)}rad</span>
-            <span>Tuân thủ map: {replay.report.map_conformance}</span>
-            <span>Quan sát tiếp xúc: {replay.report.contacts.length} · Không kết luận an toàn</span>
-            {replay.report.warnings.map((warning, i) => <p key={i}>{warning === "Contacts are sampled at 20Hz; geometry is estimated, not a safety certification" ? "Tiếp xúc được lấy mẫu 20 lần/giây; hình học ước lượng chưa xác nhận an toàn vật lý." : warning}</p>)}
-          </div>}
-        </section>
-        {demo && <section><ModelCredits/><p className="sensor-note">nuScenes © Motional, CC BY-NC-SA 4.0</p><p className="sensor-note">CARLA weather presets · MIT</p></section>}
-      </aside>
-      <main ref={workspaceRef} className={`view-workspace ${showMap ? '' : 'without-map'}`}>
-        <section className="viewport-panel primary-view" aria-label="Mô phỏng 3D">
-          <div className="panel-heading"><h2>Mô phỏng 3D</h2><span>{scenario ? sourceLabel : 'CHƯA CÓ CẢNH'}</span></div>
-          <div className="panel-content"><TrackView scenario={scenario} time={time} replay={replay} environmentSettings={environmentSettings}/></div>
-        </section>
-        <section className="viewport-panel lidar-panel" aria-label="Mô phỏng LiDAR">
-          <div className="panel-heading"><h2>Mô phỏng LiDAR</h2><span>QUÉT NGANG 360°</span></div>
-          <div className="panel-content"><LidarView scenario={scenario} time={time} replay={replay}/></div>
-        </section>
-        {showMap && <section className="viewport-panel map-panel" aria-label="Map tích hợp">
-          <div className="panel-heading"><h2>Map tích hợp</h2><span>nuScenes</span></div>
+        <section className="viewport-panel map-panel" aria-label="Map tích hợp">
+          <ExpandButton panel="map" label="khung map" expanded={expanded} onChange={setExpanded}/>
           <div className="panel-content"><TacticalMap scenario={scenario} time={time} replay={replay}/></div>
-        </section>}
-        {!!scenario?.environment?.warnings.length && <div className="environment-warning" role="note">{scenario.environment.warnings.join(' · ')}</div>}
-      </main>
+        </section>
+        {sceneLoading && <LoadingOverlay/>}
+        {error && <div className="error-toast" aria-live="assertive"><span>{error.replace(/^[A-Z_]+: /, '')}</span>{(demo || !!window.scenarioDemo) && <button disabled={busy} onClick={() => void job("Đang thử lại", refresh)}>Thử lại</button>}<button aria-label="Đóng thông báo lỗi" onClick={() => setError('')}><X size={14} aria-hidden/></button></div>}
+      </main>}
     </div>
-    <div className="playback-bar">
-      <button aria-label="Về đầu" disabled={!scenario || busy} onClick={() => { setPlaying(false); setTime(0); }}>↤</button>
-      <button className="play-button" aria-label={playing ? 'Tạm dừng' : 'Phát mô phỏng'} disabled={!scenario || busy} onClick={() => {
-            if (time >= timelineEnd)
-                setTime(0);
-            setPlaying(!playing);
-        }}>{playing ? 'Ⅱ' : '▶'}</button>
-      <button aria-label="Về cuối" disabled={!scenario || busy} onClick={() => { setPlaying(false); setTime(timelineEnd); }}>↦</button>
-      <input aria-label="Thời gian mô phỏng" type="range" min="0" max={timelineEnd || 1} step=".01" value={time} disabled={!scenario || busy} onChange={e => { setPlaying(false); setTime(Number(e.target.value)); }}/>
-      <output>{time.toFixed(2)} <span>/ {timelineEnd.toFixed(2)}s</span></output>
-    </div>
-    <footer aria-label="Trạng thái tác vụ" className={`studio-status ${error ? 'has-error' : ''}`} role={error ? 'alert' : 'status'}><span>{busy ? '◌ ' : ''}{error || message}</span>{busy && <button disabled={cancelling.current} onClick={() => void cancel()}>Huỷ tác vụ</button>}{error && (demo || !!window.scenarioDemo) && <button disabled={busy} onClick={() => void job("Đang thử lại", refresh)}>Thử lại</button>}<small>v{settings?.version ?? '—'}</small></footer>
+    {view === "scene" && playback}
+    {view === "runner" && error && <div className="error-toast runner-toast" aria-live="assertive"><span>{error.replace(/^[A-Z_]+: /, '')}</span><button aria-label="Đóng thông báo lỗi" onClick={() => setError('')}><X size={14} aria-hidden/></button></div>}
+    {/* Status bar removed from the layout (owner request); kept for assistive tech and tests. */}
+    <div aria-label="Trạng thái tác vụ" className="sr-only" role={error ? 'alert' : 'status'}><span>{busy ? '◌ ' : ''}{error || message}</span><small>v{settings?.version ?? '—'}</small></div>
   </div>;
+}
+
+type Panel = "track" | "lidar" | "map";
+function ExpandButton({ panel, label, expanded, onChange }: { panel: Panel; label: string; expanded: Panel | null; onChange: (value: Panel | null) => void }) {
+    const active = expanded === panel;
+    return <button className="panel-expand" aria-pressed={active} aria-label={active ? `Thu nhỏ ${label}` : `Phóng to ${label}`}
+      title={active ? "Thu nhỏ (Esc)" : "Phóng to khung"} onClick={() => onChange(active ? null : panel)}>
+      {active ? <Minimize2 size={14} aria-hidden/> : <Maximize2 size={14} aria-hidden/>}
+    </button>;
+}
+
+/** Covers the views while a scene loads and builds, instead of a blank or white canvas. */
+function LoadingOverlay() {
+    return <div className="loading-overlay" role="status" aria-label="Đang tải dữ liệu" data-testid="loading-overlay">
+      <LoaderCircle size={36} className="spin" aria-hidden/>
+      <span>Đang tải dữ liệu</span>
+    </div>;
 }
