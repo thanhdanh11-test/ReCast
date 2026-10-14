@@ -123,3 +123,7 @@ Owner “map oke đổi ở web đi”, then “tiếp tục”.Integrated20appr
 Owner wants visible hood in driver view.24triangle camera-attached red bonnet, lowerquarter, onlyvalid cabin.17scopedtests passed. Mainweb5180 rebuild/restart/HTTPverified 2026-10-13T21:33:11+07:00; no browser takeover.
 
 GitHub destination correction: bonnet pushed/verified to P-056 main a451a1a, path source-tool/topeye (v0.15.1 backport).15focusedtests+build passed on target checkout. Prior95ae6fe push to thanh danh test repo remains; no history deletion. Pastel/uncommitted local changes not delivered.
+
+## 2026-10-14 — Đồng bộ P-056 v0.31.1 + danh tính commit
+- Commit local `d29392c` (v0.31.1, gộp plan38–42; backend 712, vitest 432, server 40, tsc 0). Đồng bộ lên P-056 `9fe8c8b` (`source-tool/topeye`, verify identical trừ README/config/.gitignore của team).
+- Viết lại tác giả 3 commit P-056 cũ (`macos@Wanlevenmacos.local` → `danhtongAI11` noreply, force-with-lease, cây code không đổi) để GitHub hiện avatar; đặt `git config --global` theo danh tính này.
