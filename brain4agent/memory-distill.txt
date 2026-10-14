@@ -11,6 +11,9 @@
 </agent_startup_protocol>
 
 <project_foundation>
+- v0.28–0.30 (plan38): Tạo kịch bản = ScenarioCreator (authoring/): 20 loại/5 nhóm → template topeye-scenario-template-v1 → worker import_template (template.py) → validate_xosc; đặt dọc quỹ đạo ego nguồn, auto vị trí + lật trái/phải; v0.29.0 gợi ý map (worker template_fit trên worker chỉ số, cổng thật); v0.30.0 Sửa = form template (template.json cạnh import/, ngoài hash); tab AI chatbot mock (P03 AI thật chưa làm).
+- v0.26.1(plan37): runner camera bottom12px; sparse real keyframe rail separate from motion, no timeline footer; confirmed single-run history deletion→workspace/.trash, scenario preserved.
+- v0.26.0 (plan36): runner2:1 player + real XOSC vertex timeline / tabbed library, metrics, saved history; fixed create footer; source speed threshold0.1m/s; timeline seek pauses and shares player time.
 - v0.23.0 (plan34): local single-account login → dataset catalog (+ equal tile); native AV2 Sensor adapter, 10 logs + existing nuScenes mini10; raw immutable. Auth/catalog userData, RAM sessions; docs/scenario.md.
 - v0.22.0 (plan33): scenario metrics in runner report (3rd worker, scenario_metrics, cache <ws>/<id>/metrics); pilot=esmini replay of the XOSC, baseline=constant velocity; defs plan33 SPEC §1.
 - v0.21.1 (plan32): loading overlay until first 3D frame; supportedPose TIME_EPS 1e-6 (1 µs t_s rounding); worker bridge queues requests (no BUSY across tabs).
@@ -79,5 +82,9 @@
 - Tư duy phân lập lỗi 4 tầng (Mạng/Hạ tầng vs DOM/Race vs Anti-bot vs Code) & tự phục hồi thích ứng.
 </memory_management>
 </kernel_instructions>
+
+- Plan40→42: local pastel gallery5181 now20scenes (nuScenes10+AV210),OSM+LiDAR buildings, native actors/classes unchanged; owner approved and v0.31.0 integrates mainweb5180.
+- Plan42:27tests,5801rings,20CPUThree builds/0newissues/0fallback,HTTP20hashmatch. Three source polygon defects retained;gallery visual owner-approved. Mainweb:428frontend+31backendtests,20freshfingerprints,40CPUbuilds/0fallback.1mm presentation cleanup avoids microscopic union-edge rejection.
+- Plan41 per-class asset/model research CANCELLED by owner; no asset integration.
 
 - v0.31.1: cabin-only24triangle red bonnet in lowerquarter; driver eye1.2m and actor models unchanged.17scopedcamera tests; plan42P03.

@@ -107,9 +107,11 @@ def list_imported(workspace):
             if r
         ]
         runs.sort(key=lambda r: r["at"], reverse=True)
+        template = project / "template.json"
         entries.append(
             {
                 "scenario_id": project.name,
+                "has_template": template.is_file() and not template.is_symlink(),
                 "package_path": str(package.resolve()),
                 "name": display_name(manifest.get("display_name"))
                 or _description(package)
@@ -159,7 +161,16 @@ def read_imported(workspace, scenario_id):
         xml = original.read_bytes().decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ScenarioError("IO_ERROR", "XOSC không phải UTF-8") from exc
-    return {"scenario_id": scenario_id, "name": name, "file_name": file_name, "xml": xml}
+    return {"scenario_id": scenario_id, "name": name, "file_name": file_name, "xml": xml, "template": _template(project)}
+
+
+def _template(project):
+    """Template a package was made from (plan38), or None for hand-imported XOSC / unreadable files."""
+    path = project / "template.json"
+    if not path.is_file() or path.is_symlink() or path.stat().st_size > 256 * 1024:
+        return None
+    value = _json(path)
+    return value if isinstance(value, dict) and value.get("profile") == "topeye-scenario-template-v1" else None
 
 
 def delete_imported(workspace, scenario_id):
@@ -170,4 +181,29 @@ def delete_imported(workspace, scenario_id):
     require(not trash.is_symlink(), "Trash symlink forbidden", "PATH_ESCAPE")
     target = trash / f"{scenario_id}-{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}"
     shutil.move(str(project), str(target))
+    return {"trash_path": str(target)}
+
+
+def delete_imported_run(workspace, scenario_id, run_id):
+    """Trash one completed/failed/interrupted run, preserving its imported scenario."""
+    require(isinstance(run_id, str) and ID.fullmatch(run_id), "Invalid run identity")
+    root, project = _project(workspace, scenario_id)
+    runs = project / "runs"
+    folder = runs / run_id
+    require(
+        not runs.is_symlink() and not folder.is_symlink(), "Run symlink forbidden", "PATH_ESCAPE"
+    )
+    require(folder.is_dir(), "Không tìm thấy lần chạy", "NOT_FOUND")
+    require(
+        folder.resolve().is_relative_to(project.resolve()), "Run outside project", "PATH_ESCAPE"
+    )
+    require(not (folder / "status.json").is_symlink(), "Status symlink forbidden", "PATH_ESCAPE")
+    status = _json(folder / "status.json")
+    require(status is not None, "Không đọc được trạng thái lần chạy", "IO_ERROR")
+    require(status.get("status") != "running", "Lần chạy đang hoạt động", "BUSY")
+    trash = root / ".trash"
+    require(not trash.is_symlink(), "Trash symlink forbidden", "PATH_ESCAPE")
+    trash.mkdir(exist_ok=True)
+    target = trash / f"run-{scenario_id}-{run_id}-{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}"
+    folder.rename(target)
     return {"trash_path": str(target)}

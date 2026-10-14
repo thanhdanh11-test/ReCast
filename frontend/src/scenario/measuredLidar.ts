@@ -88,3 +88,10 @@ export function heightRgb(z: number): [number, number, number] {
   const f = t * (STOPS.length - 1), i = Math.min(STOPS.length - 2, Math.floor(f)), k = f - i;
   return STOPS[i].map((v, j) => Math.round(v + (STOPS[i + 1][j] - v) * k)) as [number, number, number];
 }
+
+/** Point colour (0–255 RGB) for Cài đặt › LiDAR: height above ego ground, return intensity, or range. */
+export function pointRgb(mode: "height" | "intensity" | "distance", x: number, y: number, z: number, intensity: number): [number, number, number] {
+  if (mode === "intensity") return heightRgb(-0.5 + 4 * Math.min(1, intensity / 100));
+  if (mode === "distance") return heightRgb(3.5 - 4 * Math.min(1, Math.hypot(x, y) / 80));
+  return heightRgb(z);
+}

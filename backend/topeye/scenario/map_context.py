@@ -259,6 +259,11 @@ def centered_samples(reference, offset):
     return result
 
 
+def when(row):
+    """Time suffix for map rejections, so callers can point at the moment (rows without time stay unchanged)."""
+    return f" at t={row['t_s']:.2f}s" if "t_s" in row else ""
+
+
 def check_map(actors, context):
     surfaces, obstacles = verify_context(context)
     drive = unary_union([p for k, p in surfaces if k in DRIVABLE])
@@ -282,17 +287,17 @@ def check_map(actors, context):
             p = footprint(actor, row)
             require(
                 envelope.covers(p),
-                f"{actor['id']} vertex {index}: footprint outside envelope",
+                f"{actor['id']} vertex {index}: footprint outside envelope{when(row)}",
                 "OUTSIDE_MAP",
             )
             require(
                 surface.covers(p),
-                f"{actor['id']} vertex {index}: footprint outside surface",
+                f"{actor['id']} vertex {index}: footprint outside surface{when(row)}",
                 "OUTSIDE_SURFACE",
             )
             require(
                 not obstacles.intersects(p),
-                f"{actor['id']} vertex {index}: estimated static obstacle",
+                f"{actor['id']} vertex {index}: estimated static obstacle{when(row)}",
                 "STATIC_OBSTACLE",
             )
             if pedestrian and not crossing.covers(p):
@@ -319,17 +324,17 @@ def check_map(actors, context):
                     swept = swept.buffer(radius * (1 - math.cos(abs(yaw) / n / 2)) + 1e-10)
                 require(
                     envelope.covers(swept),
-                    f"{actor['id']} segment {index - 1}: outside envelope",
+                    f"{actor['id']} segment {index - 1}: outside envelope{when(row)}",
                     "OUTSIDE_MAP",
                 )
                 require(
                     surface.covers(swept),
-                    f"{actor['id']} segment {index - 1}: outside surface",
+                    f"{actor['id']} segment {index - 1}: outside surface{when(row)}",
                     "OUTSIDE_SURFACE",
                 )
                 require(
                     not obstacles.intersects(swept),
-                    f"{actor['id']} segment {index - 1}: static obstacle",
+                    f"{actor['id']} segment {index - 1}: static obstacle{when(row)}",
                     "STATIC_OBSTACLE",
                 )
                 previous = current

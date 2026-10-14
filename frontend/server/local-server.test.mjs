@@ -162,6 +162,29 @@ test("library listing and named imports pass through the allowlist", async (t) =
   assert.equal(calls.at(-1).params.file_name, "cut-in.xosc");
 });
 
+test("importTemplate forwards a bounded template object to the worker", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  for (const bad of [{ source_id: "x", template: {} }, { source_id: "a".repeat(32), template: [] }, { source_id: "a".repeat(32), template: "t" },
+    { source_id: "a".repeat(32), template: { name: "x".repeat(300 * 1024) } }, { source_id: "a".repeat(32), template: {}, path: "/" }])
+    assert.equal((await post("importTemplate", bad)).status, 400, JSON.stringify(bad).slice(0, 80));
+  const template = { profile: "topeye-scenario-template-v1", name: "cut-in" };
+  assert.equal((await post("importTemplate", { source_id: "a".repeat(32), template })).status, 200);
+  assert.deepEqual([calls.at(-1).method, calls.at(-1).params.template], ["import_template", template]);
+});
+
+test("templateFit probes a scene on the metrics worker", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  for (const bad of [{ scene: "../x", template: {} }, { scene: "scene-0061", template: [] }, { scene: "scene-0061" }, { scene: "scene-0061", template: {}, source_id: "a".repeat(32) }])
+    assert.equal((await post("templateFit", bad)).status, 400, JSON.stringify(bad));
+  calls.mainBusy = true;
+  assert.equal((await post("templateFit", { scene: "scene-0061", template: { name: "x" } })).status, 200);
+  assert.deepEqual([calls.at(-1).method, calls.at(-1).role, calls.at(-1).params.scene], ["template_fit", "metrics", "scene-0061"]);
+});
+
 test("read/delete library packages only by scenario id", async (t) => {
   const calls = [];
   const { post, dataset } = await start(t, calls);
@@ -198,4 +221,12 @@ test("scenarioMetrics validates the scenario id and runs on its own worker", asy
   assert.equal((await post("scenarioMetrics", { scenario_id: id, extra: 1 })).status, 400);
   assert.equal((await post("scenarioMetrics", { scenario_id: id })).status, 200);
   assert.deepEqual([calls.at(-1).method, calls.at(-1).role, calls.at(-1).params.scenario_id], ["scenario_metrics", "metrics", id]);
+});
+
+test("run deletion validates both scoped identities", () => {
+  const args = { scenario_id: "a".repeat(32), run_id: "b".repeat(32) };
+  assert.doesNotThrow(() => validateArgs("deleteImportedRun", args));
+  assert.throws(() => validateArgs("deleteImportedRun", { ...args, run_id: "../other" }), /Invalid run identity/);
+  assert.throws(() => validateArgs("deleteImportedRun", { ...args, scenario_id: "../other" }), /Invalid scenario identity/);
+  assert.throws(() => validateArgs("deleteImportedRun", { ...args, path: "/tmp" }), /Unknown field/);
 });

@@ -64,7 +64,8 @@ export function roadScene(scenario: Scenario): {
       all.map((p) => new THREE.Vector3(...scenePosition(p))),
     );
   const envelope = scenario.environment?.presentation?.bounds_m;
-  const mapped = scenario.mode === "source" && envelope?.length === 4;
+  const pastel = scenario.environment?.presentation?.style === "pastel-v1";
+  const mapped = (scenario.mode === "source" || pastel) && envelope?.length === 4;
   const center = mapped
     ? new THREE.Vector3(
         (envelope[0] + envelope[2]) / 2,
@@ -78,12 +79,12 @@ export function roadScene(scenario: Scenario): {
       ? Math.hypot(envelope[2] - envelope[0], envelope[3] - envelope[1])
       : bounds.getSize(new THREE.Vector3()).length(),
   );
-  const floor =
+  const floor = pastel ? -0.08 :
     Math.min(...ego.samples.map((p) => p.z_m)) -
     (scenario.mode === "imported" ? (ego.height_m ?? 1.6) / 2 : 0) -
     0.08;
   const terrain = createGroundSupport(
-    scenario.mode === "source"
+    scenario.mode === "source" || pastel
       ? scenario.environment?.presentation?.ground
       : undefined,
     floor,
@@ -111,12 +112,12 @@ export function roadScene(scenario: Scenario): {
     : new THREE.PlaneGeometry(1600, 1600);
   const ground = new THREE.Mesh(
     flat,
-    new THREE.MeshStandardMaterial({ color: 0xe7e7e7, roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: pastel ? 0xe9e7e0 : 0xe7e7e7, roughness: 1 }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(
     terrainActive ? 0 : center.x,
-    floor - 0.06,
+    pastel ? Math.min(floor - 0.06, ...(scenario.environment?.presentation?.ground.samples ?? []).map((r) => r[2] - 0.2)) : floor - 0.06,
     terrainActive ? 0 : center.z,
   );
   group.add(ground);

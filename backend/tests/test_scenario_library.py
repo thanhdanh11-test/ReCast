@@ -119,6 +119,14 @@ def test_read_and_delete_stay_inside_the_workspace(tmp_path):
     data = read_imported(workspace, imported["id"])
     assert data["file_name"] == "cut-in.xosc" and data["name"] == "cut-in.xosc"
     assert data["xml"].encode() == (path / "original.xosc").read_bytes()
+    assert data["template"] is None  # hand-imported XOSC: edited as XML
+    # A linked or foreign template file is ignored rather than trusted.
+    (path.parent / "template.json").symlink_to(path / "manifest.json")
+    assert read_imported(workspace, imported["id"])["template"] is None
+    (path.parent / "template.json").unlink()
+    (path.parent / "template.json").write_text('{"profile": "other"}')
+    assert read_imported(workspace, imported["id"])["template"] is None
+    (path.parent / "template.json").unlink()
     for bad in ("../x", "a" * 31, None):
         with pytest.raises(ScenarioError) as e:
             read_imported(workspace, bad)
@@ -138,3 +146,44 @@ def test_read_and_delete_stay_inside_the_workspace(tmp_path):
     )
     assert not (workspace / imported["id"]).exists()
     assert [e["scenario_id"] for e in list_imported(workspace)] == []
+
+
+def test_delete_one_run_preserves_scenario_and_other_runs(tmp_path):
+    from topeye.scenario.library import delete_imported_run
+
+    path, _, imported = package(tmp_path)
+    project = path.parent
+    run(project, "a" * 32, {"status": "completed"})
+    run(project, "b" * 32, {"status": "failed"})
+    original = (path / "original.xosc").read_bytes()
+    result = delete_imported_run(project.parent, imported["id"], "a" * 32)
+    assert (Path(result["trash_path"]) / "status.json").is_file()
+    assert (path / "original.xosc").read_bytes() == original
+    assert [r["run_id"] for r in list_imported(project.parent)[0]["runs"]] == ["b" * 32]
+
+
+@pytest.mark.parametrize("attack", ["traversal", "running", "run_link", "runs_link", "trash_link"])
+def test_delete_run_rejects_unsafe_or_running_target(tmp_path, attack):
+    from topeye.scenario.library import delete_imported_run
+
+    path, _, imported = package(tmp_path)
+    project = path.parent
+    rid = "a" * 32
+    run(project, rid, {"status": "running" if attack == "running" else "completed"})
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep").write_text("keep")
+    if attack == "run_link":
+        (project / "runs" / rid).rename(project / "runs" / "backup")
+        (project / "runs" / rid).symlink_to(outside)
+    elif attack == "runs_link":
+        (project / "runs").rename(project / "saved_runs")
+        (project / "runs").symlink_to(outside)
+    elif attack == "trash_link":
+        (project.parent / ".trash").symlink_to(outside)
+    with pytest.raises(ScenarioError):
+        delete_imported_run(
+            project.parent, imported["id"], "../outside" if attack == "traversal" else rid
+        )
+    assert (outside / "keep").read_text() == "keep"
+    assert path.is_dir()

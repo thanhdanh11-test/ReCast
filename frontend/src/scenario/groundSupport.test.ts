@@ -410,3 +410,43 @@ it("uses the wheel support rectangle instead of lifting the wheels for body over
   const centred = { ...pose, x_m: 0, y_m: 0 };
   expect(contactPosition(actor, centred, "source", curve, -1)[1]).toBe(1);
 });
+
+it("draws corridor structures and overhead decks on the local road support (plan36)", async () => {
+  const { sourceEnvironment } = await import("./sourceEnvironment");
+  const poly = { kind: "drivable_area", outer: [[-10, -10], [10, -10], [10, 10], [-10, 10]], holes: [] };
+  const env = {
+    polygons: [poly], lines: [], buildings: [], trees: [], poles: [], warnings: [], provenance: [],
+    barriers: [{ kind: "barrier" as const, points: [[-5, 4, 0], [0, 4, 0], [5, 4, 0]], heights: [4, 4, 4], length_m: 10 }],
+    overheads: [{ kind: "overhead" as const, polygon: [[-3, -3], [3, -3], [3, 3], [-3, 3]], underside_above_road_m: 5, road_z: 0.4, area_m2: 36 }],
+    presentation: {
+      schema_version: 1 as const,
+      ground: { cell_m: 3, samples: [[-6, -6, 0.4, 12, 0.01], [6, -6, 0.4, 12, 0.01], [-6, 6, 0.4, 12, 0.01], [6, 6, 0.4, 12, 0.01], [0, 0, 0.4, 12, 0.01]] },
+      surfaces: [poly], buildings: [], diagnostics: [],
+    },
+  };
+  const group = sourceEnvironment(env, 0);
+  group.updateMatrixWorld(true);
+  // Straight down at the deck: the first hit is its top (underside 0.4 + 5, 0.8 thick), then the road.
+  const down = new THREE.Raycaster(new THREE.Vector3(0, 20, 0), new THREE.Vector3(0, -1, 0)).intersectObject(group, true);
+  expect(down[0].point.y).toBeCloseTo(6.2, 1);
+  expect(down.at(-1)!.point.y).toBeCloseTo(0.4, 1);
+  // Horizontally into the structure at y = 4 (three z = -4): it spans from the road up to ~4 m above it.
+  const side = (h: number) => new THREE.Raycaster(new THREE.Vector3(0, 0.4 + h, 10), new THREE.Vector3(0, 0, -1)).intersectObject(group, true)
+    .filter((hit) => (hit.object as THREE.Mesh).material === materialOf(group, 0x7d8288)).length;
+  expect(side(3.95)).toBeGreaterThan(0);
+  expect(side(6)).toBe(0);
+  group.traverse((o) => {
+    if (o instanceof THREE.Mesh) {
+      o.geometry.dispose();
+      (o.material as THREE.Material).dispose();
+    }
+  });
+});
+function materialOf(group: THREE.Object3D, color: number) {
+  let found: THREE.Material | undefined;
+  group.traverse((o) => {
+    const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+    if (m && "color" in m && m.color.getHex() === color) found = m;
+  });
+  return found;
+}

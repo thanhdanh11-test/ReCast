@@ -25,6 +25,9 @@ import { nearestLeadVehicle, type LeadVehicle } from "./leadVehicle";
 import { contactPosition, contactTilt } from "./groundSupport";
 import { createDrivingOverlay } from "./drivingOverlay";
 import { createWeatherEffects } from "./weatherEffects";
+import { updateMapCameraDepth } from "./pastelStyle";
+import { defaultPreferences, formatSpeed, type Preferences } from "./preferences";
+import { useT } from "./i18n";
 export { poseAt } from "./trajectory";
 export function TrackView({
   scenario,
@@ -32,6 +35,7 @@ export function TrackView({
   replay,
   environmentSettings = defaultEnvironmentSettings(),
   warnings = [],
+  display = defaultPreferences,
   onReady,
 }: {
   scenario: Scenario | null;
@@ -40,13 +44,17 @@ export function TrackView({
   environmentSettings?: SceneEnvironmentSettings;
   /** Source/environment warnings shown in the collapsible warning chip. */
   warnings?: string[];
+  /** Cài đặt: starting camera, shadows, ego corridor and speed unit. */
+  display?: Pick<Preferences, "camera" | "shadows" | "corridor" | "speedUnit">;
   /** Called once per built scene after its first frame is drawn (or when 3D cannot start). */
   onReady?: () => void;
 }) {
+  const t = useT();
   const mount = useRef<HTMLDivElement>(null),
     latest = useRef({
       time,
       environmentSettings,
+      display,
       lead: null as LeadVehicle | null,
       onReady: undefined as (() => void) | undefined,
     }),
@@ -61,7 +69,7 @@ export function TrackView({
     [geometryNotice, setGeometryNotice] = useState(""),
     [contactNotice, setContactNotice] = useState("");
   const lead = nearestLeadVehicle(scenario, replay, time);
-  latest.current = { time, environmentSettings, lead, onReady };
+  latest.current = { time, environmentSettings, display, lead, onReady };
   const [showWarnings, setShowWarnings] = useState(false);
   const ego = scenario?.actors.find((a) => a.role === "ego");
   const rows = ego ? replayRows(ego, replay) : [];
@@ -90,9 +98,9 @@ export function TrackView({
   const speed =
     current && near && current.t_s > near.t_s
       ? (Math.hypot(current.x_m - near.x_m, current.y_m - near.y_m) /
-          (current.t_s - near.t_s)) *
-        3.6
+          (current.t_s - near.t_s))
       : 0;
+  const shownSpeed = formatSpeed(speed, display.speedUnit);
   useEffect(() => {
     if (!scenario || !scenario.actors.length || !mount.current) return;
     const host = mount.current;
@@ -107,7 +115,7 @@ export function TrackView({
         powerPreference: "high-performance",
       });
     } catch {
-      setError("Không khởi tạo được WebGL. Hãy mở lại app để xem cảnh 3D.");
+      setError(t("Không khởi tạo được WebGL. Hãy mở lại app để xem cảnh 3D."));
       latest.current.onReady?.();
       return;
     }
@@ -117,7 +125,7 @@ export function TrackView({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0xe7e7e4);
     host.appendChild(renderer.domElement);
-    renderer.domElement.setAttribute("aria-label", "Cảnh kịch bản 3D");
+    renderer.domElement.setAttribute("aria-label", t("Cảnh kịch bản 3D"));
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0xe7e7e4, 0.0035);
     const ambient = new THREE.HemisphereLight(0xffffff, 0x999999, 2.1);
@@ -138,10 +146,17 @@ export function TrackView({
     sun.shadow.normalBias = 0.12;
     scene.add(sun, sun.target);
     const road = roadScene(scenario);
+    if (scenario.environment?.presentation?.style === "pastel-v1") {
+      Object.assign(sun.shadow.camera, {left: -360, right: 360, top: 360, bottom: -360, near: 1, far: 1200});
+      sun.shadow.camera.updateProjectionMatrix();
+      sun.shadow.bias = -0.0003;
+      sun.shadow.normalBias = 0.2;
+      sun.shadow.radius = 3;
+    }
     const { geometryIssues, flatFallbacks } = environmentIssues(road.group);
     setGeometryNotice(
       geometryIssues
-        ? `Map nguồn có ${geometryIssues} vùng hình học lỗi; một số chi tiết bị thiếu hoặc chỉ hiển thị ước lượng.`
+        ? t("Map nguồn có {n} vùng hình học lỗi; một số chi tiết bị thiếu hoặc chỉ hiển thị ước lượng.", { n: geometryIssues })
         : "",
     );
     scene.add(road.group);
@@ -161,6 +176,7 @@ export function TrackView({
       sun,
       ambient,
       road.center,
+      scenario.environment?.presentation?.style === "pastel-v1",
     );
     let appliedSettings: SceneEnvironmentSettings | null = null;
     let lastFrameTime = performance.now(),
@@ -216,7 +232,7 @@ export function TrackView({
       .catch((err) => {
         if (active && err?.name !== "AbortError")
           setGeometryNotice(
-            "Chưa tải được mô hình xe chi tiết; đang dùng mô hình dự phòng.",
+            t("Chưa tải được mô hình xe chi tiết; đang dùng mô hình dự phòng."),
           );
       });
     const ego = actors.find((a) => a.actor.role === "ego")!;
@@ -234,7 +250,7 @@ export function TrackView({
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI * 0.48;
     controls.minDistance = 7;
-    controls.maxDistance = 200;
+    controls.maxDistance = Math.max(200, road.radius * 1.6);
     let cabin = false,
       cabinGround: number | null = null;
     let follow = true,
@@ -312,6 +328,9 @@ export function TrackView({
     controls.addEventListener("start", onStart);
     actions.current = { follow: followCamera, overview, cabin: cabinView };
     followCamera();
+    // Starting view from Cài đặt; the buttons still switch freely afterwards.
+    if (latest.current.display.camera === "overview") overview();
+    else if (latest.current.display.camera === "cabin") cabinView();
     const resize = new ResizeObserver(() => {
       const w = host.clientWidth,
         h = host.clientHeight;
@@ -324,7 +343,7 @@ export function TrackView({
     const onLost = (event: Event) => {
       event.preventDefault();
       lost = true;
-      setError("Kết nối GPU bị gián đoạn. Chọn lại cảnh để khởi tạo khung 3D.");
+      setError(t("Kết nối GPU bị gián đoạn. Chọn lại cảnh để khởi tạo khung 3D."));
     };
     renderer.domElement.addEventListener("webglcontextlost", onLost);
     let readyNotified = false;
@@ -333,6 +352,9 @@ export function TrackView({
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) / 1000, 0.1);
       lastFrameTime = now;
+      const view = latest.current.display;
+      sun.castShadow = view.shadows;
+      drivingOverlay.setVisible(view.corridor);
       const settings = latest.current.environmentSettings;
       if (settings !== appliedSettings) {
         weatherEffects.apply(settings.weather);
@@ -494,6 +516,7 @@ export function TrackView({
         } else leadBadge.current.style.visibility = "hidden";
       }
       weatherEffects.update(delta, controls.target);
+      updateMapCameraDepth(camera, controls.target, cabin);
       // Measured from the camera actually rendered, so any later camera mutation is visible.
       if (cabin && cabinGround !== null)
         host.dataset.cabinEyeM = (camera.position.y - cabinGround).toFixed(2);
@@ -543,9 +566,9 @@ export function TrackView({
     return (
       <div className="empty-view">
         <div className="road-icon">↗</div>
-        <h2>Dựng kịch bản 3D từ cảnh thật</h2>
-        <p>Chọn cảnh để dựng môi trường và xem chuyển động gốc.</p>
-        <span>Camera bám xe · Xoay và zoom · Phát lại esmini</span>
+        <h2>{t("Dựng kịch bản 3D từ cảnh thật")}</h2>
+        <p>{t("Chọn cảnh để dựng môi trường và xem chuyển động gốc.")}</p>
+        <span>{t("Camera bám xe · Xoay và zoom · Phát lại esmini")}</span>
       </div>
     );
   return (
@@ -559,27 +582,32 @@ export function TrackView({
       data-time={time}
     >
       <div className="scene3d-canvas" ref={mount} />
+      {scenario.environment?.presentation?.style === "pastel-v1" && (
+        <div className="map-attribution">
+          Map pastel · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · ODbL
+        </div>
+      )}
       <div
         className="lead-distance-badge"
         ref={leadBadge}
         data-testid="lead-distance"
-        title="Khoảng hở theo hướng ego; chọn xe cùng hướng trong hành lang phía trước"
+        title={t("Khoảng hở theo hướng ego; chọn xe cùng hướng trong hành lang phía trước")}
       >
         {lead ? `${lead.gapM.toFixed(1)} m` : ""}
       </div>
       <div className="driving-hud">
         <strong>
-          {current ? speed.toFixed(0) : "—"} <small>km/h</small>
+          {current ? shownSpeed.value : "—"} <small>{shownSpeed.unit}</small>
         </strong>
         <small className="lead-distance-stat">
-          Xe phía trước: {lead ? `${lead.gapM.toFixed(1)} m` : "—"}
+          {t("Xe phía trước:")} {lead ? `${lead.gapM.toFixed(1)} m` : "—"}
         </small>
         <span className={replay ? "measured" : ""}>
           {replay
-            ? "ESMINI · PHÁT LẠI"
+            ? t("ESMINI · PHÁT LẠI")
             : scenario.mode === "source"
-              ? "DỮ LIỆU GỐC"
-              : "XEM TRƯỚC"}
+              ? t("DỮ LIỆU GỐC")
+              : t("XEM TRƯỚC")}
         </span>
       </div>
       <div className="camera-controls">
@@ -587,19 +615,19 @@ export function TrackView({
           onClick={() => actions.current?.follow()}
           aria-pressed={mode === "Bám xe"}
         >
-          Bám xe
+          {t("Bám xe")}
         </button>
         <button
           onClick={() => actions.current?.overview()}
           aria-pressed={mode === "Toàn cảnh"}
         >
-          Toàn cảnh
+          {t("Toàn cảnh")}
         </button>
         <button
           onClick={() => actions.current?.cabin()}
           aria-pressed={mode === "Trong xe"}
         >
-          Trong xe
+          {t("Trong xe")}
         </button>
       </div>
       {(geometryNotice || contactNotice || warnings.length > 0) && (
@@ -609,7 +637,7 @@ export function TrackView({
             aria-expanded={showWarnings}
             onClick={() => setShowWarnings((v) => !v)}
           >
-            ⚠ {[geometryNotice, contactNotice].filter(Boolean).length + warnings.length} cảnh báo dữ liệu
+            ⚠ {t("{n} cảnh báo dữ liệu", { n: [geometryNotice, contactNotice].filter(Boolean).length + warnings.length })}
           </button>
           <div className="scene3d-warning-list" hidden={!showWarnings}>
             {warnings.map((w, i) => <p key={i}>{w}</p>)}
@@ -621,7 +649,7 @@ export function TrackView({
       {(!current || error || missing.length > 0) && (
         <div className="scene3d-error" role="alert">
           {error ||
-            `Thiếu pose ${replay ? "esmini" : "dữ liệu gốc"} tại thời điểm này: ${missing.join(", ") || "ego"}. Kéo thanh thời gian về trước.`}
+            t("Thiếu pose {source} tại thời điểm này: {ids}. Kéo thanh thời gian về trước.", { source: replay ? "esmini" : t("dữ liệu gốc"), ids: missing.join(", ") || "ego" })}
         </div>
       )}
     </div>

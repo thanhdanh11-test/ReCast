@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Environment } from "./types";
+import { pastelColor } from "./pastelStyle";
 import {
   createGroundSupport,
   drapeGeometry,
@@ -52,6 +53,7 @@ export function sourceEnvironment(
   const terrainDiagnostics: string[] = [];
   group.userData.terrainDiagnostics = terrainDiagnostics;
   const presentation = env.presentation;
+  const pastel = presentation?.style === "pastel-v1";
   group.userData.contactDiagnostics = presentation?.diagnostics ?? [];
   diagnostics.push(
     ...(presentation?.diagnostics.filter((s) => s.startsWith("polygon ")) ??
@@ -85,8 +87,8 @@ export function sourceEnvironment(
   const material = (key: string, color: number, offset = 0) => {
     if (!materials.has(key)) {
       const m = new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.88,
+        color: pastel ? pastelColor(color) : color,
+        roughness: pastel ? 1 : 0.88,
         side: THREE.DoubleSide,
         polygonOffset: offset !== 0,
         polygonOffsetFactor: offset,
@@ -94,7 +96,7 @@ export function sourceEnvironment(
       });
       if (key === "road") {
         m.userData.roadSurface = true;
-        m.userData.dryRoughness = 0.88;
+        m.userData.dryRoughness = pastel ? 1 : 0.88;
       }
       materials.set(key, m);
     }
@@ -180,7 +182,7 @@ export function sourceEnvironment(
       group.add(mesh);
     }
   }
-  for (const l of env.lines)
+  for (const l of presentation?.lines ?? env.lines)
     if (l.points.length > 1)
       batch(
         surface(joinedLine(l.points, 0), 0.03),
@@ -214,6 +216,7 @@ export function sourceEnvironment(
     g.rotateX(-Math.PI / 2);
     g.translate(0, base, 0);
     batch(g, material("building", 0xdadada));
+    if (pastel) continue;
     // Decorative facade patches are deliberately separate from source geometry and collision envelopes.
     for (let i = 0; i < points.length; i++) {
       const a = points[i],
@@ -306,6 +309,71 @@ export function sourceEnvironment(
       poles.setMatrixAt(i, transform.matrix);
     });
     group.add(poles);
+  }
+  // Plan36: road-edge structures as an open steel frame (posts, rails, lattice when tall),
+  // standing on the same draped road support as the carriageway.
+  const beam = (a: THREE.Vector3, b: THREE.Vector3, size: number) => {
+    const direction = b.clone().sub(a),
+      length = direction.length();
+    if (length < 0.05) return;
+    const g = new THREE.BoxGeometry(size, size, length);
+    g.applyQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        direction.normalize(),
+      ),
+    );
+    g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    batch(g, material("structure", 0x7d8288));
+  };
+  for (const barrier of env.barriers ?? []) {
+    const at = (i: number, h: number) => {
+      const [x, y] = barrier.points[i];
+      return new THREE.Vector3(x, ground.surfaceAt(x, y) + h, -y);
+    };
+    const n = barrier.points.length;
+    for (let i = 0; i + 1 < n; i++) {
+      const h0 = barrier.heights[i],
+        h1 = barrier.heights[i + 1];
+      beam(at(i, h0), at(i + 1, h1), 0.12);
+      beam(at(i, Math.min(1, h0 * 0.5)), at(i + 1, Math.min(1, h1 * 0.5)), 0.08);
+      if (h0 > 2.2 && h1 > 2.2) {
+        beam(at(i, 0.15), at(i + 1, 0.15), 0.1);
+        beam(at(i, i % 2 ? h0 : 0.15), at(i + 1, i % 2 ? 0.15 : h1), 0.07);
+      }
+    }
+    for (let i = 0; i < n; i += 2) beam(at(i, 0), at(i, barrier.heights[i]), 0.14);
+  }
+  for (const overhead of env.overheads ?? []) {
+    if (!validRing(overhead.polygon)) continue;
+    const xs = overhead.polygon.map((q) => q[0]),
+      ys = overhead.polygon.map((q) => q[1]);
+    const cx = xs.reduce((a, b) => a + b, 0) / xs.length,
+      cy = ys.reduce((a, b) => a + b, 0) / ys.length;
+    const underside = ground.surfaceAt(cx, cy) + overhead.underside_above_road_m;
+    const g = new THREE.ExtrudeGeometry(mapShape(overhead.polygon, []), {
+      depth: 0.8,
+      bevelEnabled: false,
+    });
+    g.rotateX(-Math.PI / 2);
+    g.translate(0, underside, 0);
+    batch(g, material("structure", 0x7d8288));
+  }
+  for (const island of presentation?.landscape ?? []) {
+    if (!validRing(island.polygon) || island.holes.some((h) => !validRing(h))) {
+      diagnostics.push("landscape: invalid ring omitted");
+      continue;
+    }
+    const flat = new THREE.ShapeGeometry(mapShape(island.polygon, island.holes));
+    flat.rotateX(-Math.PI / 2);
+    try {
+      const geometry = drapeGeometry(flat, ground, 0.006, 25000);
+      batch(geometry, material("planting", 0xcbd8b1, -1));
+    } catch (error) {
+      terrainDiagnostics.push(`Landscape drape failed: ${String(error)}`);
+    } finally {
+      flat.dispose();
+    }
   }
   for (const [mat, list] of batches) {
     const g = mergeGeometries(list)!;

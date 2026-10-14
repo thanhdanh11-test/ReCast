@@ -177,5 +177,9 @@ export function createDrivingOverlay(
     /** Drawn corridor length along the path (m). */
     return distance;
   }
-  return { update };
+  /** Hides the whole ego corridor overlay (Cài đặt › Hiển thị 3D). */
+  function setVisible(visible: boolean) {
+    corridor.visible = ranges.visible = crossbar.visible = visible;
+  }
+  return { update, setVisible };
 }

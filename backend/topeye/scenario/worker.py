@@ -13,11 +13,18 @@ from pathlib import Path
 from topeye.scenario.dataset import create_adapter
 from topeye.scenario.export import export_bundle
 from topeye.scenario.extract import extract_scene, list_scenes
-from topeye.scenario.library import delete_imported, display_name, list_imported, read_imported
+from topeye.scenario.library import (
+    delete_imported,
+    delete_imported_run,
+    display_name,
+    list_imported,
+    read_imported,
+)
 from topeye.scenario.lidar_frame import lidar_frame
 from topeye.scenario.models import ScenarioError, guard_output, require, write_json
 from topeye.scenario.replay import run_replay
 from topeye.scenario.source_scene import source_scene
+from topeye.scenario.pastel import apply_pastel
 from topeye.scenario.variants import make_variant
 
 # Source scenes are deterministic for a dataset/version/scene; rebuilding costs seconds of LiDAR
@@ -32,6 +39,7 @@ class Service:
         self.scenarios = {}
         self.sources = {}
         self.source_cache = OrderedDict()
+        self.fit_cache = {}
         self.imports = {}
         self.recovered_workspaces = set()
 
@@ -164,8 +172,43 @@ class Service:
             self.scenarios.clear()
             self.sources.clear()
             self.source_cache.clear()
+            self.fit_cache.clear()
             self.imports.clear()
         return self.adapter
+
+    def cached_source(self, scene, progress):
+        """Shared, read-only cached source scene (callers that keep or change it must deep-copy)."""
+        if scene in self.source_cache:
+            self.source_cache.move_to_end(scene)
+            return self.source_cache[scene]
+        source = apply_pastel(source_scene(self.adapter, scene, progress))
+        self.source_cache[scene] = source
+        if len(self.source_cache) > SOURCE_CACHE_SIZE:
+            self.source_cache.popitem(last=False)
+        return source
+
+    def template_fit(self, params, progress):
+        """Would this template compile and pass validate_xosc on `scene`? Same gate as import, no package."""
+        import hashlib
+        import json
+
+        from topeye.scenario.map_context import build_map_context
+        from topeye.scenario.template import compile_template
+
+        scene, template = params.get("scene"), params.get("template")
+        require(isinstance(scene, str) and isinstance(template, dict), "Invalid template probe")
+        key = (str(self.adapter.root), scene, hashlib.sha256(json.dumps(template, sort_keys=True).encode()).hexdigest())
+        if key not in self.fit_cache:
+            try:
+                source = self.cached_source(scene, progress)
+                _, _, placement = compile_template(template, source, build_map_context(source))
+                result = {"scene": scene, "ok": True, "placement": placement}
+            except ScenarioError as exc:
+                result = {"scene": scene, "ok": False, "code": exc.code, "message": str(exc)}
+            self.fit_cache[key] = result
+            if len(self.fit_cache) > 2000:
+                self.fit_cache.pop(next(iter(self.fit_cache)))
+        return self.fit_cache[key]
 
     def call(self, method, params, progress=lambda *args: None):
         require(
@@ -180,13 +223,16 @@ class Service:
                 "inspect_dataset",
                 "map_context",
                 "import_xosc",
+                "import_template",
                 "open_imported",
                 "replay_imported",
                 "lidar_frame",
                 "list_imported",
                 "read_imported",
                 "delete_imported",
+                "delete_imported_run",
                 "scenario_metrics",
+                "template_fit",
             },
             "Unknown operation",
         )
@@ -217,6 +263,9 @@ class Service:
         if method == "scenario_metrics":
             # Runs on its own worker; like lidar_frame it must not run workspace recovery.
             return self.scenario_metrics(params, progress)
+        if method == "template_fit":
+            # Read-only probe on the metrics worker: no workspace access, nothing persisted.
+            return self.template_fit(params, progress)
         if method == "lidar_frame":
             # Read-only and stateless: must not run workspace recovery (a sibling worker may own runs).
             return lidar_frame(self.adapter, params["scene"], params["time_s"])
@@ -230,25 +279,19 @@ class Service:
             return list_imported(workspace)
         if method == "read_imported":
             return read_imported(workspace, params.get("scenario_id"))
+        if method == "delete_imported_run":
+            return delete_imported_run(workspace, params.get("scenario_id"), params.get("run_id"))
         if method == "delete_imported":
             self.imports.pop(params.get("scenario_id"), None)
             return delete_imported(workspace, params.get("scenario_id"))
         if method == "source_scene":
-            scene = params["scene"]
-            if scene in self.source_cache:
-                self.source_cache.move_to_end(scene)
-                source = copy.deepcopy(self.source_cache[scene])
-                source["id"] = uuid.uuid4().hex  # every load stays a distinct source
-            else:
-                source = source_scene(self.adapter, scene, progress)
-                self.source_cache[scene] = copy.deepcopy(source)
-                if len(self.source_cache) > SOURCE_CACHE_SIZE:
-                    self.source_cache.popitem(last=False)
+            source = copy.deepcopy(self.cached_source(params["scene"], progress))
+            source["id"] = uuid.uuid4().hex  # every load stays a distinct source
             source["source"]["dataset_version"] = version
             source["source"]["dataset_root"] = str(self.adapter.root)
             self.sources[source["id"]] = source
             return source
-        if method in {"map_context", "import_xosc", "open_imported"}:
+        if method in {"map_context", "import_xosc", "import_template", "open_imported"}:
             from topeye.scenario.map_context import build_map_context
 
             source = self.sources.get(params.get("source_id"))
@@ -256,6 +299,7 @@ class Service:
             context = build_map_context(source)
             if method == "map_context":
                 return context
+            placement = stored_template = None
             from topeye.scenario.imported_replay import (
                 load_imported,
                 persist_import,
@@ -263,16 +307,24 @@ class Service:
             )
             from topeye.scenario.xosc_import import validate_xosc
 
-            if method == "import_xosc":
-                import base64
+            if method in {"import_xosc", "import_template"}:
+                if method == "import_template":
+                    from topeye.scenario.template import compile_template
 
-                encoded = params.get("xml_base64")
-                require(
-                    isinstance(encoded, str) and len(encoded) <= 2796204,
-                    "File XOSC quá lớn",
-                    "RESOURCE_LIMIT",
-                )
-                xml_bytes = base64.b64decode(encoded, validate=True)
+                    xml_bytes, file_name, placement = compile_template(params.get("template"), source, context)
+                    # Stored for "Sửa": the template as given, with the placement that actually fitted.
+                    stored_template = {**params["template"], "map": {**params["template"]["map"], "placement": placement}}
+                else:
+                    import base64
+
+                    encoded = params.get("xml_base64")
+                    require(
+                        isinstance(encoded, str) and len(encoded) <= 2796204,
+                        "File XOSC quá lớn",
+                        "RESOURCE_LIMIT",
+                    )
+                    xml_bytes = base64.b64decode(encoded, validate=True)
+                    file_name = params.get("file_name")
                 imported = validate_xosc(xml_bytes, context)
                 imported["source"]["source_id"] = source["id"]
                 imported["source"]["dataset_root"] = str(self.adapter.root)
@@ -285,7 +337,8 @@ class Service:
                     context,
                     workspace,
                     self.adapter.root,
-                    display_name(params.get("file_name")),
+                    display_name(file_name),
+                    stored_template,
                 )
             else:
                 package = Path(params["package_path"])
@@ -300,7 +353,10 @@ class Service:
                 "source_id": source["id"],
                 "package": str(package),
             }
-            return self.public_import(imported)
+            result = self.public_import(imported)
+            if placement:
+                result["placement"] = placement  # where a template landed on the source ego path
+            return result
         if method == "replay_imported":
             from topeye.scenario.imported_replay import run_imported_replay
             from topeye.scenario.map_context import build_map_context

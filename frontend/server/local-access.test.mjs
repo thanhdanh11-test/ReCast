@@ -44,7 +44,7 @@ test("setup requires per-run token and same origin; session response has no cred
  assert.equal((await f.post("auth/setup",{}, {Origin:"https://evil.example"})).status,403);
  const cookie=await f.setup();
  const session=await(await f.get("auth/session",{Cookie:cookie})).json();
- assert.deepEqual(session.value,{configured:true,authenticated:true,username:"local-owner"});
+ assert.deepEqual(session.value,{configured:true,authenticated:true,username:"local-owner",sessionHours:8});
  assert.equal((await f.post("settings",{},{Cookie:cookie})).status,200);
 });
 test("logout revokes existing session and SSE connection",async t=>{
@@ -107,4 +107,21 @@ test("partial request body completed after logout cannot create a workspace",asy
  assert.equal(await response,401);
  assert.equal(fs.existsSync(target),false);
  assert.equal(fs.existsSync(join(f.dir,"user/scenario-settings.json")),false);
+});
+
+test("account and settings-page endpoints need a session; password change rotates it over HTTP",async t=>{
+ const f=await fixture(t);
+ for(const name of ["auth/password","auth/sessionHours","storageInfo","emptyTrash","submitFeedback"])assert.equal((await f.post(name)).status,401,name);
+ const Cookie=await f.setup();
+ assert.equal((await f.post("auth/password",{current:"wrong-password-long-enough",next:"another-test-passphrase"},{Cookie})).status,401);
+ const changed=await f.post("auth/password",{current:"only-in-test-passphrase",next:"another-test-passphrase"},{Cookie});
+ assert.equal(changed.status,200);
+ const rotated=changed.headers.get("set-cookie").split(";")[0];
+ assert.equal((await f.post("settings",{},{Cookie})).status,401);
+ assert.equal((await f.post("settings",{},{Cookie:rotated})).status,200);
+ assert.deepEqual((await (await f.post("auth/sessionHours",{hours:24},{Cookie:rotated})).json()).value,{hours:24});
+ const saved=await (await f.post("submitFeedback",{kind:"idea",message:"Thêm phím tắt"},{Cookie:rotated})).json();
+ assert.match(saved.value.id,/^[0-9TZ.-]+-[a-f0-9]{8}$/);
+ assert.equal((await (await f.post("listFeedback",{},{Cookie:rotated})).json()).value[0].message,"Thêm phím tắt");
+ assert.equal(typeof (await (await f.post("storageInfo",{},{Cookie:rotated})).json()).value.scenarios,"number");
 });

@@ -27,6 +27,8 @@ const mock = {
     mapContext: vi.fn(),
     exportMapContext: vi.fn(),
     importXosc: vi.fn(),
+    importTemplate: vi.fn(),
+    templateFit: vi.fn(() => new Promise<never>(() => {})),
     openImported: vi.fn(),
     replayImported: vi.fn(),
     lidarFrame: vi.fn(),
@@ -34,10 +36,16 @@ const mock = {
     listImported: vi.fn(),
     readImported: vi.fn(),
     deleteImported: vi.fn(),
+    deleteImportedRun: vi.fn(),
+    storageInfo: vi.fn(async () => ({ workspace: '/w', scenarios: 2, scenarioBytes: 2048, metricsBytes: 512, trashBytes: 0, trashItems: 0 })),
+    clearMetricsCache: vi.fn(async () => ({ removed: 2 })),
+    emptyTrash: vi.fn(async () => ({ removed: 0 })),
+    submitFeedback: vi.fn(async () => ({ id: 'x', saved_at: '2026-10-13T10:00:00Z' })),
+    listFeedback: vi.fn(async () => []),
 };
 window.scenarioApp = mock as DesktopAPI;
 const { default: ScenarioApp } = await import("./ScenarioApp");
-// Dataset and workspace pickers live in the "Cài đặt" rail drawer (0.23.2; was "Dữ liệu").
+// Dataset and workspace pickers live on the full "Cài đặt" page › "Dữ liệu & lưu trữ" (plan35).
 // Panel titles/labels were removed in 0.18.0; the 3D panel exposes its state for tests.
 const viewState = () => screen.getByRole("region", { name: "Mô phỏng 3D" }).getAttribute("data-view-state");
 // 0.18.0: every control lives behind an icon-rail tool (drawer) or the OpenSCENARIO runner.
@@ -45,9 +53,14 @@ function tool(name: string) {
     const button = screen.getByRole("button", { name: new RegExp(`^${name}`) });
     if (button.getAttribute("aria-pressed") !== "true") fireEvent.click(button);
 }
-function openDatasetPicker() {
+function settingsSection(name: string) {
     tool("Cài đặt");
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Mục cài đặt" })).getByRole("button", { name }));
+}
+function openDatasetPicker() {
+    settingsSection("Dữ liệu & lưu trữ");
     fireEvent.click(screen.getByText("Chọn thư mục dữ liệu"));
+    fireEvent.click(screen.getByRole("button", { name: "Quay lại" }));
 }
 beforeEach(() => {
     vi.clearAllMocks();
@@ -195,8 +208,9 @@ describe('OpenSCENARIO runner',()=>{
  it('opens the create dialog even while a job is running',async()=>{
   await openRunner();
   mock.chooseDataset.mockImplementation(() => new Promise(() => {}));
-  tool('Cài đặt');
+  settingsSection('Dữ liệu & lưu trữ');
   fireEvent.click(screen.getByText('Đổi dữ liệu'));
+  fireEvent.click(screen.getByRole('button',{name:'Quay lại'}));
   await screen.findByTestId('busy-indicator');
   fireEvent.click(screen.getByRole('button',{name:'OpenSCENARIO'}));
   fireEvent.click(runner().getByRole('button',{name:'Tạo kịch bản'}));
@@ -230,7 +244,16 @@ describe('OpenSCENARIO runner',()=>{
   expect(document.querySelector('.runner-minimap')).toBeNull();
   expect(runner().queryByRole('button',{name:/Chạy (lại )?kịch bản này/})).toBeNull();
   expect(runner().queryByText('Chạy esmini')).toBeNull();
+  fireEvent.click(runner().getByRole('tab',{name:'Số liệu'}));
   expect(runner().getByRole('cell',{name:'người đi bộ'})).toBeTruthy();
+  const actorSlider = runner().getAllByRole('slider', {name:/Thời gian của/})[0];
+  fireEvent.keyDown(actorSlider,{key:'Home'});
+  fireEvent.keyDown(actorSlider,{key:'ArrowRight'});
+  expect((screen.getByRole('slider',{name:'Thời gian mô phỏng'}) as HTMLInputElement).value).toBe('0.1');
+  fireEvent.click(runner().getByRole('tab',{name:'Lịch sử'}));
+  expect(runner().queryByRole('button',{name:'Tạo kịch bản'})).toBeNull();
+  fireEvent.click(runner().getByRole('tab',{name:'Kịch bản'}));
+  expect(runner().getByRole('button',{name:'Tạo kịch bản'})).toBeTruthy();
   expect(mock.replayImported).not.toHaveBeenCalled();
   expect(mock.replay).not.toHaveBeenCalled();
  });
@@ -247,6 +270,26 @@ describe('OpenSCENARIO runner',()=>{
   expect(document.querySelector('img[src=x]')).toBeNull();
   fireEvent.keyDown(window,{key:'Escape'});
   expect(screen.queryByRole('dialog')).toBeNull();
+ });
+ it('creates a scenario from a template through the worker and opens it',async()=>{
+  mock.importTemplate.mockResolvedValue(importedScenario);
+  await openRunner();
+  fireEvent.click(runner().getByRole('button',{name:'Tạo kịch bản'}));
+  fireEvent.click(createDialog().getByRole('button',{name:'Chọn loại Dừng khẩn cấp'}));
+  fireEvent.click(createDialog().getByRole('button',{name:'Tạo từ template'}));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(mock.importTemplate).toHaveBeenCalledWith({source_id:'source', template: expect.objectContaining({scenario_type:'emergency_stop', map: expect.objectContaining({scene:'scene-0103'})})});
+  expect(mock.listImported).toHaveBeenCalled();
+  expect(runner().getByText(/scene-0103 · topeye-map-trajectories-v1 · 3 đối tượng/)).toBeTruthy();
+ });
+ it('keeps the dialog open and shows the worker error when a template is rejected',async()=>{
+  mock.importTemplate.mockRejectedValue(new Error('OUTSIDE_SURFACE: “cutter” lúc 3.0 s đi ra ngoài mặt đường'));
+  await openRunner();
+  fireEvent.click(runner().getByRole('button',{name:'Tạo kịch bản'}));
+  fireEvent.click(createDialog().getByRole('button',{name:'Chọn loại Xe cắt làn'}));
+  fireEvent.click(createDialog().getByRole('button',{name:'Tạo từ template'}));
+  expect((await screen.findByRole('alert', {}, {timeout: 2000})).textContent).toMatch(/ra ngoài mặt đường/);
+  expect(screen.getByRole('dialog',{name:'Tạo kịch bản'})).toBeTruthy();
  });
  it('exports the map context for the chosen map from the dialog',async()=>{
   mock.exportMapContext.mockResolvedValue({path:'/context.json'});
@@ -267,6 +310,17 @@ describe('OpenSCENARIO runner',()=>{
   await act(async()=>{finish(importedScenario);});
   expect(runner().getByText('Chọn một kịch bản')).toBeTruthy();
  });
+ it('confirms individual run removal and refreshes saved history',async()=>{
+  const e=entry('a'.repeat(32),'history.xosc',[{run_id:'b'.repeat(32),at:'2026-10-13T10:00:00Z',status:'completed',execution:'pass',map_conformance:'pass'}]);
+  mock.listImported.mockResolvedValue([e]); mock.deleteImportedRun.mockResolvedValue({trash_path:'/ws/.trash/run'});
+  const confirm=vi.fn().mockReturnValue(false); vi.stubGlobal('confirm',confirm);
+  await openRunner(); fireEvent.click(runner().getByRole('tab',{name:'Lịch sử'}));
+  fireEvent.click(runner().getByRole('button',{name:/Xoá lần chạy/}));expect(mock.deleteImportedRun).not.toHaveBeenCalled();
+  confirm.mockReturnValue(true);mock.listImported.mockResolvedValue([{...e,runs:[]}]);
+  fireEvent.click(runner().getByRole('button',{name:/Xoá lần chạy/}));
+  await waitFor(()=>expect(mock.deleteImportedRun).toHaveBeenCalledWith({scenario_id:e.scenario_id,run_id:'b'.repeat(32)}));
+  await runner().findByText('Chưa có lịch sử.');expect(mock.deleteImported).not.toHaveBeenCalled();vi.unstubAllGlobals();
+ });
  it('lists the library with statuses and opens an entry by its saved path',async()=>{
   mock.listImported.mockResolvedValue([
    entry('a'.repeat(32),'cut-in-left.xosc',[{run_id:'r1',at:'2026-10-12T10:05:00Z',status:'completed',execution:'pass',map_conformance:'pass',max_xy_m:0}]),
@@ -284,6 +338,13 @@ describe('OpenSCENARIO runner',()=>{
   expect(runner().getAllByText('0,612 m').length).toBeGreaterThan(0);
   fireEvent.change(screen.getByRole('slider',{name:'Thời gian mô phỏng'}),{target:{value:'1'}});
   expect(runner().getByTestId('map-view').getAttribute('data-time')).toBe('1');
+  fireEvent.click(runner().getByRole('tab',{name:'Lịch sử'}));
+  const history = runner().getByRole('tabpanel',{name:'Lịch sử'});
+  const rows = within(history).getAllByRole('row');
+  expect(rows).toHaveLength(3);
+  expect(rows[1].textContent).toContain('hard-brake.xosc');
+  expect(rows[2].textContent).toContain('cut-in-left.xosc');
+  expect(within(history).queryByText('night-merge.xosc')).toBeNull();
  });
  it('computes metrics of the opened scenario automatically, in the runner report, once',async()=>{
   mock.listImported.mockResolvedValue([entry('b'.repeat(32),'hard-brake.xosc')]);
@@ -304,6 +365,19 @@ describe('OpenSCENARIO runner',()=>{
   await runner().findAllByText('hard-brake.xosc');
   expect(mock.scenarioMetrics).toHaveBeenCalledTimes(2);
  });
+ it('receives pending metrics after leaving and returning to the same scenario',async()=>{
+  let reject!: (reason: Error) => void;
+  mock.scenarioMetrics.mockImplementation(()=>new Promise((_,fail)=>{reject=fail;}));
+  mock.listImported.mockResolvedValue([entry('a'.repeat(32),'pending.xosc')]);
+  mock.openImported.mockResolvedValue(importedScenario);
+  await openRunner();fireEvent.click(await runner().findByText('pending.xosc'));
+  await waitFor(()=>expect(mock.scenarioMetrics).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole('button',{name:'Cảnh nguồn'}));
+  fireEvent.click(screen.getByRole('button',{name:'OpenSCENARIO'}));
+  await act(async()=>reject(new Error('pending request finished')));
+  expect(within(runner().getByLabelText('Chỉ số kịch bản')).getByText('pending request finished')).toBeTruthy();
+  expect(mock.scenarioMetrics).toHaveBeenCalledOnce();
+ });
  it('exports an entry as its .xosc file',async()=>{
   mock.listImported.mockResolvedValue([entry('a'.repeat(32),'cut-in.xosc')]);
   mock.readImported.mockResolvedValue({scenario_id:'a'.repeat(32),name:'cut-in.xosc',file_name:'cut-in.xosc',xml:'<OpenSCENARIO/>'});
@@ -323,6 +397,9 @@ describe('OpenSCENARIO runner',()=>{
   await openRunner();
   fireEvent.click(await runner().findByRole('button',{name:'Sửa cut-in.xosc'}));
   const dialog = within(await screen.findByRole('dialog',{name:'Sửa cut-in.xosc'}));
+  // No template: code is hidden until the user asks for the advanced XML editor.
+  expect(dialog.queryByRole('textbox',{name:'Nội dung OpenSCENARIO'})).toBeNull();
+  fireEvent.click(dialog.getByRole('button',{name:'Sửa XML (nâng cao)'}));
   expect((dialog.getByRole('textbox',{name:'Nội dung OpenSCENARIO'}) as HTMLTextAreaElement).value).toBe('<OpenSCENARIO>v1</OpenSCENARIO>');
   fireEvent.change(dialog.getByRole('textbox',{name:'Nội dung OpenSCENARIO'}),{target:{value:'<OpenSCENARIO>v2</OpenSCENARIO>'}});
   fireEvent.change(dialog.getByRole('textbox',{name:'Tên kịch bản'}),{target:{value:'cut-in-v2.xosc'}});
@@ -335,6 +412,41 @@ describe('OpenSCENARIO runner',()=>{
   fireEvent.click(dialog.getByRole('button',{name:'Lưu'}));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(mock.importXosc).toHaveBeenLastCalledWith({source_id:'source',xml:'<OpenSCENARIO>v2</OpenSCENARIO>',file_name:'cut-in-v2.xosc'});
+  expect(mock.deleteImported).toHaveBeenCalledWith({scenario_id:'a'.repeat(32)});
+ });
+ it('edits a template-made scenario in the template form, not as XML',async()=>{
+  const { SCENARIO_TYPES, newTemplate } = await import('./authoring/catalog');
+  const template = newTemplate(SCENARIO_TYPES.find(x => x.id === 'pedestrian_crossing')!, 'scene-0103', 'Người đi bộ');
+  mock.listImported.mockResolvedValue([{...entry('a'.repeat(32),'Người_đi_bộ.xosc'), has_template:true}]);
+  mock.readImported.mockResolvedValue({scenario_id:'a'.repeat(32),name:'Người_đi_bộ.xosc',file_name:'Người_đi_bộ.xosc',xml:'<OpenSCENARIO/>',template});
+  mock.deleteImported.mockResolvedValue({trash_path:'/ws/.trash/x'});
+  mock.importTemplate.mockResolvedValue({...importedScenario,id:'d'.repeat(32)});
+  await openRunner();
+  fireEvent.click(await runner().findByRole('button',{name:'Sửa Người_đi_bộ.xosc'}));
+  const dialog = within(await screen.findByRole('dialog',{name:'Sửa Người_đi_bộ.xosc'}));
+  expect(dialog.queryByRole('textbox',{name:'Nội dung OpenSCENARIO'})).toBeNull();
+  expect((dialog.getByRole('slider',{name:'Vận tốc ego'}) as HTMLInputElement).value).toBe('40');
+  fireEvent.change(dialog.getByRole('slider',{name:'Vận tốc ego'}),{target:{value:'30'}});
+  fireEvent.click(dialog.getByRole('button',{name:'Thêm tình huống'}));
+  fireEvent.click(dialog.getByRole('button',{name:'Lưu thay đổi'}));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(mock.importTemplate).toHaveBeenCalledWith({source_id:'source',template:expect.objectContaining({params:expect.objectContaining({ego_kmh:30}),events:[expect.objectContaining({type:'hard_brake',actor:'ego'})]})});
+  expect(mock.deleteImported).toHaveBeenCalledWith({scenario_id:'a'.repeat(32)});
+ });
+ it('recreates a scenario without template from the type gallery and replaces it',async()=>{
+  mock.listImported.mockResolvedValue([entry('a'.repeat(32),'Dừng_khẩn_cấp.xosc')]);
+  mock.readImported.mockResolvedValue({scenario_id:'a'.repeat(32),name:'Dừng_khẩn_cấp.xosc',file_name:'Dừng_khẩn_cấp.xosc',xml:'<OpenSCENARIO/>',template:null});
+  mock.deleteImported.mockResolvedValue({trash_path:'/ws/.trash/x'});
+  mock.importTemplate.mockResolvedValue({...importedScenario,id:'d'.repeat(32)});
+  await openRunner();
+  fireEvent.click(await runner().findByRole('button',{name:'Sửa Dừng_khẩn_cấp.xosc'}));
+  fireEvent.click(within(await screen.findByRole('dialog',{name:'Sửa Dừng_khẩn_cấp.xosc'})).getByRole('button',{name:'Tạo lại bằng template'}));
+  const dialog = within(screen.getByRole('dialog',{name:'Sửa Dừng_khẩn_cấp.xosc'}));
+  expect((dialog.getByRole('combobox',{name:'Map cho kịch bản'}) as HTMLSelectElement).value).toBe('scene-0103');
+  fireEvent.click(dialog.getByRole('button',{name:'Chọn loại Dừng khẩn cấp'}));
+  fireEvent.click(dialog.getByRole('button',{name:'Lưu thay đổi'}));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(mock.importTemplate).toHaveBeenCalledWith({source_id:'source',template:expect.objectContaining({scenario_type:'emergency_stop'})});
   expect(mock.deleteImported).toHaveBeenCalledWith({scenario_id:'a'.repeat(32)});
  });
  it('deletes only after confirmation',async()=>{
@@ -375,22 +487,23 @@ describe("switching between the runner and the scene view", () => {
 });
 
 describe("environment session settings", () => {
- it("keeps time through settings changes; quality and theme persist, weather stays ClearNoon (0.23.3)", async () => {
+ it("keeps time through settings changes; quality and theme persist, weather stays ClearNoon (plan35)", async () => {
   localStorage.clear();
   await openRunner();
   tool("Cảnh nguồn");
   fireEvent.change(screen.getByRole("slider", {name:"Thời gian mô phỏng"}), {target:{value:"1"}});
   tool("Cài đặt");
   expect(screen.queryByRole("combobox", {name:"Thời tiết CARLA 0.9.15"})).toBeNull();
-  fireEvent.change(screen.getByRole("combobox", {name:"Chất lượng đồ hoạ"}), {target:{value:"balanced"}});
-  fireEvent.change(screen.getByRole("combobox", {name:"Giao diện"}), {target:{value:"light"}});
+  fireEvent.click(within(screen.getByRole("radiogroup", {name:"Chất lượng đồ hoạ"})).getByRole("radio", {name:"Cân bằng"}));
+  fireEvent.click(within(screen.getByRole("radiogroup", {name:"Chế độ màu"})).getByRole("radio", {name:"Sáng"}));
+  fireEvent.click(screen.getByRole("button", {name:"Quay lại"}));
   expect(screen.getByTestId("viewport").getAttribute("data-time")).toBe("1");
   expect(screen.getByTestId("viewport").getAttribute("data-preset")).toBe("ClearNoon");
   expect(document.querySelector(".studio")?.getAttribute("data-theme")).toBe("light");
   tool("Cảnh nguồn");
   fireEvent.click(screen.getByRole("button", {name:/^scene-0103/}));
   expect(screen.getByTestId("viewport").getAttribute("data-quality")).toBe("balanced");
-  expect(JSON.parse(localStorage.getItem("topeye.preferences.v1")!)).toEqual({appearance:"light", quality:"balanced"});
+  expect(JSON.parse(localStorage.getItem("topeye.preferences.v1")!)).toMatchObject({appearance:"light", quality:"balanced"});
   expect(mock.replay).not.toHaveBeenCalled();
   localStorage.clear();
  });
@@ -407,8 +520,9 @@ describe('static web demo shell', () => {
   await screen.findByText('Đã đọc 1 cảnh');
   for (const name of ['OpenSCENARIO','Góp ý']) expect(screen.queryByRole('button',{name})).toBeNull();
   tool('Cài đặt');
-  expect(screen.getByRole('combobox',{name:'Giao diện'})).toBeTruthy();
-  expect(screen.queryByText(/Đổi dữ liệu|Chọn thư mục dữ liệu|Thư mục lưu/)).toBeNull();
+  const nav = within(screen.getByRole('navigation',{name:'Mục cài đặt'}));
+  expect(nav.getByRole('button',{name:'Giao diện'})).toBeTruthy();
+  for (const name of ['Dữ liệu & lưu trữ','Tài khoản']) expect(nav.queryByRole('button',{name})).toBeNull();
   tool('Cảnh nguồn');
   expect(screen.getByText('nuScenes © Motional, CC BY-NC-SA 4.0')).toBeTruthy();
   expect(screen.getByText('Nguồn mô hình xe')).toBeTruthy();
@@ -422,7 +536,8 @@ describe('static web demo shell', () => {
   fireEvent.change(screen.getByRole('slider',{name:'Thời gian mô phỏng'}),{target:{value:'1.26'}});
   const host = document.createElement('div'); host.dataset.cameraMode = 'cabin';
   screen.getByRole('region',{name:'Mô phỏng 3D'}).append(host);
-  fireEvent.click(screen.getByRole('button',{name:'Góp ý'}));
+  settingsSection('Góp ý nhà sản xuất');
+  fireEvent.click(screen.getByRole('button',{name:'Mở biểu mẫu góp ý'}));
   const url = new URL(String(open.mock.calls[0][0]));
   expect(Object.fromEntries(url.searchParams)).toEqual({scene:'scene-0103',time:'1.3',camera:'cabin',weather:'ClearNoon',version:'0.12.4'});
   expect(open.mock.calls[0].slice(1)).toEqual(['_blank','noopener,noreferrer']);
@@ -504,12 +619,34 @@ describe("shell 0.18.0", () => {
         expect(rail.className).not.toContain("wide");
         tool("Cảnh nguồn");
         expect(screen.getByRole("complementary", { name: "Cảnh nguồn" })).toBeTruthy();
-        tool("Cài đặt");
-        expect(screen.queryByRole("complementary", { name: "Cảnh nguồn" })).toBeNull();
-        expect(screen.getByRole("complementary", { name: "Cài đặt" })).toBeTruthy();
         fireEvent.keyDown(window, { key: "Escape" });
         expect(screen.queryByRole("complementary")).toBeNull();
+        tool("Cài đặt");
+        expect(screen.getByRole("region", { name: "Cài đặt" })).toBeTruthy();
+        expect(screen.queryByRole("region", { name: "Mô phỏng 3D" })).toBeNull(); // views hidden, still mounted
+        expect(document.querySelector('[data-testid="viewport"]')).toBeTruthy();
+        fireEvent.keyDown(window, { key: "Escape" });
+        expect(screen.queryByRole("region", { name: "Cài đặt" })).toBeNull();
+        expect(screen.getByRole("region", { name: "Mô phỏng 3D" })).toBeTruthy();
         await act(async () => {});
+    });
+    it("keyboard shortcuts step, jump and play, but not while typing (plan35)", async () => {
+        render(<ScenarioApp />);
+        openDatasetPicker();
+        await screen.findByText("Đã đọc 1 cảnh");
+        const viewTime = () => screen.getByTestId("viewport").getAttribute("data-time");
+        fireEvent.keyDown(window, { key: "ArrowRight" });
+        expect(viewTime()).toBe("1");
+        fireEvent.keyDown(screen.getByRole("slider", { name: "Thời gian mô phỏng" }), { key: "ArrowRight" });
+        expect(viewTime()).toBe("1");
+        fireEvent.keyDown(window, { key: "End" });
+        expect(Number(viewTime())).toBeGreaterThan(1);
+        fireEvent.keyDown(window, { key: "Home" });
+        expect(viewTime()).toBe("0");
+        fireEvent.keyDown(window, { key: " " });
+        expect(screen.getByRole("button", { name: "Tạm dừng" })).toBeTruthy();
+        fireEvent.keyDown(window, { key: " " });
+        expect(screen.getByRole("button", { name: "Phát mô phỏng" })).toBeTruthy();
     });
     it("has no warnings rail tool; data warnings stay in the 3D chip (0.23.2)", async () => {
         mock.sourceScene.mockResolvedValue({ id: "source", mode: "source", interval_s: [0, 19], actors: [], source: { scene: "scene-0103" }, road: { kind: "source_map" }, environment: { ...environment, warnings: ["Thiếu LiDAR 2 mẫu"] } });
@@ -519,14 +656,15 @@ describe("shell 0.18.0", () => {
         expect(screen.queryByRole("button", { name: /^Cảnh báo/ })).toBeNull();
         // The 3D view's warning chip is covered by trackViewWarnings.test.tsx.
     });
-    it("settings drawer shows the dataset and save folder", async () => {
+    it("settings page data section shows the dataset, save folder and storage", async () => {
         render(<ScenarioApp />);
         openDatasetPicker();
         await screen.findByText("Đã đọc 1 cảnh");
-        tool("Cài đặt");
-        const drawer = within(screen.getByRole("complementary", { name: "Cài đặt" }));
-        expect(drawer.getByRole("button", { name: /Đổi dữ liệu|Chọn thư mục dữ liệu/ })).toBeTruthy();
-        expect(drawer.getByText("Thư mục lưu")).toBeTruthy();
+        settingsSection("Dữ liệu & lưu trữ");
+        const page = within(screen.getByRole("region", { name: "Cài đặt" }));
+        expect(page.getByRole("button", { name: /Đổi dữ liệu|Chọn thư mục dữ liệu/ })).toBeTruthy();
+        expect(page.getByText("Thư mục lưu")).toBeTruthy();
+        expect(await page.findByText("Bộ nhớ đệm chỉ số")).toBeTruthy();
     });
     it("has no extract, variant, verification or export tools (removed 0.19.0)", async () => {
         render(<ScenarioApp />);

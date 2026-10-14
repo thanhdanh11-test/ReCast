@@ -1,3 +1,4 @@
+import type { Placement, ScenarioTemplate } from "./authoring/template";
 export interface Pose {
   t_s: number;
   x_m: number;
@@ -19,6 +20,10 @@ export interface Actor {
 export interface Environment {
   presentation?: {
     schema_version: 1;
+    style?: "pastel-v1";
+    lines?: Environment["lines"];
+    landscape?: {polygon: number[][]; holes: number[][][]}[];
+    attribution?: string;
     bounds_m?: number[];
     ground: {cell_m: number; samples: number[][]};
     surfaces: Environment["polygons"];
@@ -39,6 +44,10 @@ export interface Environment {
     crown_radius: number;
   }[];
   poles: { x: number; y: number; z: number; height: number }[];
+  /** Plan36: continuous structures on the drivable edge (railings, trusses, walls); heights above the road. */
+  barriers?: { kind: "barrier"; points: number[][]; heights: number[]; length_m: number }[];
+  /** Plan36: decks/ceilings the ego drove under; underside height above the local road. */
+  overheads?: { kind: "overhead"; polygon: number[][]; underside_above_road_m: number; road_z: number; area_m2: number }[];
   warnings: string[];
   provenance: string[];
 }
@@ -99,7 +108,8 @@ export interface Replay {
 }
 export interface Diagnostic { code: string; message: string; actor_id?: string; vertex_index?: number; xml_line?: number }
 export interface MapContext { schema_version: 1; profile: string; map_id: string; scene: string; coordinates: { frame: string; units: string; yaw_units: string; axes: string; origin_global_m: number[] }; bounds_m: number[]; polygons: Environment["polygons"]; static_obstacles: {kind: string; footprint: number[][]; estimated: true}[]; source_actors: {id: string; role: string; category: string; length_m: number; width_m: number; height_m: number; initial_pose: {x_m: number; y_m: number; z_m: number; yaw_rad: number}}[]; limits: {max_xml_bytes: number; max_actors: number; max_duration_s: number; max_vertices_per_actor: number; min_duration_s: number; max_speed_mps: {vehicle: number; pedestrian: number}; max_acceleration_mps2: {vehicle: number; pedestrian: number}}; capabilities: {xosc_version: string; position: string; action: string; shape: string; time: string; external_assets: boolean; road_relative_positions: boolean}; dataset_version: string }
-export interface ImportedScenario extends Scenario { mode: "imported"; profile: string; map_id: string; environment: Environment; import: {sha256: string; diagnostics: Diagnostic[]} }
+export interface ImportedScenario extends Scenario { mode: "imported"; profile: string; map_id: string; environment: Environment; import: {sha256: string; diagnostics: Diagnostic[]}; /** Only after importTemplate: where it landed on the source ego path. */ placement?: Placement }
+export type TemplateFit = { scene: string; ok: true; placement: Placement } | { scene: string; ok: false; code: string; message: string };
 export interface ImportedReport { kind: "imported"; execution: "pass" | "fail"; fidelity: {coverage: number; max_xy_m: number; max_yaw_rad: number}; map_conformance: "pass" | "fail"; contacts: {actors: string[]; [key: string]: unknown}[]; warnings: string[] }
 export interface ImportedReplay extends Replay { report: ImportedReport }
 export interface Settings {
@@ -136,6 +146,8 @@ export interface ImportedRun {
   contacts?: number;
 }
 export interface ImportedEntry {
+  /** Made from a template: "Sửa" opens the template form. */
+  has_template?: boolean;
   scenario_id: string;
   package_path: string;
   name: string;
@@ -163,6 +175,9 @@ export interface SceneMetrics {
   per_object: Record<string, ObjectMetrics>;
   notes: string[]; scenario_id?: string;
 }
+export interface StorageInfo { workspace: string; scenarios: number; scenarioBytes: number; metricsBytes: number; trashBytes: number; trashItems: number }
+export type FeedbackKind = "bug" | "idea" | "other";
+export interface FeedbackEntry { id: string; kind: FeedbackKind; message: string; contact: string; saved_at: string; context?: Record<string, string> }
 export interface DesktopAPI {
   chooseDataset(): Promise<{ name: string; version: string; scenes: Scene[] } | null>;
   chooseWorkspace(): Promise<{ name: string } | null>;
@@ -187,13 +202,25 @@ export interface DesktopAPI {
   exportMapContext(args: { source_id: string }): Promise<{path: string} | null>;
   /** With `xml` the given text is imported (editor); otherwise a file is picked. */
   importXosc(args: { source_id: string; xml?: string; file_name?: string }): Promise<ImportedScenario | null>;
+  /** Compiles a scenario template (plan38) to profile XOSC in the worker and imports it like a file. */
+  importTemplate(args: { source_id: string; template: ScenarioTemplate }): Promise<ImportedScenario>;
+  /** Read-only: would this template pass the import gate on `scene`? (metrics worker, cached). */
+  templateFit(args: { scene: string; template: ScenarioTemplate }): Promise<TemplateFit>;
   openImported(args: { source_id: string; path?: string }): Promise<ImportedScenario | null>;
   listImported(): Promise<ImportedEntry[]>;
-  readImported(args: { scenario_id: string }): Promise<{ scenario_id: string; name: string; file_name: string; xml: string }>;
+  /** `template` is set for scenarios made from a template (plan38): they are edited in the template form, not as XML. */
+  readImported(args: { scenario_id: string }): Promise<{ scenario_id: string; name: string; file_name: string; xml: string; template?: ScenarioTemplate | null }>;
+  deleteImportedRun(args: { scenario_id: string; run_id: string }): Promise<{ trash_path: string }>;
   deleteImported(args: { scenario_id: string }): Promise<{ trash_path: string }>;
   replayImported(args: { scenario_id: string }): Promise<ImportedReplay>;
   lidarFrame(args: { scene: string; time_s: number }): Promise<LidarFrame>;
   scenarioMetrics(args: { scenario_id: string }): Promise<SceneMetrics>;
+  /** Settings page (local app only; absent in the web demo). */
+  storageInfo?(): Promise<StorageInfo>;
+  clearMetricsCache?(): Promise<{ removed: number }>;
+  emptyTrash?(): Promise<{ removed: number }>;
+  submitFeedback?(args: { kind: FeedbackKind; message: string; contact?: string; context?: Record<string, string> }): Promise<{ id: string; saved_at: string }>;
+  listFeedback?(): Promise<FeedbackEntry[]>;
   cancelJob(): Promise<boolean>;
   onProgress(
     callback: (value: {

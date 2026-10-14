@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { createAuth } from "./local-auth.mjs";
 import { createCatalog } from "./dataset-catalog.mjs";
+import { createFeedback } from "./local-feedback.mjs";
+import { clearMetricsCache, emptyTrash, storageInfo } from "./local-storage.mjs";
 import { createWorkerBridge, fail } from "./worker-bridge.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -23,6 +25,8 @@ export const allowed = {
   mapContext: ["source_id"],
   exportMapContext: ["source_id"],
   importXosc: ["source_id", "xml_base64", "file_name"],
+  importTemplate: ["source_id", "template"],
+  templateFit: ["scene", "template"],
   openImported: ["source_id", "path"],
   replayImported: ["scenario_id"],
   lidarFrame: ["scene", "time_s"],
@@ -30,32 +34,44 @@ export const allowed = {
   listImported: [],
   readImported: ["scenario_id"],
   deleteImported: ["scenario_id"],
+  deleteImportedRun: ["scenario_id", "run_id"],
   chooseDataset: ["path"],
   chooseWorkspace: ["path"],
   listScenes: [],
   settings: [],
   cancelJob: [],
+  storageInfo: [],
+  clearMetricsCache: [],
+  emptyTrash: [],
+  submitFeedback: ["kind", "message", "contact", "context"],
+  listFeedback: [],
 };
 const ID = /^[a-f0-9]{32}$/;
 
 export function validateArgs(name, args) {
   if (!args || typeof args !== "object" || Array.isArray(args)) throw fail("INVALID_INPUT", "Invalid request");
   if (!allowed[name] || Object.keys(args).some((k) => !allowed[name].includes(k))) throw fail("INVALID_INPUT", "Unknown field");
-  const limit = name === "importXosc" ? 3 * 1024 * 1024 : 65536;
+  const limit = name === "importXosc" ? 3 * 1024 * 1024 : ["importTemplate", "templateFit"].includes(name) ? 256 * 1024 : 65536;
   if (JSON.stringify(args).length > limit) throw fail("INVALID_INPUT", "Request too large");
-  if (["mapContext", "exportMapContext", "importXosc", "openImported"].includes(name) &&
+  if (["mapContext", "exportMapContext", "importXosc", "importTemplate", "openImported"].includes(name) &&
       (typeof args.source_id !== "string" || !ID.test(args.source_id)))
     throw fail("INVALID_INPUT", "Invalid source identity");
-  if (["replayImported", "readImported", "deleteImported"].includes(name) && (typeof args.scenario_id !== "string" || !ID.test(args.scenario_id)))
+  if (["replayImported", "readImported", "deleteImported", "deleteImportedRun"].includes(name) && (typeof args.scenario_id !== "string" || !ID.test(args.scenario_id)))
     throw fail("INVALID_INPUT", "Invalid scenario identity");
   if (["chooseDataset", "chooseWorkspace", "openImported"].includes(name) &&
       (typeof args.path !== "string" || !args.path.trim() || args.path.length > 4096))
     throw fail("INVALID_INPUT", "Invalid path");
+  if (name === "deleteImportedRun" && (typeof args.run_id !== "string" || !ID.test(args.run_id))) throw fail("INVALID_INPUT", "Invalid run identity");
   if (name === "lidarFrame" && (typeof args.scene !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(args.scene) ||
       typeof args.time_s !== "number" || !Number.isFinite(args.time_s)))
     throw fail("INVALID_INPUT", "Invalid LiDAR request");
   if (name === "scenarioMetrics" && (typeof args.scenario_id !== "string" || !/^[a-f0-9]{32}$/.test(args.scenario_id)))
     throw fail("INVALID_INPUT", "Invalid scenario");
+  // Template content is checked field by field in the worker (topeye/scenario/template.py).
+  if (["importTemplate", "templateFit"].includes(name) && (!args.template || typeof args.template !== "object" || Array.isArray(args.template)))
+    throw fail("INVALID_INPUT", "Invalid template");
+  if (name === "templateFit" && (typeof args.scene !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(args.scene)))
+    throw fail("INVALID_INPUT", "Invalid scene");
   if (name === "importXosc" && args.file_name !== undefined && (typeof args.file_name !== "string" || args.file_name.length > 240))
     throw fail("INVALID_INPUT", "Invalid file name");
   if (name === "importXosc" && (typeof args.xml_base64 !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(args.xml_base64)))
@@ -86,6 +102,7 @@ export function createLocalServer({
   const token = randomBytes(32).toString("hex");
   fs.mkdirSync(userData, { recursive: true });
   const auth = createAuth({ path: join(userData, "local-account.json") });
+  const feedback = createFeedback({ dir: join(userData, "feedback") });
   const settingsPath = join(userData, "scenario-settings.json");
   let settings;
   try { settings = JSON.parse(fs.readFileSync(settingsPath, "utf8")); } catch { settings = {}; }
@@ -167,7 +184,7 @@ export function createLocalServer({
       saveSettings();
       return { name: basename(result.root), version: result.version, scenes: result.scenes };
     }
-    if (bridge.busy && ["mapContext", "exportMapContext", "importXosc", "openImported", "replayImported", "readImported", "deleteImported"].includes(name))
+    if (bridge.busy && ["mapContext", "exportMapContext", "importXosc", "importTemplate", "openImported", "replayImported", "readImported", "deleteImported", "deleteImportedRun"].includes(name))
       throw fail("BUSY", "Dừng tác vụ trước khi nạp kịch bản");
     if (name === "mapContext" || name === "exportMapContext") return call("map_context", { source_id: checked.source_id });
     if (name === "replayImported") return call("replay_imported", checked);
@@ -182,12 +199,27 @@ export function createLocalServer({
       if (bytes.length > 2097152) throw fail("RESOURCE_LIMIT", "XOSC tối đa 2 MiB");
       return call("import_xosc", { source_id: checked.source_id, xml_base64: bytes.toString("base64"), ...(checked.file_name ? { file_name: checked.file_name } : {}) });
     }
+    if (name === "importTemplate") return call("import_template", checked);
+    // Read-only map suitability probe; queued on the metrics worker so the main worker stays free.
+    if (name === "templateFit") return call("template_fit", checked, metricsBridge);
     if (name === "lidarFrame") return call("lidar_frame", checked, lidarBridge);
     if (name === "scenarioMetrics") return call("scenario_metrics", checked, metricsBridge);
     if (name === "listImported") return call("list_imported");
     if (name === "readImported") return call("read_imported", checked);
+    if (name === "deleteImportedRun") return call("delete_imported_run", checked);
     if (name === "deleteImported") return call("delete_imported", checked);
     if (name === "listScenes") return call("list_scenes");
+    if (name === "storageInfo") return storageInfo(settings.workspace);
+    if (name === "clearMetricsCache") {
+      if (metricsBridge.busy) throw fail("BUSY", "Đang tính chỉ số; thử lại sau");
+      return clearMetricsCache(settings.workspace);
+    }
+    if (name === "emptyTrash") {
+      if (bridge.busy) throw fail("BUSY", "Dừng tác vụ trước khi dọn thùng rác");
+      return emptyTrash(settings.workspace);
+    }
+    if (name === "submitFeedback") return feedback.submit(checked);
+    if (name === "listFeedback") return feedback.list();
     return call(name === "sourceScene" ? "source_scene" : name, checked);
   }
 
@@ -257,9 +289,10 @@ export function createLocalServer({
     if (req.headers["x-topeye-token"] !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
     const name = url.pathname.slice("/api/".length);
     const authMethod = ["auth/setup", "auth/login", "auth/logout"].includes(name);
+    const accountMethod = ["auth/password", "auth/sessionHours"].includes(name);
     const catalogMethod = ["catalog/add", "catalog/select"].includes(name);
     if (!authMethod && !auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
-    if (!authMethod && !catalogMethod && !Object.hasOwn(allowed, name)) return send(404, { code: "NOT_FOUND", message: "Unknown method" });
+    if (!authMethod && !catalogMethod && !accountMethod && !Object.hasOwn(allowed, name)) return send(404, { code: "NOT_FOUND", message: "Unknown method" });
     let raw = "";
     let size = 0;
     try { for await (const chunk of req) {
@@ -281,13 +314,19 @@ export function createLocalServer({
       else if (name === "auth/logout") {
         value = auth.logout(req, res);
         for (const [client, request] of clients) if (!auth.authenticated(request)) { client.end(); clients.delete(client); }
+      } else if (name === "auth/password") {
+        value = await auth.changePassword(req, args, res);
+        for (const [client, request] of clients) if (!auth.authenticated(request)) { client.end(); clients.delete(client); }
+      } else if (name === "auth/sessionHours") {
+        value = auth.setSessionHours(args);
       } else if (catalogMethod) {
         const keys = name === "catalog/add" ? ["path", "name"] : ["id"];
         if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).some(k => !keys.includes(k))) throw fail("INVALID_INPUT", "Invalid catalog input");
         if (name === "catalog/add") value = await catalog.add(args.path, args.name, authorize);
         else value = await handle("chooseDataset", { path: catalog.get(args.id).root }, authorize);
       } else value = await handle(name, args, authorize);
-      if (!authMethod && !auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Phiên đăng nhập đã kết thúc" });
+      // A password change rotates this session: the request's old cookie is expected to be gone.
+      if (!authMethod && !accountMethod && !auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Phiên đăng nhập đã kết thúc" });
       send(200, { value });
     }
     catch (e) {

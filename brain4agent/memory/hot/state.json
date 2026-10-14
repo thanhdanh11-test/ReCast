@@ -1,21 +1,21 @@
 {
-  "current_version": "0.24.0",
+  "current_version": "0.31.1",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-13T09:41:34+07:00",
-    "scope": "0.24.0 settings: theme + graphics quality; weather removed from rail",
+    "timestamp": "2026-10-13T10:33:47+07:00",
+    "scope": "0.25.0 plan35 settings page",
     "backend_tests": {
       "total": 667,
       "pass": 667
     },
     "frontend_tests": {
-      "total": 351,
-      "pass": 351
+      "total": 365,
+      "pass": 365
     },
     "server_tests": {
-      "total": 30,
-      "pass": 30
+      "total": 37,
+      "pass": 37
     },
     "e2e_local_web": "14/14",
     "evidence": "planning/34_2026-10-13_dataset-intake/evidence"
@@ -104,12 +104,20 @@
       "frontend_build_exit": 0,
       "backend_lint_exit": 0,
       "npm_audit_existing_advisories": 6
+    },
+    "destination_reconfirmed": "2026-10-13",
+    "cabin_backport": {
+      "commit": "a451a1a3d8ad781d5d234ed31c7f8d8e5bfad482",
+      "branch": "main",
+      "status": "pushed_and_remote_verified",
+      "scope": "bonnet only on P-056 v0.15.0 baseline, released there as0.15.1",
+      "local_source_commit": "95ae6fe"
     }
   },
   "active_plan": {
-    "id": "18_2026-10-10_app-logo",
-    "status": "completed_local",
-    "completed_at": "2026-10-10T15:57:06+07:00"
+    "id": "38_2026-10-13_scenario-authoring",
+    "status": "map_fit_completed_local_p03_pending",
+    "updated_at": "2026-10-13T15:46:53+07:00"
   },
   "nurec_static": {
     "scene": "scene-0061",
@@ -723,7 +731,7 @@
     "active_scene": "scene-0103",
     "artifacts_retention": "moved_to_macOSTrash_after_usercleanup2026-10-09"
   },
-  "active_plan_status": "completed_local",
+  "active_plan_status": "in_progress",
   "project_priority": {
     "confirmed_by_user": "2026-10-09",
     "goal": "nuScenes→OpenSCENARIO→replay→speed/gapvariants→trajectoryerror/validscenario counts",
@@ -1043,6 +1051,175 @@
       "lidar_cold": 1.2
     },
     "output": "identical static env; annotation pose diff <=1.8e-12 m"
+  },
+  "runner_timeline": {
+    "completed_at": "2026-10-13T10:53:19+07:00",
+    "version": "0.26.0",
+    "plan": "planning/36_2026-10-13_runner-timeline/plan.md",
+    "frontend_pass": 371,
+    "server_pass": 37,
+    "e2e_steps": 15,
+    "layout_ratio": 2.000035947947372,
+    "metadata_unchanged": 13,
+    "independent_review": "approved",
+    "url": "http://127.0.0.1:5180",
+    "commit": false
+  },
+  "runner_polish": {
+    "completed_at": "2026-10-13T11:12:46+07:00",
+    "plan": "planning/37_2026-10-13_runner-polish/plan.md",
+    "backend_pass": 673,
+    "frontend_pass": 374,
+    "server_pass": 38,
+    "e2e_steps": 16,
+    "camera_bottom_px": 12,
+    "timeline_footer": false,
+    "run_deletion": "confirmed move to .trash",
+    "owner_history_changed": false,
+    "runtime": "http://127.0.0.1:5180/",
+    "commit": false
+  },
+  "scenario_authoring": {
+    "p01": "ui+mock_ai completed local",
+    "types": 20,
+    "groups": 5,
+    "template_profile": "topeye-scenario-template-v1",
+    "frontend_tests": {
+      "total": 426,
+      "pass": 426
+    },
+    "server_tests": {
+      "total": 40,
+      "pass": 40
+    },
+    "browser": "7 screenshots, 0 errors",
+    "evidence": "planning/38_2026-10-13_scenario-authoring/evidence/p02",
+    "version_bump": "pending P02 (0.27.0)",
+    "ai_tab": "chatbot (text + choices), mock",
+    "p02": "template compile/import completed local v0.28.0",
+    "backend_tests": {
+      "total": 702,
+      "pass": 702
+    },
+    "real_data_presets": "44/100 (5 nuScenes scenes x 20 types)",
+    "map_fit": "v0.29.0 template_fit probe + MapFit UI",
+    "map_fit_real": "emergency_stop 3/10 (16.5 s cold), cut_in 2/10 (3.4 s)",
+    "fix_ego_brake": "v0.29.1 new events default to ego; hard_brake vehicles only",
+    "edit_as_template": "v0.30.0 template.json sidecar; edit via ScenarioCreator",
+    "edit_no_template": "v0.30.1 recreate with template; XML only advanced",
+    "e2e_local_web": "16 steps PASS"
+  },
+  "bridge_structures": {
+    "version": "0.27.0",
+    "measured_at": "2026-10-13T13:19:05+07:00",
+    "plan": "planning/39_2026-10-13_bridge-structures/plan.md",
+    "corridor_scenes": [
+      "av2-02678d04"
+    ],
+    "false_positive_scenes": 0,
+    "overheads": 0,
+    "backend_tests": 681,
+    "frontend_tests": 416
+  },
+  "haulix_preview": {
+    "status": "rejected_and_deleted_by_owner_request",
+    "app_changed": false,
+    "integration_authorized": false,
+    "server_stopped": true,
+    "updated_at": "2026-10-13T14:26:26+07:00"
+  },
+  "map_shape_pilot": {
+    "status": "local_preview_ready_owner_acceptance_pending",
+    "scene": "scene-0061",
+    "plan": "40_2026-10-13_map-shape-pilot",
+    "url": "http://127.0.0.1:5181",
+    "source": "OSM via BBBike + nuScenes/LiDAR",
+    "buildings": 8,
+    "height_levels_estimates": 5,
+    "height_fallbacks": 3,
+    "bridge_verified": false,
+    "road_overlap_m2": 331.7849386333424,
+    "tests_passed": 13,
+    "runtime_errors": 0,
+    "product_changed": false,
+    "version_changed": false,
+    "updated_at": "2026-10-13T15:54:04+07:00",
+    "browser_control": "user_owned; do not resume without explicit request",
+    "last_visual_check": "before final shadow-normal-bias tweak; final build/typecheck passed",
+    "style": "complete-pastel-v2",
+    "reference": "3_4_4_75b87bc5ca.avif",
+    "pastel_typecheck_build": "pass",
+    "pastel_visual": "pending owner refresh; browser user-owned",
+    "extent_m": [
+      420,
+      420
+    ],
+    "raw_buildings": 30,
+    "display_building_components": 34,
+    "road_polygons": 536,
+    "road_lines": 57,
+    "landscape_islands": 49,
+    "visible_actors_at_5s": 127,
+    "display_road_overlap_m2": 0,
+    "raw_road_overlap_m2": 1288.4882173773062,
+    "display_removed_footprint_m2": 1499.4060740139755,
+    "mutation_checks_detected": 3,
+    "geometry_renderer_check": "pass;637 meshes;2590379 vertices;0 issues",
+    "browser_visual": "pending owner refresh; user-owned; not reclaimed",
+    "depth_patch": {
+      "at": "2026-10-13T16:03:47+07:00",
+      "style": "complete-pastel-v3-depth",
+      "checks": 2538,
+      "old_depth_collisions": 1365,
+      "new_depth_collisions": 0,
+      "typecheck": "pass",
+      "build": "pass",
+      "visual": "pending owner refresh",
+      "product_changed": false
+    }
+  },
+  "display_3d_research": {
+    "plan": "41_2026-10-13_3d-display",
+    "status": "cancelled_by_owner",
+    "agent": "agy",
+    "implementation_authorized": false,
+    "requirement": "distinct lightweight model per original dataset class; owner selects first",
+    "terminal": "term_48539c6c-0c4e-4517-a1be-8e65b9803122",
+    "request_id": "e081a2dd-e1d2-4753-9a53-9eade14fe0ac",
+    "turn_start_verified": false,
+    "conversation": "0797369c-f1ba-445f-b8c8-1b4a44425b5e",
+    "auto_accept_tools": true
+  },
+  "pastel_maps_batch": {
+    "plan": "42_2026-10-13_pastel-maps",
+    "status": "mainweb_local_complete",
+    "scenes": 20,
+    "new_object_models": false,
+    "url": "http://127.0.0.1:5181",
+    "checked_at": "2026-10-13T17:53:59+07:00",
+    "tests_pass": 27,
+    "ring_count": 5801,
+    "invalid_rings": 0,
+    "geometry_scenes": 20,
+    "terrain_fallbacks": 0,
+    "new_geometry_issues": 0,
+    "inherited_source_polygon_issues": 3,
+    "http_maps": 20,
+    "data_bytes": 30522677,
+    "product_changed": true,
+    "product_version": "0.31.0",
+    "owner_visual_approved": true,
+    "mainweb_url": "http://127.0.0.1:5180",
+    "mainweb_frontend_tests": 428,
+    "mainweb_backend_tests": 31,
+    "mainweb_geometry_builds": 40,
+    "live_source_matches": 20,
+    "compressed_assets_bytes": 2101118,
+    "mainweb_gpu": "not measured; browser owned by user",
+    "completed_at": "2026-10-13T21:25:29+07:00",
+    "mainweb_server_tests": 40,
+    "mainweb_http_verified": true,
+    "independent_review": "approved"
   },
   "cabin_hood": {
     "version": "0.31.1",

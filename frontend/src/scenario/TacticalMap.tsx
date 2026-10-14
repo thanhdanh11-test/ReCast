@@ -3,6 +3,7 @@ import { useViewTransform } from "./useViewTransform";
 import type { Scenario, Replay } from "./types";
 import { visibleActors, footprint, polygonPath } from "./sensors";
 import { vehicleClass, VEHICLE_CLASS_LABELS } from "./vehicleClass";
+import { useT } from "./i18n";
 export function TacticalMap({
   scenario,
   time,
@@ -12,6 +13,7 @@ export function TacticalMap({
   time: number;
   replay: Replay | null;
 }) {
+  const t = useT();
   const environment =
     scenario?.mode === "source" || scenario?.mode === "imported"
       ? scenario.environment
@@ -46,24 +48,24 @@ export function TacticalMap({
       .map((a) => vehicleClass(a.actor.category)),
   );
   if (!scenario)
-    return <div className="view-empty">Chọn dữ liệu để xem bản đồ.</div>;
+    return <div className="view-empty">{t("Chọn dữ liệu để xem bản đồ.")}</div>;
   if (!environment || !paths.length)
     return (
       <div className="view-empty">
         {scenario.mode === "source" || scenario.mode === "imported"
-          ? "Cảnh này không có dữ liệu bản đồ."
-          : "Trích đoạn dùng đường tổng hợp. Về cảnh gốc để xem map nuScenes."}
+          ? t("Cảnh này không có dữ liệu bản đồ.")
+          : t("Trích đoạn dùng đường tổng hợp. Về cảnh gốc để xem map nuScenes.")}
       </div>
     );
   if (!ego || !centre)
-    return <div className="view-empty">Thiếu pose ego tại thời điểm này.</div>;
+    return <div className="view-empty">{t("Thiếu pose ego tại thời điểm này.")}</div>;
   return (
     <div className="sensor-view" data-testid="map-view" data-time={time}>
       <svg
         ref={controls.ref}
         viewBox={`${centre.x - span / 2} ${-centre.y - span / 2} ${span} ${span}`}
         role="img"
-        aria-label="Bản đồ nuScenes và vị trí đối tượng"
+        aria-label={t("Bản đồ nuScenes và vị trí đối tượng")}
       >
         {paths.map((p, i) => (
           <path
@@ -110,17 +112,17 @@ export function TacticalMap({
       <ul
         className="map-legend"
         data-testid="map-legend"
-        aria-label="Chú thích màu theo loại đối tượng"
+        aria-label={t("Chú thích màu theo loại đối tượng")}
       >
         <li>
           <i className="map-swatch map-swatch-ego" />
-          Xe ego
+          {t("Xe ego")}
         </li>
         {VEHICLE_CLASS_LABELS.filter(([c]) => present.has(c)).map(
           ([c, label]) => (
             <li key={c}>
               <i className={`map-swatch map-swatch-${c}`} />
-              {label}
+              {t(label)}
             </li>
           ),
         )}

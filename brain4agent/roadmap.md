@@ -3,6 +3,9 @@
 Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại OpenSCENARIO từ nuScenes; đo quỹ đạo và số kịch bản hợp lệ. Blender/NuRec/perception là nghiên cứu phụ, chưa nghiệm thu và không tự chạy tiếp.
 
 ## Mục tiêu hiện tại (Active)
+- [ ] [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md) Tạo kịch bản bằng template + AI: P01 giao diện (20 loại, form 8 phần, tab AI chatbot mock) ✅ local; **P02 v0.28.0 ✅ local** — "Tạo từ template" biên dịch thật qua `validate_xosc`, đặt dọc quỹ đạo ego nguồn, tự tìm vị trí/lật (đo 44/100 loại×cảnh); **v0.29.0 gợi ý map dùng được khi chọn loại**, **v0.30.0 sửa bằng form template** ✅ local. P03 AI thật ⬜. Cũ: chờ chủ duyệt; P02 compiler template→XOSC + anchor map ⬜; P03 AI thật phía server ⬜.
+- [x] [Plan37](../planning/37_2026-10-13_runner-polish/plan.md)0.26.1: camera sát đáy, timeline rõ màu/không footer, xoá từng lịch sử vào .trash; sửa metrics loading khi quay lại;16-step E2E đạt.
+- [x] [Plan36](../planning/36_2026-10-13_runner-timeline/plan.md) v0.26.0: runner 2:1, timeline XOSC từng vật thể, tabs Kịch bản/Số liệu/Lịch sử; 15-step real E2E đạt.
 - [x] [Plan34](../planning/34_2026-10-13_dataset-intake/plan.md) v0.23.0: local login/catalog + native AV2 10 logs + nuScenes mini10; local E2E đạt.
 - [x] v0.8.0: [Plan09](../planning/09_2026-10-09_sensor-views/plan.md) — 3D/LiDAR quét ngang/map nuScenes theo timeline;160frontend,independent24,standalone2/2esmini đạt; đã cài/mở app.
 - [ ] Chủ dự án nghiệm thu bằng mắt 0.8.1→0.12.3 (thay các mục nghiệm thu v0.5/v0.8; LiDAR giả lập 2D, nhà/cây ước lượng LiDAR).
@@ -51,6 +54,7 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [ ] Dữ liệu thật 8 cam của team: viết adapter mới. Nếu không có map làn thì tự dò làn từ intensity LiDAR.
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
+- Plan38: loại giao lộ chỉ đặt được ở đúng giao lộ — cần nhận diện giao lộ từ map.
 *Nơi lưu trữ các ý tưởng hay, kiến trúc mở rộng chưa ưu tiên làm ngay nhưng cần giữ lại để tham khảo.*
 - [ ] **Chạy esmini trên giao diện** (bỏ ở 0.21.0 theo chủ dự án): nếu cần lại, gợi ý icon ▶ trên dòng kịch bản; backend replay_imported vẫn sẵn.
 - [ ] **Trình sửa kịch bản trực quan** (0.20.0): hiện "Sửa" là sửa XML; có thể kéo điểm quỹ đạo trên map/3D rồi sinh XOSC.
@@ -180,5 +184,36 @@ Fixed large white pavement patches: nuScenes stop_line polygons are semantic sto
 
 ## Done — Native app logo v0.12.3 — 2026-10-10T15:57:06+07:00
 - Supplied logo embedded as Dock/Finder application icon; same original header logo verified.282tests/build/signature/installed UI+icon checks PASS. Installed0.12.3; no commit/push.
+- 💡 Gửi góp ý trực tiếp về nhà sản xuất (cần đích được duyệt: email/biểu mẫu/endpoint); dịch thông báo lỗi server và định dạng số theo ngôn ngữ; giao diện sáng cho màn đăng nhập/thư viện.
+- 💡 Plan39 tiếp: nghiệm thu hầm/cầu vượt khi có log AV2 đi qua (đang chỉ test tổng hợp); thể hiện độ cao mép cầu (thành bên mặt cầu) khi có dữ liệu địa hình bên dưới.
+
+
+### Haulix visual concept — cancelled
+- 2026-10-13T14:26:26+07:00: Owner rejected the design and requested deletion. Prototype removed, preview server stopped. App unchanged; owner will revisit UI later. No pending integration.
+
+## Map shape pilot — 2026-10-13
+- [x] Plan40 local monochrome preview scene0061:8 OSM footprints, before/after,3 views;10 tests/build/typecheck/Ruff pass;product unchanged.
+- [ ] Owner visual acceptance and investigate331.785m² OSM/source drivable overlap before any production integration. No bridge verified in this scene.
+
+- [x] Plan40 pastel reference styling built/typechecked; [ ] owner refresh/visual acceptance (browser user-owned).
+
+- [x] Plan40 complete420×420m pastel patch:34display building components,536source polygons,49planting islands,127sourceactors at5s;display road overlap0;13tests+geometry/build gates pass.
+- [ ] Plan40 complete revision:owner visual approval/browser check;window remains user-controlled.
+
+
+### Pilot road depth patch — 2026-10-13T16:03:47+07:00
+Owner screenshot shows distant pavement breakup. Pilot camera now adapts near plane to orbit distance (clamp distance/50 to0.25–25m), retaining far2500m. 24-bit depth quantization check:2538samples, old near0.1 produced1365collisions for4cm layers; adaptive near produces0. Road vertices below floor(-0.2m):0/168474. tsc/Three geometry/Vite exit0; evidence:`planning/40_2026-10-13_map-shape-pilot/evidence/depth-checks.txt`. This proves precision improvement, not GPU visual acceptance; owner refresh pending. No geometry/class/product/version changes.
+
+2026-10-13T16:11:41+07:00 — Plan41 3D display: owner authorizes Agy research of distinct lightweight model per source class (nuScenes/AV2), visual/license/complexity shortlist. Implementation must await owner model approval. H01 prepared; dispatch pending.
+
+Plan41 H01 delivered to Agy terminal term_fddbd3d0-a474-4588-9d06-8b0cc15ab85c; accepted=true, turn-start observation unsupported. User lightweight requirement included. Implementation awaits owner model selections.
+
+
+## Twenty pastel scene maps — 2026-10-13T17:53:59+07:00
+Plan42 local preview at http://127.0.0.1:5181 replaces single-scene pilot.20/20 maps (10nuScenes mini+10AV2 Sensor),20OSM-covered regions,2793display building components counted across scenes. Keep existing actors/classes/poses; cancel all plan41 object-model integration. Offline source export122.923s, cached reconstruction about7s;30,522,677bytes JSON total, max3,520,269bytes/scene. Only one selected scene loads; no20map GPU residency.
+Sources: cached BBBike Singapore for6scenes;14OpenFreeMap/OpenMapTiles OSM tiles(2,534,936bytes) for14US scenes. AV2 uses official city-origin UTM, nuScenes origin-scaled Mercator; holes preserved,0.4m cosmetic road clearance, measured overlap0m². Tile heights may be inferred; missing heights9.6m explicitly estimated. Supplement uncovered facades with LiDAR estimates. Existing LiDAR structures retained; no invented bridge.
+Geometry cleanup at1mm presentation precision removes near-zero union edges/slivers; source polygons/lines and actor arrays preserved.27tests pass,5801rings valid,20Three.js CPU builds pass with0new geometry defects/0terrain fallbacks;3pre-existing invalid source polygons remain disclosed (scene0103:2,0655:1). Independent reviewer remeasured14scopedtests+5801rings+tsc. HTTP20/20 payload hashes match built files. GPU visual/FPS not measured because owner controls browser; not a product release. Evidence: plan42/evidence/{summary.json,geometry.json,rings.txt,tests.txt,http.json}.
+
+- ✅ v0.31.0: owner-approved20pastel maps integrated into source/imported localweb.20livefingerprints,40geometrybuilds/0newissues,428frontend+31backendtests. Mainweb GPU/FPS still unmeasured; original actors and scenario map contracts preserved.
 
 - ✅ v0.31.1: visible red bonnet in cabin only;24triangles, same driver eye and actor poses;17focused tests.

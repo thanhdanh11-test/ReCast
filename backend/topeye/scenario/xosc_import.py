@@ -520,12 +520,9 @@ def normalized_xml(xml_bytes):
 
 def sample_xosc(context, moving=False):
     """Local acceptance fixture, never a substitute for a future generator."""
-    import xml.etree.ElementTree as ET
-
     from shapely.geometry import Point
     from shapely.ops import unary_union
 
-    from topeye.scenario.export import node, scenario_xml
     from topeye.scenario.map_context import DRIVABLE, footprint
 
     surfaces, obstacles = verify_context(context)
@@ -555,7 +552,7 @@ def sample_xosc(context, moving=False):
             {
                 "id": ["ego", "car", "person"][i],
                 "role": "ego" if i == 0 else "traffic",
-                "category": "vehicle.car",
+                "category": "vehicle.car" if i < 2 else "human.pedestrian",
                 "length_m": 4.5 if i < 2 else 0.5,
                 "width_m": 1.8 if i < 2 else 0.5,
                 "height_m": 1.6,
@@ -565,29 +562,46 @@ def sample_xosc(context, moving=False):
                 ],
             }
         )
-    root = scenario_xml({"schema_version": 1, "actors": actors, "interval_s": [0, 2]})
+    xml = profile_xml(actors, 2, context["map_id"])
+    validate_xosc(xml, context)
+    return xml
+
+
+def profile_xml(actors, duration, map_id):
+    """Serialize timed world-pose samples as `topeye-map-trajectories-v1` XML (validate with validate_xosc).
+
+    Each actor: id, role, category (`vehicle.<car|truck|bus|motorbike|bicycle>` or `human.pedestrian`), length_m,
+    width_m, height_m and samples spanning [0, duration]. WorldPosition is the box center at ground level.
+    """
+    import xml.etree.ElementTree as ET
+
+    from topeye.scenario.export import node, trajectory_xml
+
+    rows = [
+        {**a, "category": "vehicle.car" if a["category"].startswith("human.") else a["category"]}
+        for a in actors
+    ]
+    root = trajectory_xml({"schema_version": 1, "actors": rows, "interval_s": [0, duration]})
     root.find("RoadNetwork").clear()
     root.find(
         "Storyboard/StopTrigger/ConditionGroup/Condition/ByValueCondition/SimulationTimeCondition"
-    ).set("value", "2")
-    for i, obj in enumerate(root.find("Entities")):
+    ).set("value", str(duration))
+    for actor, obj in zip(actors, root.find("Entities"), strict=True):
         model = obj[0]
-        if i == 2:
+        if actor["category"].startswith("human."):
             bbox = copy.deepcopy(model.find("BoundingBox"))
             obj.remove(model)
             model = node(
-                obj, "Pedestrian", name="person", model="", mass=70, pedestrianCategory="pedestrian"
+                obj, "Pedestrian", name=actor["id"], model="", mass=70, pedestrianCategory="pedestrian"
             )
             node(model, "ParameterDeclarations")
             model.append(bbox)
             node(model, "Properties")
-        model.find("BoundingBox/Center").set("z", str(actors[i]["height_m"] / 2))
+        model.find("BoundingBox/Center").set("z", str(actor["height_m"] / 2))
         for name, value in [
-            ("topeye.map_id", context["map_id"]),
+            ("topeye.map_id", map_id),
             ("topeye.profile", PROFILE),
-            ("topeye.role", actors[i]["role"]),
+            ("topeye.role", actor["role"]),
         ]:
             node(model.find("Properties"), "Property", name=name, value=value)
-    xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-    validate_xosc(xml, context)
-    return xml
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)

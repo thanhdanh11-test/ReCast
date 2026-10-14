@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { heightRgb, type DecodedLidar } from './measuredLidar';
+import { pointRgb, type DecodedLidar } from './measuredLidar';
+import { defaultPreferences, type Preferences } from './preferences';
+import { useT } from "./i18n";
 
 /** Camera presets around the ego (Three axes: x = ego right, y = up, −z = ego forward). */
 const TOP = { distance: 120, polar: 0.001 };
@@ -10,9 +12,10 @@ const TOP = { distance: 120, polar: 0.001 };
  * Measured LiDAR as an orbitable 3D point cloud: drag up/down to tilt, sideways to orbit,
  * right-drag to pan, wheel to zoom, double-click for the top view. Renders on demand, not per frame.
  */
-export function LidarPointCloud3D({ identity, data }: { identity?: string; data: DecodedLidar | null }) {
+export function LidarPointCloud3D({ identity, data, display = defaultPreferences }: { identity?: string; data: DecodedLidar | null; display?: Pick<Preferences, 'lidarColor' | 'lidarPointSize'> }) {
+  const t = useT();
     const host = useRef<HTMLDivElement>(null);
-    const api = useRef<{ setData: (d: DecodedLidar | null) => void; preset: (p: typeof TOP) => void } | null>(null);
+    const api = useRef<{ setData: (d: DecodedLidar | null, view: Pick<Preferences, 'lidarColor' | 'lidarPointSize'>) => void; preset: (p: typeof TOP) => void } | null>(null);
     const [error, setError] = useState('');
     const [tilt, setTilt] = useState(0);
     useEffect(() => {
@@ -22,14 +25,14 @@ export function LidarPointCloud3D({ identity, data }: { identity?: string; data:
         try {
             renderer = new THREE.WebGLRenderer({ antialias: true });
         } catch {
-            setError('Không khởi tạo được WebGL cho LiDAR 3D.');
+            setError(t('Không khởi tạo được WebGL cho LiDAR 3D.'));
             return;
         }
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x181818);
         element.appendChild(renderer.domElement);
         renderer.domElement.className = 'lidar-canvas';
-        renderer.domElement.setAttribute('aria-label', 'LiDAR đo thực 3D, kéo để xoay/nghiêng');
+        renderer.domElement.setAttribute('aria-label', t('LiDAR đo thực 3D, kéo để xoay/nghiêng'));
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 600);
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -63,13 +66,14 @@ export function LidarPointCloud3D({ identity, data }: { identity?: string; data:
             render();
         };
         api.current = {
-            setData: (d) => {
+            setData: (d, view) => {
+                material.size = view.lidarPointSize;
                 if (!d) { geometry.setDrawRange(0, 0); render(); return; }
                 const n = d.frame.count, positions = new Float32Array(n * 3), colours = new Float32Array(n * 3);
                 for (let i = 0; i < n; i++) {
                     const x = d.xyz[i * 3] / 100, y = d.xyz[i * 3 + 1] / 100, z = d.xyz[i * 3 + 2] / 100;
                     positions[i * 3] = -y; positions[i * 3 + 1] = z; positions[i * 3 + 2] = -x;
-                    const [r, g, b] = heightRgb(z);
+                    const [r, g, b] = pointRgb(view.lidarColor, x, y, z, d.intensity[i]);
                     colours[i * 3] = r / 255; colours[i * 3 + 1] = g / 255; colours[i * 3 + 2] = b / 255;
                 }
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -107,7 +111,7 @@ export function LidarPointCloud3D({ identity, data }: { identity?: string; data:
             renderer.domElement.remove();
         };
     }, []);
-    useEffect(() => { api.current?.setData(data); }, [data]);
+    useEffect(() => { api.current?.setData(data, display); }, [data, display.lidarColor, display.lidarPointSize]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => { api.current?.preset(TOP); }, [identity]);
     return <div className="lidar-3d" data-tilt={tilt}>
       <div ref={host} className="lidar-3d-host"/>

@@ -167,7 +167,28 @@ Stop-region PATCH0.10.1: sourceEnvironment.ts omits semanticstop_line fill (not 
 ## Plan34 / v0.23.0 access and datasets
 - `frontend/src/scenario/AccessApp.tsx` + accessApi/access.css: login and dataset catalog before ScenarioApp.
 - `frontend/server/local-auth.mjs`, `dataset-catalog.mjs`: account/session and local dataset registry; local-server routes.
+- **Structures v0.27.0** ([Plan39](../planning/39_2026-10-13_bridge-structures/plan.md)): `backend/topeye/scenario/structures.py` (mép đường, hành lang hai bên, trần), gọi từ `source_scene.static_environment`; vẽ ở `frontend/src/scenario/sourceEnvironment.ts`.
+- **Settings v0.25.0** ([Plan35](../planning/35_2026-10-13_settings-page/plan.md)): `frontend/src/scenario/SettingsPage.tsx` (trang Cài đặt), `preferences.ts` (tuỳ chọn theo trình duyệt), `i18n.ts` + `i18n.en.ts` (`t()` tiếng Việt → English), `playback.ts`; server `local-storage.mjs` (dung lượng, xoá cache chỉ số, dọn .trash), `local-feedback.mjs` (góp ý lưu `userData/feedback/`), `local-auth.mjs` (đổi mật khẩu, thời gian phiên).
 - `backend/topeye/core/adapters/argoverse.py`: native AV2 Sensor; `scenario/dataset.py::create_adapter` factory.
 - Operations/contracts: [scenario](../docs/scenario.md), [plan34](../planning/34_2026-10-13_dataset-intake/plan.md).
+
+**Runner timeline v0.26.0 (plan36):** `frontend/src/scenario/ActorTimeline.tsx` + `actorTimeline.css` own source-vertex motion rows and seeking; ScenarioRunner owns 2:1 layout, three tabs, aggregated saved history. Contracts and operations: docs/scenario.md / planning/36_2026-10-13_runner-timeline/specs.
+
+**Runner polish0.26.1 (plan37):** ActorTimeline visibleKeys display thinning + separate marker/motion rails; library.py::delete_imported_run and worker/API/UI one-run trash flow. See docs/scenario.md.
+**Scenario authoring v0.28.0 (plan38):** backend `backend/topeye/scenario/template.py` (`check_template`, `compile_template`, placement dọc quỹ đạo ego nguồn) ← worker `import_template` ← server `importTemplate` ← `ScenarioApp.createFromTemplate`; `xosc_import.profile_xml` + `export.trajectory_xml` dùng chung; v0.30.0 sửa bằng template: `library.read_imported` trả `template` từ `<ws>/<id>/template.json` (ghi trong `imported_replay.persist_import`); v0.29.0 gợi ý map: worker `template_fit` ← server `templateFit` (worker chỉ số) ← `authoring/MapFit.tsx`. Frontend: `frontend/src/scenario/authoring/` — `template.ts` (schema `topeye-scenario-template-v1` + `validateTemplate`), `catalog.ts` (20 loại kịch bản/5 nhóm, preset `build(params)`), `mockAi.ts` (mock AI), `ScenarioCreator.tsx` (mở từ `ScenarioRunner.openCreate`), `TypeGallery`/`TemplateForm`/`TemplatePreview`/`AiChat`, `authoring.css`. `i18n.test.ts` quét cả thư mục con + chuỗi catalog. Spec: planning/38_2026-10-13_scenario-authoring/.
+
+**Map shape pilot (plan40, isolated):** `planning/40_2026-10-13_map-shape-pilot/{extract_osm.py,prepare.py,build.mjs,preview/}` → http://127.0.0.1:5181. OSM footprints + source roads/LiDAR, scene0061 only. Product unchanged; owner visual/alignment acceptance pending.
+
+Plan40 style override: owner AVIF reference → pastel preview at5181; `preview/main.ts` owns palette and camera only. See `evidence/pastel-checks.txt`.
+
+Plan40 full-map entry:`complete_map.py`→`preview/data.json`→existing`build.mjs`;`verify-render.mjs` builds/exercises actual Three geometry without browser.420×420m pastel neighborhood at5181;source classes unchanged.
+
+Plan40 camera depth: `preview/cameraDepth.ts` adapts near plane for distant roads; regression/evidence in `verify-scene.ts` / `evidence/depth-checks.txt`.
+
+Plan41 `planning/41_2026-10-13_3d-display/`: comprehensive3D update, P01 lightweight per-class model research, owner approval before implementation.
+
+**Plan42 pastel20 preview:** `planning/42_2026-10-13_pastel-maps/` owns geography.py/export_sources.py/fetch_tiles.py/reconstruct.py, preview scene/main, public manifest+maps, build.mjs/publish_local.py. Reuses plan40 footprint parser (optional projection callback).localhost5181. Plan41 objectmodels cancelled.
+
+- Mainweb pastel (v0.31.0): `backend/topeye/scenario/pastel.py`, `backend/scripts/package_pastel_maps.py`, `backend/assets/pastel-maps/` → `sourceEnvironment.ts` / `pastelStyle.ts` / `scene3d.ts`; docs/scenario.md; plan42 SPEC-P02-WEB.md.
 
 - v0.31.1 cabin bonnet: `cabinCamera.ts#createCabinHood`, TrackView camera subtree; docs/scenario.md / plan42 P03.

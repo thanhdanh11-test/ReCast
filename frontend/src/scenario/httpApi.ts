@@ -81,6 +81,11 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
     replayImported: (args) => call("replayImported", args),
     lidarFrame: (args) => call("lidarFrame", args),
     scenarioMetrics: (args) => call("scenarioMetrics", args),
+    storageInfo: () => call("storageInfo"),
+    clearMetricsCache: () => call("clearMetricsCache"),
+    emptyTrash: () => call("emptyTrash"),
+    submitFeedback: (args) => call("submitFeedback", args),
+    listFeedback: () => call("listFeedback"),
     cancelJob: () => call("cancelJob"),
     chooseDataset: async () => {
       const path = askPath("Đường dẫn thư mục nuScenes hoặc Argoverse 2 Sensor:");
@@ -96,6 +101,7 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
       return path ? call("openImported", { source_id, path }) : null;
     },
     readImported: (args) => call("readImported", args),
+    deleteImportedRun: (args) => call("deleteImportedRun", args),
     deleteImported: (args) => call("deleteImported", args),
     importXosc: async ({ source_id, xml, file_name }) => {
       if (xml !== undefined) {
@@ -109,6 +115,8 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
       const xml_base64 = toBase64(new Uint8Array(await file.arrayBuffer()));
       return call("importXosc", { source_id, xml_base64, file_name: file.name });
     },
+    importTemplate: (args) => call("importTemplate", args),
+    templateFit: (args) => call("templateFit", args),
     exportMapContext: async ({ source_id }) => {
       const context = await call<{ scene: string }>("exportMapContext", { source_id });
       const name = `topeye-${context.scene}-map.json`;

@@ -8,11 +8,21 @@ from pathlib import Path
 
 import numpy as np
 from scipy.spatial import cKDTree
+from shapely import contains_xy
+from shapely.geometry import LineString, Polygon
+from shapely.ops import unary_union
 
 from topeye.core.adapters.base import DatasetError
 from topeye.scenario.extract import raw_scene
 from topeye.scenario.models import require, samples
 from topeye.scenario.presentation import build_presentation, estimate_ground
+from topeye.scenario.structures import (
+    EDGE_BAND_M,
+    corridor_structures,
+    overhead_structures,
+    road_height_fn,
+    roadside_barriers,
+)
 
 
 def map_directory():
@@ -87,7 +97,7 @@ def _unique_rows(cells, return_inverse=False):
     return (rows, inverse) if return_inverse else rows
 
 
-def static_environment(adapter, scene, origin, progress):
+def static_environment(adapter, scene, origin, progress, road=None, ego_ground=None):
     # Keyframes have exact annotations: mask ALL labelled boxes before fitting static structures.
     from topeye.sim.procedural_layout import (
         building_footprints,
@@ -151,9 +161,40 @@ def static_environment(adapter, scene, origin, progress):
     if not len(xyz):
         return [], [], [], {"static_points": 0, "keyframes": len(frames)}
     labels = classify_static(xyz, np.zeros(len(xyz), dtype=np.int32))
+    # Road-relative structures (plan36): heights from the local road surface, not one scene ground.
+    road_ground = [g[:3] for g in ground_samples]
+    if road is not None and not road.is_empty and road_ground:
+        inside = contains_xy(road, *np.asarray(road_ground)[:, :2].T)
+        road_ground = [g for g, keep in zip(road_ground, inside) if keep]
+    if ego_ground is not None and len(ego_ground):
+        road_ground += [list(map(float, g)) for g in ego_ground]
+    road_z = road_height_fn(road_ground)
+    barriers = (
+        corridor_structures(roadside_barriers(xyz, road, road_z), np.asarray(ego_ground)[:, :2])
+        if road is not None and ego_ground is not None and len(ego_ground)
+        else []
+    )
+    overheads = (
+        overhead_structures(xyz, road, road_z, np.asarray(ego_ground)[:, :2])
+        if road is not None and ego_ground is not None and len(ego_ground)
+        else []
+    )
+    if barriers:
+        # The band a truss/tunnel wall occupies holds no building or tree crown at any height:
+        # its lattice, plus overhead wires on it, would otherwise become facades and canopies.
+        # Poles (lamp/utility posts on the structure) keep their own label.
+        edge = unary_union([LineString([q[:2] for q in b["points"]]) for b in barriers]).buffer(
+            EDGE_BAND_M + 0.3
+        )
+        band = contains_xy(edge, xyz[:, 0], xyz[:, 1])
+        labels = np.where(band & np.isin(labels, (1, 2)), 0, labels)
     bounds = [*xyz[:, :2].min(axis=0), *xyz[:, :2].max(axis=0)]
     buildings = building_footprints(xyz, labels, bounds)
     for building in buildings:
+        # Stand on the local road level (sloped streets, bridges), never below the scene minimum.
+        centre = np.asarray(building["polygon"], dtype=float).mean(axis=0)
+        local = float(road_z(centre[None])[0]) if road_ground else building["base_z"]
+        building["base_z"] = min(max(building["base_z"], local), building["observed_top_z"] - 0.5)
         # Existing research helper extrapolates floors; source viewer uses observed height only.
         building["height"] = max(0.5, building["observed_top_z"] - building["base_z"])
         building["height_source"] = "LiDAR observed extent; footprint simplified/estimated"
@@ -166,6 +207,8 @@ def static_environment(adapter, scene, origin, progress):
             "keyframes": len(frames),
             "scene_token": record["token"],
             "ground_samples": ground_samples,
+            "barriers": barriers,
+            "overheads": overheads,
         },
     )
 
@@ -233,7 +276,9 @@ def source_scene(adapter, scene, progress=lambda *args: None):
     bounds = [*(xy.min(axis=0) - 60), *(xy.max(axis=0) + 60)]
     if map_info and hasattr(adapter, "vector_map"):
         environment["polygons"], environment["lines"] = adapter.vector_map(scene, origin, bounds)
-        environment["provenance"][0] = "Argoverse 2: annotations.feather and exact city_SE3_egovehicle poses"
+        environment["provenance"][0] = (
+            "Argoverse 2: annotations.feather and exact city_SE3_egovehicle poses"
+        )
         environment["provenance"].append("Argoverse 2 Sensor: per-log vector map")
     elif map_info:
         candidates = [
@@ -246,13 +291,30 @@ def source_scene(adapter, scene, progress=lambda *args: None):
             environment["provenance"].append(f"nuScenes expansion: {map_info[0]}")
     if not environment["polygons"]:
         environment["warnings"].append("Thiếu vector map: chưa dựng được đường/vạch chính xác.")
+    drivable = [
+        Polygon(r["outer"], r["holes"]).buffer(0)
+        for r in environment["polygons"]
+        if r["kind"] == "drivable_area"
+    ]
+    road = unary_union(drivable) if drivable else None
+    ego_actor = next(a for a in actors if a["role"] == "ego")
+    ego_ground = np.array(
+        [[q["x_m"], q["y_m"], q["z_m"]] for q in ego_actor["samples"] if "z_m" in q]
+    )
     try:
-        b, t, p, stats = static_environment(adapter, scene, origin, progress)
+        b, t, p, stats = static_environment(adapter, scene, origin, progress, road, ego_ground)
     except DatasetError as exc:
         b, t, p, stats = [], [], [], {"complete": False}
         environment["warnings"].append(f"Môi trường LiDAR chưa đầy đủ: {exc}")
     ground_samples = stats.pop("ground_samples", [])
-    environment.update(buildings=b, trees=t, poles=p, stats=stats)
+    environment.update(
+        buildings=b,
+        trees=t,
+        poles=p,
+        barriers=stats.pop("barriers", []),
+        overheads=stats.pop("overheads", []),
+        stats=stats,
+    )
     environment["presentation"] = build_presentation(environment, actors, bounds, ground_samples)
     if not b:
         environment["warnings"].append("LiDAR chưa đủ mặt đứng để dựng nhà ở cảnh này.")

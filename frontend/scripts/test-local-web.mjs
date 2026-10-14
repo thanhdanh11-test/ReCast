@@ -62,8 +62,12 @@ try {
   // 1. dataset via prompt
   p.once("dialog", d => d.accept(dataset));
   await tool("Cài đặt");
+  await p.getByRole("navigation", { name: "Mục cài đặt" }).getByRole("button", { name: "Dữ liệu & lưu trữ" }).click();
   await p.locator("button", { hasText: /Đổi dữ liệu|Chọn thư mục dữ liệu/ }).click();
   step("dataset", await waitFooter(/Đã đọc \d+ cảnh/));
+  // Settings page (plan35): storage is measured by the server for the isolated workspace.
+  await p.getByText("Bộ nhớ đệm chỉ số", { exact: true }).waitFor();
+  await p.screenshot({ path: join(out, "settings-data.png") });
   await tool("Cảnh nguồn");
   const scenes = await p.getByRole("list", { name: "Danh sách cảnh" }).getByRole("button").count();
   step("scenes", scenes);
@@ -129,6 +133,49 @@ try {
   await notBusy();
   const created = p.locator(".runner-item.active");
   step("create", { footer: await footer(), dialogClosed: await dialog.count() === 0, name: await created.locator("strong").textContent(), mapInReport: await p.locator('.runner-report [aria-label="Map 2D"] [data-testid="map-view"]').count(), runButtons: await p.getByRole("button", { name: /Chạy (lại )?kịch bản này/ }).count() });
+  // Seed one saved-run fixture only in this test's temporary workspace, then exercise history deletion.
+  const entries = await p.evaluate(async () => {
+    const token = document.querySelector('meta[name="topeye-token"]').content;
+    const r = await fetch('/api/listImported', {method:'POST', headers:{'Content-Type':'application/json','X-Topeye-Token':token},body:'{}'});
+    return (await r.json()).value;
+  });
+  const historyId = 'd'.repeat(32);
+  const historyDir = join(userData, 'workspace', entries[0].scenario_id, 'runs', historyId);
+  fs.mkdirSync(historyDir, {recursive:true});
+  fs.writeFileSync(join(historyDir, 'status.json'), JSON.stringify({status:'completed'}));
+  await tool('Cảnh nguồn'); await p.getByRole('button', {name:'OpenSCENARIO',exact:true}).click(); await notBusy();
+  await p.getByRole('tab', {name:'Lịch sử',exact:true}).click();
+  const removeRun = p.getByRole('button', {name:/Xoá lần chạy/});
+  await removeRun.waitFor();
+  p.once('dialog', d => d.dismiss()); await removeRun.click();
+  if (!fs.existsSync(historyDir)) throw new Error('Cancelled history deletion changed files');
+  p.once('dialog', d => d.accept()); await removeRun.click(); await notBusy();
+  await p.getByText('Chưa có lịch sử.', {exact:true}).waitFor();
+  if (fs.existsSync(historyDir) || !fs.existsSync(join(userData,'workspace',entries[0].scenario_id,'import','original.xosc'))) throw new Error('History deletion scope');
+  const trashRun = fs.readdirSync(join(userData,'workspace','.trash')).find(n=>n.includes(historyId));
+  if (!trashRun) throw new Error('History not recoverable');
+  step('deleteHistory', {cancelPreserved:true,scenarioPreserved:true,trashed:true});
+  await p.getByRole('tab', {name:'Kịch bản',exact:true}).click();
+  const layout = await p.locator('.runner').evaluate(el => {
+    const left = el.querySelector('.runner-center').getBoundingClientRect();
+    const right = el.querySelector('.runner-sidebar').getBoundingClientRect();
+    const footer = el.querySelector('.runner-foot').getBoundingClientRect();
+    return { ratio: left.width / right.width, footerBottom: footer.bottom, sidebarBottom: right.bottom, tracks: el.querySelectorAll('.actor-time-lane').length,
+      timelineFooter: el.querySelectorAll('.actor-timeline-foot').length,
+      cameraBottom: el.querySelector('.runner-stage .scene3d').getBoundingClientRect().bottom - el.querySelector('.runner-stage .camera-controls').getBoundingClientRect().bottom };
+  });
+  if (Math.abs(layout.ratio - 2) > .02 || Math.abs(layout.footerBottom - layout.sidebarBottom) > 2 || layout.tracks !== 3 || layout.timelineFooter !== 0 || Math.abs(layout.cameraBottom - 12) > 1) throw new Error(JSON.stringify(layout));
+  await p.getByRole('slider', { name: /^Thời gian của/ }).first().focus();
+  await p.keyboard.press('End');
+  const timelineEnd = await p.getByRole('slider', { name: /^Thời gian của/ }).first().getAttribute('aria-valuemax');
+  if (Number(await p.getByRole('slider', { name: 'Thời gian mô phỏng' }).inputValue()) !== Number(timelineEnd)) throw new Error('Timeline and playback disagree');
+  await p.keyboard.press('Home');
+  await p.screenshot({ path: join(out, 'runner-library-timeline.png') });
+  step('timelineAndLayout', layout);
+  await p.getByRole('tab', { name: 'Lịch sử', exact: true }).click();
+  if (!(await p.getByRole('tabpanel', { name: 'Lịch sử', exact: true }).isVisible()) || await p.getByRole('button', { name: 'Tạo kịch bản', exact: true }).isVisible()) throw new Error('History tab visibility');
+  await p.screenshot({ path: join(out, 'runner-history.png') });
+  await p.getByRole('tab', { name: 'Số liệu', exact: true }).click();
   // Metrics of the opened scenario are computed automatically on the metrics worker (plan33).
   const metricsBox = p.locator('[aria-label="Chỉ số kịch bản"]');
   await metricsBox.locator(".metrics-cards").waitFor({ timeout: 180000 });
@@ -137,10 +184,13 @@ try {
   await metricsBox.scrollIntoViewIfNeeded();
   await p.screenshot({ path: join(out, "scenario-metrics.png") });
   step("scenarioMetrics", cards);
+  await p.getByRole('tab', { name: 'Kịch bản', exact: true }).click();
   // 7. edit the XML (rename + new description), saved as a validated new package
   const xml = fs.readFileSync(xosc, "utf8");
   await created.getByRole("button", { name: /^Sửa / }).click();
   const editor = p.getByRole("dialog", { name: /^Sửa / });
+  // Hand-imported .xosc has no template: XML only after the explicit advanced choice (v0.30.1).
+  await editor.getByRole("button", { name: "Sửa XML (nâng cao)" }).click();
   await editor.getByRole("textbox", { name: "Tên kịch bản" }).fill("e2e-edited.xosc");
   await editor.getByRole("textbox", { name: "Nội dung OpenSCENARIO" }).fill(xml.replace(/description="[^"]*"/, 'description="E2E edited"'));
   await editor.getByRole("button", { name: "Lưu" }).click();
@@ -174,7 +224,7 @@ console.log(JSON.stringify(summary, null, 1));
 // Deleting a scenario while its metrics are still computing answers NOT_FOUND for that computation.
 const unexpected = summary.failed.filter(([status, path, , body]) => !(status === 409 && /^\/api\/replay(Imported)?$/.test(path) && body.includes("CANCELLED"))
   && !(status === 400 && path === "/api/scenarioMetrics" && body.includes('"NOT_FOUND"')));
-if (!ok || summary.steps.length !== 14 || !summary.metadataUnchanged || summary.workersLeft || summary.external.length || unexpected.length) {
+if (!ok || summary.steps.length !== 16 || !summary.metadataUnchanged || summary.workersLeft || summary.external.length || unexpected.length) {
   console.error("Local web E2E: FAIL");
   process.exit(1);
 }

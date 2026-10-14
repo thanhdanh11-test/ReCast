@@ -3,7 +3,7 @@ import type { CarlaWeatherParameters } from './weather';
 
 /** Presentation adapter; atmospheric scattering is approximated, physics is unchanged. */
 export function createWeatherEffects(scene: THREE.Scene, sun: THREE.DirectionalLight,
-  ambient: THREE.HemisphereLight, center: THREE.Vector3) {
+  ambient: THREE.HemisphereLight, center: THREE.Vector3, pastel = false) {
   const count = 1800, positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
     positions[i * 3] = ((i * 73.17) % 120) - 60;
@@ -30,15 +30,24 @@ export function createWeatherEffects(scene: THREE.Scene, sun: THREE.DirectionalL
     const daylight = Math.max(0, Math.sin(altitude));
     const cloud = next.cloudiness / 100;
     const shade = Math.round(36 + daylight * (196 - cloud * 65));
-    const sky = new THREE.Color().setRGB(shade / 255, shade / 255, shade / 255);
+    const sky = pastel
+      ? new THREE.Color(0xe9e7e0).multiplyScalar(Math.min(1, .15 + daylight * (1.3 - cloud * .35)))
+      : new THREE.Color().setRGB(shade / 255, shade / 255, shade / 255);
     scene.background = sky;
     const density = .0008 + next.fog_density / 100 * .025 + next.dust_storm / 100 * .012;
     scene.fog = new THREE.Fog(sky, Math.max(1,next.fog_distance), Math.max(30, 3 / density));
-    sun.position.copy(center).add(new THREE.Vector3(Math.cos(azimuth)*Math.cos(altitude)*80,
-      Math.sin(altitude)*80, Math.sin(azimuth)*Math.cos(altitude)*80));
+    const sunDistance = pastel ? 500 : 80;
+    sun.position.copy(center).add(new THREE.Vector3(Math.cos(azimuth)*Math.cos(altitude)*sunDistance,
+      Math.sin(altitude)*sunDistance, Math.sin(azimuth)*Math.cos(altitude)*sunDistance));
     sun.target.position.copy(center); sun.target.updateMatrixWorld();
     sun.intensity = daylight * (3.1 - cloud * 2.4);
     ambient.intensity = .24 + daylight * (1.7 + cloud * .3);
+    if (pastel) {
+      sun.color.setHex(0xfffaf1);
+      sun.intensity = daylight * (2.3 - cloud * 1.7);
+      ambient.groundColor.setHex(0xa0acb6);
+      ambient.intensity = .24 + daylight * (2.05 + cloud * .3);
+    }
     material.opacity = next.precipitation / 100 * .7;
     rain.visible = next.precipitation > 0;
     geometry.setDrawRange(0, Math.round(count * next.precipitation / 100));

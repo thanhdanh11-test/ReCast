@@ -49,3 +49,6 @@ Source snapshot + app-owned map context → validate restricted XOSC → atomic 
 
 ## v0.23.0 — Access/catalog storage and AV2
 Local userData stores local-account.json (schemaVersion1, username/salt/hash only, 0600), dataset-catalog.json (schemaVersion1, entries), and existing scenario-settings.json. Session tokens remain RAM-only for 8h. Catalog uses inspected canonical dataset roots and SHA256-derived IDs; failed imports preserve settings. Auth must be rechecked after await before writes. AV2 raw Feather/map stays immutable; ArgoverseAdapter builds compatible internal tables in memory. AV2 ego coordinates → city pose once; ns → µs with source timestamp retained. Dataset factory selects nuScenes or AV2, then existing source/LiDAR/runner pipeline. See docs/scenario.md and plan34 SPEC-P03.
+
+### Saved-run deletion0.26.1
+New authenticated deleteImportedRun/worker delete_imported_run accepts scenario_id+run_id (32hex). Only selected `<workspace>/<scenario>/runs/<run>` moves by rename into `.trash/run-<scenario>-<run>-<timestamp>` after user confirmation. Import package, siblings and metrics cache remain. Running/missing/linked targets rejected. UI reloads saved history, clears current scenario replay to avoid displaying deleted results; no schema change.

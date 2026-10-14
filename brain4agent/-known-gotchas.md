@@ -189,3 +189,33 @@ Owner reports floating vehicles and wall penetration in0.10.1. Read-only source 
 - Auth checked only before reading a POST body is insufficient: logout while body/inspection is pending could still mutate settings. Check after body and after async inspect, immediately before writes. Independent delayed-body/inspect probes and fault injections cover this.
 - AV2 merged LiDAR and cuboids are already ego-frame; applying up/down sensor extrinsics again corrupts alignment. Exact city pose once; dimensions width/length/height; source ns retained while internal µs round.
 - JSX literal HTML pattern must contain one backslash before hyphen under modern browser Unicode-v regex. Use a JS string expression; browser E2E checks console errors.
+
+## Plan37 — Timeline density and metrics return
+- Rendering every dense trajectory sample as a diamond masks the motion bar. Display thinning must not change source samples or the full key list used to seek; separate marker and motion rails. Keep real endpoints even on short coverage.
+- Metrics cached as loading can stick forever after leave/return: original promise's stale closure cannot update the returning UI. Gate completion by the currently displayed scenario ID; retain one request and update its cached result. Regression covers returning before promise completion.
+- Single run deletion must validate both parent runs and target run symlinks and reject running status; trash only that directory, preserve import package and sibling runs.
+
+- **Giàn cầu bị đọc thành cây/nhà (plan39):** `classify_static` dùng chiều cao so với mặt đất chung của cảnh, nên lưới giàn trên mặt cầu thành canopy/facade. Đừng thử tách lan can bằng độ mỏng/độ đặc/khoảng trống — đã đo, không tách; dùng quy tắc hành lang hai bên trong `structures.py`.
+
+## Plan38 — Template → XOSC trên dữ liệu thật
+- `export.scenario_xml` gọi `models.validate` (chỉ 2–4 actor, dành cho trích xuất). Kịch bản tạo mới dùng `trajectory_xml` + `xosc_import.profile_xml`.
+- Chỉ số "vertex N" trong lỗi `check_map` là trên mẫu tâm hộp ~20 Hz (`centered_samples`), KHÔNG phải mẫu template; đọc thời điểm ở hậu tố `at t=…s`.
+- nuScenes Singapore (vd scene-1077/1094) đi bên trái: preset giả định làn cùng chiều ở bên trái ego ⇒ phải lật (`placement.mirror`/auto).
+- Ego nguồn thường ôm cua chậm (0061, 0916): đặt preset 40–60 km/h lên đúng đoạn cua vượt 12 m/s² — từ chối là đúng, không nới cổng. Vật cản ước lượng (nhà bao lồi, cột) có thể chạm cả vị trí thật của ego (0061 t=0).
+- Map scene-0103/0655 hỏng sẵn (INVALID_MAP_GEOMETRY) ⇒ không tạo được kịch bản nào trên hai cảnh này.
+- Phiên Claude khác có thể sửa cùng repo song song (plan39 lấy 0.27.0 trong lúc plan38 đang làm): luôn đọc lại version/file não ngay trước khi ghi.
+- Tình huống trong template gắn theo `actor` id: ego chỉ phanh khi sự kiện ghi `actor: "ego"`. Kiểm bằng đọc tốc độ ego trong `original.xosc` của gói, không phải nhìn sơ đồ (v0.29.1).
+
+### OSM scene pilot source access and alignment (plan40)
+Overpass DE returned406;Kumi/PrivateCoffee timed out;OSM main API refused connection. BBBike public Singapore XML gzip succeeded (download resume required);extract offline,retain ODbL attribution. Published nuScenes origin plus local scaled Mercator is only an initial alignment:scene0061 yields331.785m² OSM-building/drivable overlap and highway distance p90=21.745m. Do not silently clip buildings or call the transform surveyed. OSM footprints alone do not determine tower/roof/overhang shape or height.
+- Gói kịch bản tạo trước v0.30.0 (hoặc khi server chạy code cũ — phải restart 5180 sau khi đổi worker/server) không có `template.json` ⇒ Sửa đưa ra "Tạo lại bằng template" (v0.30.1), XML chỉ ở "nâng cao".
+
+
+### Pilot road depth patch — 2026-10-13T16:03:47+07:00
+Owner screenshot shows distant pavement breakup. Pilot camera now adapts near plane to orbit distance (clamp distance/50 to0.25–25m), retaining far2500m. 24-bit depth quantization check:2538samples, old near0.1 produced1365collisions for4cm layers; adaptive near produces0. Road vertices below floor(-0.2m):0/168474. tsc/Three geometry/Vite exit0; evidence:`planning/40_2026-10-13_map-shape-pilot/evidence/depth-checks.txt`. This proves precision improvement, not GPU visual acceptance; owner refresh pending. No geometry/class/product/version changes.
+
+2026-10-13: Shapely union output can be is_valid yet include2.84e-14m edges that fail Three renderer validRing; entire road disappeared in5batchscenes. Normalize presentation via1mm set_precision+simplify and omit<1e-6m² slivers; validate using actual JS validRing. Do not weaken renderer or mutate raw map. Proof5801rings/0invalid;plan42 evidence.
+
+- Plan42 mainweb: using the old roadScene floor=min(ego.z) on approved pastel terrain changes the unsupported-ground datum and can exceed subdivision budgets (Miami initially168fallbacks). Preserve preview datum-0.08m and separate25k budget/island for decorative landscape.40source/imported builds then0fallback. Never include presentation overlays in collision map/hash; imported/replayed actor z stays measured.
+
+- GitHub destination corrected by owner2026-10-13: use AI20K-Build-Phase-Cohort-4A/P-056, main, source-tool/topeye. Local origin still points thanh danh test repo (thanhdanh11-test/topeye); do not infer delivery destination from origin. Transfer scoped patches via separate P-056 checkout; no force-push/history deletion.

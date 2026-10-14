@@ -30,6 +30,11 @@ def trigger(parent, tag, value):
 
 def scenario_xml(scenario):
     validate(scenario)
+    return trajectory_xml(scenario)
+
+
+def trajectory_xml(scenario):
+    """Timed-polyline storyboard for any actor count; callers own validation of `scenario`."""
     root = ET.Element("OpenSCENARIO")
     node(
         root,

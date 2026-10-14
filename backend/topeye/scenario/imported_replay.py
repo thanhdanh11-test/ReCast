@@ -72,7 +72,7 @@ def contact_observations(measured, times):
     return [contacts[pair] for pair in sorted(contacts)]
 
 
-def persist_import(imported, xml_bytes, context, workspace, dataset, display_name=None):
+def persist_import(imported, xml_bytes, context, workspace, dataset, display_name=None, template=None):
     require_ipc_budget(imported)
     checked = validate_xosc(xml_bytes, context)
     require(
@@ -108,6 +108,10 @@ def persist_import(imported, xml_bytes, context, workspace, dataset, display_nam
                 **({"display_name": display_name} if display_name else {}),
             },
         )
+        if template is not None:
+            # Editing aid for scenarios made from a template (plan38): beside import/, outside the hashed payloads,
+            # written before the atomic rename so a package never appears without it.
+            write_json(temp / "template.json", template)
         os.rename(temp, destination)
         return destination / "import"
     except BaseException:

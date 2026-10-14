@@ -2,6 +2,54 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.30.1 — No code when a scenario has no template — 2026-10-13T15:46:53+07:00
+- Gói không có template.json (nạp .xosc hoặc tạo trước 0.30.0): Sửa không mở XML nữa; có "Tạo lại bằng template" trên cùng map (thay thế gói, cũ vào .trash) và "Sửa XML (nâng cao)". Chrome + E2E thật PASS; backend 702, vitest 426, server 40. [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md).
+
+## v0.30.0 — Edit template scenarios as templates — 2026-10-13T15:26:50+07:00
+- Gói tạo từ template lưu `template.json` cạnh `import/` (ngoài hash); "Sửa" mở form template điền sẵn, "Lưu thay đổi" tạo gói mới qua `validate_xosc` rồi đưa gói cũ vào .trash. Chỉ gói nạp từ .xosc còn sửa XML (có giải thích).
+- Đổi tham số chính giữ đối tượng/tình huống người dùng tự thêm. Chrome: sửa 40→30 km/h giữ phanh ego, gói cũ vào .trash. Backend 702, vitest 425, server 40. [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md).
+
+## v0.29.1 — Hard brake goes to ego — 2026-10-13T15:02:16+07:00
+- Lỗi: "Phanh gấp" thêm vào template mặc định gắn cho đối tượng đầu tiên không phải ego (người đi bộ) nên ego không dừng. Giờ mặc định ego, "Phanh gấp" chỉ cho phương tiện (FE+BE), sơ đồ ghi tên đối tượng. Đo lại trên Chrome: ego 11,1 m/s → 0 sau ~2,3 s. Backend 702, vitest 423, server 40. [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md).
+
+## v0.29.0 — Suggest usable maps for a scenario type — 2026-10-13T14:27:33+07:00
+- Chọn loại kịch bản là app kiểm luôn mọi map bằng cổng thật: worker `template_fit` (chỉ đọc, trên worker chỉ số, cache) biên dịch template + `validate_xosc` trên từng cảnh; UI "Map phù hợp" hiện ✓ (điểm đặt, lật) / ✗ (lý do), bấm để chọn map, kiểm lại khi đổi tham số.
+- Đo thật 10 cảnh mini: Dừng khẩn cấp 3/10 (16,5 s lần đầu), Xe cắt làn 2/10 (3,4 s). Backend 701, vitest 421, server 40, build exit 0. [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md).
+
+## v0.28.0 — Create scenarios from templates — 2026-10-13T14:04:01+07:00
+- "Tạo từ template" chạy thật: worker `import_template` biên dịch template (`backend/topeye/scenario/template.py`) → profile XOSC → cùng cổng `validate_xosc` → lưu gói như nạp file. Server `importTemplate` (≤256 KiB, source_id 32 hex); UI kiểm client trước, lỗi hiện trên dialog.
+- Đặt kịch bản dọc quỹ đạo thật của ego nguồn (x dọc, y trái) nên bám đường cong; `placement.auto` thử vị trí khác gần nhất + lật trái/phải (Singapore đi bên trái); mô hình chuyển động: tốc độ tuyến tính, chuyển làn nửa cosin, bo góc Chaikin.
+- `export.trajectory_xml` (không giới hạn 2–4 actor của luồng trích xuất) + `xosc_import.profile_xml` dùng chung với fixture; `check_map` thêm `at t=…s`. Toast lỗi runner nằm trên dialog.
+- Đo thật 5 cảnh × 20 loại: 44/100 tạo được, ca hỏng có lý do map/vật lý. Backend 700, vitest 420, server 39, build/diff-check exit 0. [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md).
+
+## Quyết định 2026-10-13T11:59:23+07:00 — Plan38 scenario authoring (chưa phát hành, chưa bump)
+- Template cấp cao `topeye-scenario-template-v1` biên dịch xuống profile XOSC duy nhất; KHÔNG mở rộng profile. AI chỉ sinh template, người duyệt, rồi qua `validate_xosc` (P02).
+- Gallery 20 loại / 5 nhóm (Euro NCAP AEB/LSS + NHTSA pre-crash); toạ độ ego-frame, anchor trên map ở P02, không bịa làn.
+- P01 UI + mock AI: 412 FE (+38) / 38 server / build pass. Bump 0.27.0 khi P02 đóng.
+
+## v0.27.0 — Bridge trusses and overhead structures from LiDAR — 2026-10-13T13:19:05+07:00
+- Road-relative structures (`backend/topeye/scenario/structures.py`): tall continuous runs on BOTH sides of the driven road (bridge truss, tunnel walls) become `environment.barriers` (kind corridor) drawn as a steel frame on the road surface; their band no longer yields facades/tree crowns. Overhead decks/ceilings only where the ego drove under (`environment.overheads`). Buildings stand on the local road level.
+- Measured on the 20 local scenes: corridor only on AV2 02678d04 (the truss bridge, both trusses), 0 false positives; overheads 0. Rejected single-edge heuristics (false railings in 19/20 scenes). nuScenes ego z is always 0, so no elevation there.
+- Backend 681, vitest 416, server 38; local + access E2E pass; 6 mutations red. [Plan39](../planning/39_2026-10-13_bridge-structures/plan.md).
+
+## v0.26.1 — Runner polish and recoverable history deletion — 2026-10-13T11:12:46+07:00
+- Camera controls bottom12px; real trajectory markers thinned for display on separate rail, source/snap timestamps unchanged; remove timeline footer.
+- Confirmed single-run history deletion moves only selected result into workspace .trash; strict IDs/symlink/running guards preserve scenario and other runs. No owner history deleted by agent.
+- Browser found metrics pending on leave/return stuck at loading; completion now checks current scenario identity. Regression and intentional old-behavior mutant measured.
+-673backend/374frontend/38server pass; build/lint pass; independent4attacks pass; real E2E16steps, metadata13unchanged,0worker leaks. [Plan37](../planning/37_2026-10-13_runner-polish/plan.md).
+
+## v0.26.0 — OpenSCENARIO timeline and tabs — 2026-10-13T10:53:19+07:00
+- Approved2:1 layout: actual3D/playback/XOSC object timeline left; library/metrics/history tabs right, fixed create footer. Preserve map and all existing metrics. Saved history aggregates real library runs with names/dates.
+- Motion spans from source vertex displacement/time (>0.1m/s); blank outside coverage; exact pointer snap and keyboard seeking share playback time. No backend schema or engine execution changes.
+-371frontend/37server pass; build/typecheck pass; parent37focused +31history tests; independent arithmetic/keyboard mutations red. Real E2E15steps, ratio2.000036, footer900px,13metadata unchanged,0owned worker leaks. [Plan36](../planning/36_2026-10-13_runner-timeline/plan.md).
+
+## v0.25.0 — Full settings page — 2026-10-13T10:33:47+07:00
+- Rail "Cài đặt" opens a full page (views stay mounted). Sections: Giao diện, Hiển thị 3D (starting camera, shadows, ego corridor), LiDAR (colour by height/intensity/distance, point size), Phát lại (0.5×/1×/2×, autoplay, loop), Đơn vị (km/h, m/s), Ngôn ngữ (Tiếng Việt/English), Dữ liệu & lưu trữ (dataset, save folder, sizes, clear metrics cache, empty trash), Tài khoản (change password, session length, sign out), Góp ý nhà sản xuất, Thông tin (version, shortcuts, licences).
+- Keyboard: Space, ←/→, Home/End, Esc. Display preferences per browser (`preferences.ts`).
+- Server: `auth/password` (verifies current password with the login throttle, rotates sessions), `auth/sessionHours`, `storageInfo`, `clearMetricsCache`, `emptyTrash`, `submitFeedback`/`listFeedback` (stored in userData/feedback; nothing sent over the network).
+- English UI via `t()` keyed by Vietnamese text (`i18n.ts`, `i18n.en.ts`, 346 keys; test forbids missing keys). Server error messages and number formats stay Vietnamese.
+- Vitest 365, server 37, typecheck/build, local E2E 14 steps + access E2E pass; 7 mutations red. [Plan35](../planning/35_2026-10-13_settings-page/plan.md).
+
 ## v0.24.0 — Settings: light/dark theme and graphics quality — 2026-10-13T09:41:34+07:00
 - Owner request: "Môi trường" (weather) removed from the rail — weather will move into scenario authoring; the 3D view stays on ClearNoon (`EnvironmentMenu.tsx` kept for that work).
 - "Cài đặt" (also in web demo): Giao diện Tối/Sáng/Theo hệ thống (`.studio[data-theme]`, colors moved to CSS tokens; 3D HUD overlays stay dark in both) and Chất lượng đồ hoạ Tự động/Cao/Cân bằng; both remembered per browser (`preferences.ts`, localStorage wrapped). Dataset/save folder/model credits only in the local app.
@@ -275,6 +323,26 @@ Fixed large white pavement patches: nuScenes stop_line polygons are semantic sto
 ## v0.12.3 — 2026-10-10T15:57:06+07:00 — local PATCH
 - Replace default native Electron icon with owner-supplied logo; make generation automatic for future packages.
 - v0.12.3 installed: supplied logo is now the native macOS app icon; header PNG already matched owner source byte-for-byte and is preserved. Packaging derives10 standard icon PNGs (16–1024px, alpha) and ICNS from frontend/src/scenario/assets/topeye-logo.png via sips/iconutil.282frontend tests/build/signature pass;installed native ICNS hash matches generated icon, UI logo SHA matches owner image,0renderer errors. ~/Applications/Topeye 0.12.3.app;plan18.
+
+## Unreleased experiment — 2026-10-13T15:24:38+07:00 — plan40
+One-scene monochrome OSM footprint preview on localhost5181. Product remains0.29.0; no production feature/API/class changes. Height uncertainty and geographic mismatch explicitly disclosed; no release or global integration.
+
+Unreleased plan40 styling 2026-10-13T15:34:43+07:00: owner-requested pastel reference replaces monochrome after view. Product version remains0.29.0; preview only.
+
+Unreleased experiment 2026-10-13T15:54:04+07:00:plan40 full-map revision uses wider420×420m source map, measured display-only building/road clearance and original actors. No product version/API/class change.
+
+
+### Pilot road depth patch — 2026-10-13T16:03:47+07:00
+Owner screenshot shows distant pavement breakup. Pilot camera now adapts near plane to orbit distance (clamp distance/50 to0.25–25m), retaining far2500m. 24-bit depth quantization check:2538samples, old near0.1 produced1365collisions for4cm layers; adaptive near produces0. Road vertices below floor(-0.2m):0/168474. tsc/Three geometry/Vite exit0; evidence:`planning/40_2026-10-13_map-shape-pilot/evidence/depth-checks.txt`. This proves precision improvement, not GPU visual acceptance; owner refresh pending. No geometry/class/product/version changes.
+
+
+## Twenty pastel scene maps — 2026-10-13T17:53:59+07:00
+Plan42 local preview at http://127.0.0.1:5181 replaces single-scene pilot.20/20 maps (10nuScenes mini+10AV2 Sensor),20OSM-covered regions,2793display building components counted across scenes. Keep existing actors/classes/poses; cancel all plan41 object-model integration. Offline source export122.923s, cached reconstruction about7s;30,522,677bytes JSON total, max3,520,269bytes/scene. Only one selected scene loads; no20map GPU residency.
+Sources: cached BBBike Singapore for6scenes;14OpenFreeMap/OpenMapTiles OSM tiles(2,534,936bytes) for14US scenes. AV2 uses official city-origin UTM, nuScenes origin-scaled Mercator; holes preserved,0.4m cosmetic road clearance, measured overlap0m². Tile heights may be inferred; missing heights9.6m explicitly estimated. Supplement uncovered facades with LiDAR estimates. Existing LiDAR structures retained; no invented bridge.
+Geometry cleanup at1mm presentation precision removes near-zero union edges/slivers; source polygons/lines and actor arrays preserved.27tests pass,5801rings valid,20Three.js CPU builds pass with0new geometry defects/0terrain fallbacks;3pre-existing invalid source polygons remain disclosed (scene0103:2,0655:1). Independent reviewer remeasured14scopedtests+5801rings+tsc. HTTP20/20 payload hashes match built files. GPU visual/FPS not measured because owner controls browser; not a product release. Evidence: plan42/evidence/{summary.json,geometry.json,rings.txt,tests.txt,http.json}.
+
+## v0.31.0 — 2026-10-13T18:56:20+07:00
+Owner approved20pastel maps and requested mainweb integration. Offline source-fingerprinted presentation assets, original actor/map contracts unchanged, expanded map display in source/imported views, pastel palette/landscape and adaptive camera depth preserving cabin. Dataset/network dependencies not added. Local release only, no remote publish.
 
 ## v0.31.1 — 2026-10-13T21:31:34+07:00
 Display a lightweight red bonnet at the bottom of driver view; hide it outside cabin or without ego pose. No actor/data/physics changes.

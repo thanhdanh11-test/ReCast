@@ -175,9 +175,9 @@
 .chip.selected { border-color:var(--ink); }
 .studio .chip button { min-height:18px; min-width:18px; padding:0; border:0; }
 .chip.ok { color:var(--ok); border-color:var(--ok-line); } .chip.warn { color:var(--warn); border-color:var(--warn-line); }
-.runner-toast { top:62px; }
+.runner-toast { top:62px; z-index:70; } /* above .runner-dialog-backdrop (60): dialog actions report errors here */
 /* runner */
-.runner { flex:1; min-width:0; display:grid; grid-template-columns:300px minmax(0,1fr) 360px; min-height:0; }
+.runner { flex:1; min-width:0; display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); min-height:0; }
 .runner-col { display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); }
 .runner-report { border-right:0; border-left:1px solid var(--line); overflow-y:auto; }
 .runner-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
@@ -243,7 +243,6 @@
 .runner-dialog textarea { min-height:46vh; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--field); color:var(--ink); border:1px solid var(--border-strong); padding:10px; resize:vertical; white-space:pre; }
 .runner-dialog input { background:var(--field); color:#fff; border:1px solid var(--border-strong); padding:8px 10px; }
 .studio .runner-dialog button { text-transform:none; letter-spacing:.2px; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
-.runner { grid-template-columns:340px minmax(0,1fr) 360px; }
 /* Plan31: 2D map replaces the esmini run block at the top of the report column. */
 .runner-map { height:300px; padding:0; display:flex; }
 .runner-map > .sensor-view { flex:1; }
@@ -279,3 +278,56 @@
 .metrics-facts dt { color:var(--text-2); } .metrics-facts dd { text-align:right; }
 .metrics-loading { display:flex; align-items:center; gap:10px; color:var(--text-2); padding:20px 0; }
 .metrics-loading svg { color:var(--accent); }
+
+/* Settings page (plan35): full workspace, section nav + content; views stay mounted underneath. */
+.studio-views { display:contents; }
+.studio-views[hidden] { display:none; }
+.settings-page { flex:1; min-width:0; min-height:0; display:grid; grid-template-columns:240px minmax(0,1fr); }
+.settings-nav { display:flex; flex-direction:column; gap:2px; padding:16px 12px; border-right:1px solid var(--line); overflow-y:auto; }
+.settings-nav h1 { margin:14px 8px 12px; font-size:20px; }
+.studio .settings-nav button { justify-content:flex-start; display:flex; align-items:center; gap:10px; border-color:transparent; text-transform:none; letter-spacing:0; font-weight:500; text-align:left; }
+.studio .settings-nav button[aria-current=page] { background:var(--surface-active); box-shadow:inset 3px 0 0 var(--accent); }
+.studio .settings-nav .settings-back { color:var(--muted); }
+.settings-content { overflow-y:auto; padding:28px 40px 48px; }
+.settings-section { max-width:720px; display:flex; flex-direction:column; gap:20px; }
+.settings-section h2 { font-size:18px !important; }
+.settings-section h3 { margin:8px 0 0; font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+.settings-choice { border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.settings-choice legend { padding:0; margin-bottom:8px; font-weight:600; }
+.settings-choice [role=radiogroup] { display:flex; flex-wrap:wrap; gap:6px; }
+.studio .settings-choice button { text-transform:none; letter-spacing:0; font-weight:500; border-color:var(--border-strong); min-width:96px; }
+.studio .settings-choice button.selected { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:var(--surface-active); }
+.settings-hint { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
+.settings-kv { display:grid; grid-template-columns:minmax(140px,220px) minmax(0,1fr); gap:8px 16px; margin:0; }
+.settings-kv dt { color:var(--muted); } .settings-kv dd { margin:0; overflow-wrap:anywhere; }
+.settings-kv kbd { font:12px ui-monospace,Menlo,monospace; border:1px solid var(--border-strong); padding:1px 6px; }
+.settings-row { display:flex; flex-wrap:wrap; gap:8px; }
+.studio .settings-row button { text-transform:none; letter-spacing:0; }
+.studio .settings-row button.danger:hover:not(:disabled) { color:var(--bad); border-color:var(--bad-line); background:transparent; }
+.settings-form { display:flex; flex-direction:column; gap:12px; max-width:520px; }
+.settings-form input:not([type=checkbox]),.settings-form textarea { background:var(--field); color:var(--ink); border:1px solid var(--border-strong); padding:8px 10px; font:inherit; }
+.settings-form textarea { resize:vertical; min-height:120px; }
+.studio .settings-form button { align-self:flex-start; text-transform:none; letter-spacing:0; }
+.settings-status { margin:0; color:var(--ok); } .settings-status.bad { color:var(--bad); }
+.settings-feedback-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.settings-feedback-list li { border:1px solid var(--line); background:var(--surface); padding:10px 12px; display:grid; grid-template-columns:auto 1fr; gap:6px 10px; align-items:center; }
+.settings-feedback-list time { color:var(--muted); font-size:11px; } .settings-feedback-list p { grid-column:1 / -1; margin:0; white-space:pre-wrap; }
+.settings-licenses { margin:0; padding-left:18px; line-height:1.7; }
+@media(max-width:760px) { .settings-page { grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); }.settings-nav { flex-direction:row; flex-wrap:wrap; border-right:0; border-bottom:1px solid var(--line); }.settings-nav h1 { display:none; }.settings-content { padding:20px 16px 40px; } }
+
+/* Plan36: preview/timeline 2:1 tabbed inspector. Panels stay mounted to preserve selections. */
+.runner-sidebar{display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid var(--line);overflow:hidden}
+.runner-tabs{display:flex;flex-shrink:0;border-bottom:1px solid var(--line);padding:0 12px;gap:4px}
+.studio .runner-tabs button{flex:1;min-width:0;min-height:46px;background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;padding:8px 5px;text-transform:none;letter-spacing:0;color:var(--muted)}
+.studio .runner-tabs button[aria-selected=true]{border-bottom-color:var(--accent);color:var(--ink)}
+.runner-sidebar>[role=tabpanel]{flex:1;min-height:0;min-width:0;border:0}.runner-sidebar>[hidden]{display:none!important}
+.runner-library .runner-head{display:none}.runner-library .runner-foot{flex-shrink:0}.runner-history{overflow:auto}.runner-report .runner-map{flex-shrink:0;height:230px}.runner-report .runner-section{flex-shrink:0}
+.runner-history td strong{font-size:12px;overflow-wrap:anywhere}.runner-stage{min-height:120px}.runner-title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.runner-chips{flex-wrap:wrap;justify-content:flex-end}.runner-center>.playback{flex-shrink:0}
+@media(max-width:760px){.runner{grid-template-columns:minmax(0,1fr);overflow:auto}.runner-center{min-height:620px}.runner-sidebar{min-height:420px;border-top:1px solid var(--line)}.runner-library .runner-list{max-height:330px}.runner-report,.runner-history{max-height:500px}}
+
+/* Plan37: same bottom anchor as the source viewport. */
+.studio .runner-stage .camera-controls { top:auto; bottom:12px; left:12px; max-width:calc(100% - 24px); flex-wrap:wrap; }
+.runner-edit-note { margin:0; font-size:13px; line-height:1.5; color:var(--ink); }
+
+.map-attribution { position:absolute; top:8px; left:12px; z-index:2; color:#555650; font-size:10px; background:rgba(241,240,233,.88); padding:3px 6px; border-radius:2px; }
+.map-attribution a { color:inherit; }

@@ -75,3 +75,40 @@ test("unknown username and wrong password share the same error", async t => {
   }
   assert.deepEqual(messages[0], messages[1]);
 });
+test("password change verifies the current password, revokes other sessions and keeps the caller signed in", async t => {
+  const f = fixture(t);
+  await f.auth.setup(credentials, f.res);
+  const other = f.request();
+  await f.auth.login(credentials, f.res);
+  const caller = f.request();
+  const next = "brand-new-passphrase-9921";
+  await assert.rejects(f.auth.changePassword(caller, { current: "wrong-password-long-enough", next }, f.res), { code: "INVALID_CREDENTIALS" });
+  await assert.rejects(f.auth.changePassword(caller, { current: credentials.password, next: "short" }, f.res), { code: "INVALID_INPUT" });
+  assert.deepEqual(await f.auth.changePassword(caller, { current: credentials.password, next }, f.res), { ok: true });
+  assert.equal(f.auth.authenticated(other), false);
+  assert.equal(f.auth.authenticated(caller), false);
+  assert.equal(f.auth.authenticated(f.request()), true); // rotated cookie
+  assert.equal(fs.statSync(f.path).mode & 0o777, 0o600);
+  await assert.rejects(f.auth.login(credentials, f.res), { code: "INVALID_CREDENTIALS" });
+  assert.equal((await createAuth(f.options).login({ ...credentials, password: next }, f.res)).authenticated, true);
+});
+test("password change shares the five-attempt throttle", async t => {
+  const f = fixture(t);
+  await f.auth.setup(credentials, f.res);
+  const caller = f.request();
+  for (let i = 0; i < 5; i++)
+    await assert.rejects(f.auth.changePassword(caller, { current: "wrong-password-long-enough", next: "brand-new-passphrase-9921" }, f.res), { code: "INVALID_CREDENTIALS" });
+  await assert.rejects(f.auth.changePassword(caller, { current: credentials.password, next: "brand-new-passphrase-9921" }, f.res), { code: "RATE_LIMITED" });
+});
+test("session hours persist and bound new sessions only to the chosen lifetime", async t => {
+  const f = fixture(t);
+  await f.auth.setup(credentials, f.res);
+  assert.throws(() => f.auth.setSessionHours({ hours: 3 }), { code: "INVALID_INPUT" });
+  assert.deepEqual(f.auth.setSessionHours({ hours: 1 }), { hours: 1 });
+  assert.equal(createAuth(f.options).status({ headers: {} }).configured, true);
+  await f.auth.login(credentials, f.res);
+  assert.match(f.cookie(), /Max-Age=3600/);
+  assert.equal(f.auth.status(f.request()).sessionHours, 1);
+  f.advance(60 * 60 * 1000);
+  assert.equal(f.auth.authenticated(f.request()), false);
+});
