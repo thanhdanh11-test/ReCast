@@ -3,6 +3,8 @@
 Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại OpenSCENARIO từ nuScenes; đo quỹ đạo và số kịch bản hợp lệ. Blender/NuRec/perception là nghiên cứu phụ, chưa nghiệm thu và không tự chạy tiếp.
 
 ## Mục tiêu hiện tại (Active)
+- [x] [Plan44](../planning/44_2026-10-15_tab-switch/plan.md) v0.32.1: đổi tab không dựng lại 3D (2,8 s → <0,3 s, không còn long task), icon tab đang chọn màu đỏ.
+- [ ] [Plan43](../planning/43_2026-10-15_real2sim-import/plan.md) gói real2sim của team — **đợt 1 v0.32.0 ✅ local**: nạp thư mục gói (OSC 1.1, 73 actor, xuất hiện/biến mất) + Báo cáo kịch bản từ report.json. Còn: đợt 2 tài xế phản ứng IDM + biến thể trên cảnh thật; đợt 3 lưới biến thể hàng loạt + xuất đúng định dạng gói với .xodr có độ cao/bề rộng làn đo/nối road.
 - [ ] [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md) Tạo kịch bản bằng template + AI: P01 giao diện (20 loại, form 8 phần, tab AI chatbot mock) ✅ local; **P02 v0.28.0 ✅ local** — "Tạo từ template" biên dịch thật qua `validate_xosc`, đặt dọc quỹ đạo ego nguồn, tự tìm vị trí/lật (đo 44/100 loại×cảnh); **v0.29.0 gợi ý map dùng được khi chọn loại**, **v0.30.0 sửa bằng form template** ✅ local. P03 AI thật ⬜. Cũ: chờ chủ duyệt; P02 compiler template→XOSC + anchor map ⬜; P03 AI thật phía server ⬜.
 - [x] [Plan37](../planning/37_2026-10-13_runner-polish/plan.md)0.26.1: camera sát đáy, timeline rõ màu/không footer, xoá từng lịch sử vào .trash; sửa metrics loading khi quay lại;16-step E2E đạt.
 - [x] [Plan36](../planning/36_2026-10-13_runner-timeline/plan.md) v0.26.0: runner 2:1, timeline XOSC từng vật thể, tabs Kịch bản/Số liệu/Lịch sử; 15-step real E2E đạt.
@@ -54,6 +56,7 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [ ] Dữ liệu thật 8 cam của team: viết adapter mới. Nếu không có map làn thì tự dò làn từ intensity LiDAR.
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
+- Plan43: thống nhất ngưỡng động học với real2sim (tool: tăng tốc 4, phanh 8,2 m/s²; app: 12 m/s²) và ghi bộ ngưỡng vào báo cáo; đọc `.xodr` của gói khi worker nhận được file > 8 MiB (stream/đường dẫn cục bộ).
 - Plan38: loại giao lộ chỉ đặt được ở đúng giao lộ — cần nhận diện giao lộ từ map.
 *Nơi lưu trữ các ý tưởng hay, kiến trúc mở rộng chưa ưu tiên làm ngay nhưng cần giữ lại để tham khảo.*
 - [ ] **Chạy esmini trên giao diện** (bỏ ở 0.21.0 theo chủ dự án): nếu cần lại, gợi ý icon ▶ trên dòng kịch bản; backend replay_imported vẫn sẵn.

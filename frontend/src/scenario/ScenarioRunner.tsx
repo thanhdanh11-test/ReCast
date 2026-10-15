@@ -6,13 +6,16 @@ import type { ScenarioTemplate } from "./authoring/template";
 import type { FitProbe } from "./authoring/MapFit";
 import { TrackView } from "./TrackView";
 import { MetricsPanel, type MetricsState } from "./MetricsPanel";
+import { Real2simReport } from "./Real2simReport";
 import { TacticalMap } from "./TacticalMap";
-import type { ImportedEntry, ImportedReport, ImportedRun, Replay, Scenario } from "./types";
+import type { ImportedEntry, ImportedReport, ImportedRun, ImportedScenario, Replay, Scenario } from "./types";
 import type { SceneEnvironmentSettings } from "./weather";
 import { useT } from "./i18n";
 
 type Status = { label: string; tone: "ok" | "bad" | "run" | "new" };
 export function runStatus(entry: ImportedEntry): Status {
+    // real2sim packages (plan43) are judged by the tool's report, not by app runs.
+    if (entry.kind === "real2sim") return entry.report?.valid === true ? { label: "Hợp lệ", tone: "ok" } : entry.report?.valid === false ? { label: "Không hợp lệ", tone: "bad" } : { label: "real2sim", tone: "new" };
     const last = entry.runs[0];
     if (!last) return { label: "Chưa chạy", tone: "new" };
     if (last.status === "running") return { label: "Đang chạy", tone: "run" };
@@ -38,6 +41,8 @@ function maxSpeed(scenario: Scenario, id: string): number | undefined {
 /** Dedicated OpenSCENARIO workspace: library · preview/result · run & report (plan26, mockup C). */
 type XmlDoc = { name: string; file_name: string; xml: string; template?: ScenarioTemplate | null };
 export function ScenarioRunner(props: {
+    /** false while the runner view is hidden (plan44): its 3D scene is kept but not drawn. */
+    active?: boolean;
     entries: ImportedEntry[]; activeId: string | null;
     busy: boolean; metrics: MetricsState | null;
     scenes: string[]; currentScene: string;
@@ -45,7 +50,7 @@ export function ScenarioRunner(props: {
     playback: ReactNode; duration: number; onSeek: (time: number) => void;
     loading: ReactNode; onSceneReady: () => void;
     onSelect: (entry: ImportedEntry) => void;
-    onCreate: (scene: string) => Promise<boolean | undefined>; onCreateTemplate: (template: ScenarioTemplate) => Promise<boolean | undefined>; onFitTemplate?: FitProbe; onExportMap: (scene: string) => Promise<unknown>;
+    onCreate: (scene: string) => Promise<boolean | undefined>; onImportPackage: (scene: string) => Promise<boolean | undefined>; onCreateTemplate: (template: ScenarioTemplate) => Promise<boolean | undefined>; onFitTemplate?: FitProbe; onExportMap: (scene: string) => Promise<unknown>;
     onExport: (entry: ImportedEntry) => void; onDelete: (entry: ImportedEntry) => void;
     onDeleteRun: (entry: ImportedEntry, runId: string) => void;
     onLoadXml: (entry: ImportedEntry) => Promise<XmlDoc | undefined>;
@@ -75,7 +80,8 @@ export function ScenarioRunner(props: {
         else if (doc) setEditing({ entry, name: doc.file_name, xml: doc.xml, showXml: false });
     };
     const active = entries.find(e => e.scenario_id === activeId) ?? null;
-    const shown = scenario?.mode === "imported" ? scenario : null;
+    const shown = scenario?.mode === "imported" ? scenario as ImportedScenario : null;
+    const real2sim = shown?.kind === "real2sim";
     const report = replay?.report.kind === "imported" ? replay.report as ImportedReport : null;
     const last: ImportedRun | undefined = active?.runs.find(r => r.status === "completed");
     const diagnostics = shown?.import?.diagnostics ?? [];
@@ -83,14 +89,17 @@ export function ScenarioRunner(props: {
         <section className="runner-center" aria-label={t("Xem trước và kết quả")}>
             <div className="runner-title">
                 <div><strong>{active?.name ?? t("Chọn một kịch bản")}</strong><small>{shown ? `${shown.source.scene} · ${shown.profile ?? ""} · ${t("{n} đối tượng", { n: shown.actors.length })}` : active ? `${active.scene} · ${t("bấm để mở")}` : ""}</small></div>
-                {shown && <div className="runner-chips">
+                {shown && (real2sim ? <div className="runner-chips">
+                    <span className="chip">real2sim</span>
+                    {diagnostics.length > 0 && <span className="chip warn"><TriangleAlert size={12} aria-hidden/>{t("{n} ghi chú map", { n: diagnostics.length })}</span>}
+                </div> : <div className="runner-chips">
                     <span className="chip ok"><Check size={12} aria-hidden/>{t("Đúng map")}</span>
                     <span className="chip ok"><Check size={12} aria-hidden/>{t("Động học hợp lệ")}</span>
                     {diagnostics.length > 0 && <span className="chip warn"><TriangleAlert size={12} aria-hidden/>{t("{n} cảnh báo", { n: diagnostics.length })}</span>}
-                </div>}
+                </div>)}
             </div>
             <div className="runner-stage">
-                <TrackView scenario={shown} time={props.time} replay={shown ? replay : null} environmentSettings={props.environmentSettings} onReady={props.onSceneReady}/>
+                <TrackView scenario={shown} time={props.time} replay={shown ? replay : null} environmentSettings={props.environmentSettings} active={props.active ?? true} onReady={props.active === false ? undefined : props.onSceneReady}/>
                 {props.loading}
             </div>
             {props.playback}
@@ -111,13 +120,13 @@ export function ScenarioRunner(props: {
                     const status = runStatus(entry);
                     return <li key={entry.scenario_id} className={`runner-item${entry.scenario_id === activeId ? " active" : ""}`}>
                         <button className="runner-item-main" disabled={busy} onClick={() => props.onSelect(entry)}>
-                            <strong title={entry.name}>{entry.name}</strong>
+                            <strong title={entry.name}>{entry.name}{entry.kind === "real2sim" && <span className="chip r2s-badge">real2sim</span>}</strong>
                             <small>{entry.scene} · {t("{n} đối tượng", { n: entry.actors })} · {fmt(entry.duration_s, 1, " s")}</small>
                         </button>
                         <span className={`run-status ${status.tone}`}>{t(status.label)}</span>
                         <span className="runner-item-actions">
                             <button className="icon-button" aria-label={t("Xuất {name}", { name: entry.name })} title={t("Xuất kịch bản (.xosc)")} disabled={busy} onClick={() => props.onExport(entry)}><Download size={14} aria-hidden/></button>
-                            <button className="icon-button" aria-label={t("Sửa {name}", { name: entry.name })} title={t("Sửa kịch bản")} disabled={busy} onClick={() => void openEdit(entry)}><Pencil size={14} aria-hidden/></button>
+                            <button className="icon-button" aria-label={t("Sửa {name}", { name: entry.name })} title={entry.kind === "real2sim" ? t("Gói real2sim chỉ xem; sửa trong tool real2sim") : t("Sửa kịch bản")} disabled={busy || entry.kind === "real2sim"} onClick={() => void openEdit(entry)}><Pencil size={14} aria-hidden/></button>
                             <button className="icon-button danger" aria-label={t("Xoá {name}", { name: entry.name })} title={t("Xoá kịch bản")} disabled={busy} onClick={() => props.onDelete(entry)}><Trash2 size={14} aria-hidden/></button>
                         </span>
                     </li>;
@@ -130,9 +139,9 @@ export function ScenarioRunner(props: {
                 {shown ? <TacticalMap scenario={shown} time={props.time} replay={replay}/> : <p className="runner-muted">{t("Chọn một kịch bản để xem map.")}</p>}
             </div>
             <div className="runner-section" aria-label={t("Chỉ số kịch bản")}>
-                <MetricsPanel state={props.metrics} time={shown ? props.time : null}/>
+                {real2sim ? <Real2simReport report={shown.report ?? null} diagnostics={diagnostics}/> : <MetricsPanel state={props.metrics} time={shown ? props.time : null}/>}
             </div>
-            <div className="runner-section">
+            {!real2sim && <div className="runner-section">
                 <h3>{t("Kết quả lần chạy gần nhất")}</h3>
                 {report ? <dl className="kv">
                     <dt>{t("Thực thi")}</dt><dd className={report.execution}>{report.execution === "pass" ? t("Đạt") : t("Không đạt")}</dd>
@@ -149,7 +158,7 @@ export function ScenarioRunner(props: {
                     <dt>{t("Tuân thủ map")}</dt><dd className={last.map_conformance}>{last.map_conformance === "pass" ? t("Đạt") : t("Không đạt")}</dd>
                     <dt>{t("Quan sát tiếp xúc")}</dt><dd>{last.contacts ?? "—"}</dd>
                 </dl> : <p className="runner-muted">{t("Chưa có lần chạy.")}</p>}
-            </div>
+            </div>}
             {shown && <div className="runner-section">
                 <h3>{t("Đối tượng")}</h3>
                 <table><thead><tr><th>ID</th><th>{t("Loại")}</th><th>{t("V tối đa")}</th></tr></thead><tbody>
@@ -168,7 +177,7 @@ export function ScenarioRunner(props: {
             </div>
         </section>}
         </aside>
-        {creating && <ScenarioCreator scenes={props.scenes} currentScene={props.currentScene} busy={busy} onClose={() => setCreating(false)} onExportMap={props.onExportMap} onImportXosc={props.onCreate} onCreateTemplate={props.onCreateTemplate} fitTemplate={props.onFitTemplate}/>}
+        {creating && <ScenarioCreator scenes={props.scenes} currentScene={props.currentScene} busy={busy} onClose={() => setCreating(false)} onExportMap={props.onExportMap} onImportXosc={props.onCreate} onImportPackage={props.onImportPackage} onCreateTemplate={props.onCreateTemplate} fitTemplate={props.onFitTemplate}/>}
         {editingTemplate && <ScenarioCreator scenes={props.scenes} currentScene={editingTemplate.template?.map.scene ?? editingTemplate.entry.scene} busy={busy}
             editing={{ name: editingTemplate.entry.name, template: editingTemplate.template }}
             onClose={() => setEditingTemplate(null)} onExportMap={props.onExportMap} onImportXosc={props.onCreate}

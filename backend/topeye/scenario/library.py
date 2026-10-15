@@ -10,6 +10,8 @@ from pathlib import Path
 from topeye.scenario.models import ScenarioError, require
 
 ID = re.compile(r"[a-f0-9]{32}")
+# "real2sim" (plan43): team replay packages, admitted by topeye.scenario.real2sim.
+KINDS = {"imported", "real2sim"}
 NAME_MAX = 120
 
 
@@ -91,7 +93,7 @@ def list_imported(workspace):
         if (
             not manifest
             or manifest.get("schema_version") != 1
-            or manifest.get("kind") != "imported"
+            or manifest.get("kind") not in KINDS
             or manifest.get("scenario_id") != project.name
             or not scenario
         ):
@@ -111,6 +113,8 @@ def list_imported(workspace):
         entries.append(
             {
                 "scenario_id": project.name,
+                "kind": manifest["kind"],
+                **({"report": _report_summary(scenario)} if manifest["kind"] == "real2sim" else {}),
                 "has_template": template.is_file() and not template.is_symlink(),
                 "package_path": str(package.resolve()),
                 "name": display_name(manifest.get("display_name"))
@@ -126,6 +130,15 @@ def list_imported(workspace):
         )
     entries.sort(key=lambda e: e["created_at"], reverse=True)
     return entries
+
+
+def _report_summary(scenario):
+    """Library badge of a real2sim package: verdict and event from its filtered report (None without report)."""
+    report = scenario.get("report")
+    if not isinstance(report, dict):
+        return None
+    event = report.get("event") if isinstance(report.get("event"), dict) else None
+    return {"valid": report.get("valid"), "group": report.get("group"), "event": event}
 
 
 def _project(workspace, scenario_id):
@@ -148,8 +161,10 @@ def read_imported(workspace, scenario_id):
     """Original XOSC of a library package, for export and editing."""
     _, project = _project(workspace, scenario_id)
     original = project / "import" / "original.xosc"
-    require(original.stat().st_size <= 2 * 1024 * 1024, "XOSC tối đa 2 MiB", "RESOURCE_LIMIT")
     manifest = _json(project / "import" / "manifest.json") or {}
+    # real2sim packages (plan43) admit XOSC up to 4 MiB.
+    limit = 4 if manifest.get("kind") == "real2sim" else 2
+    require(original.stat().st_size <= limit * 1024 * 1024, f"XOSC tối đa {limit} MiB", "RESOURCE_LIMIT")
     stored = display_name(manifest.get("display_name"))
     name = stored or _description(project / "import") or f"kịch bản {scenario_id[:8]}"
     file_name = (

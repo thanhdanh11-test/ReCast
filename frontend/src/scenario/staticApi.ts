@@ -111,7 +111,7 @@ export function createStaticApi(base: string, fetchImpl: typeof fetch = fetch): 
       return read<Replay>(`replay/${encodeURIComponent(scenario_id)}.json`, signal);
     }),
     mapContext: unavailable, chooseDataset: unavailable, chooseWorkspace: unavailable,
-    export: unavailable, exportMapContext: unavailable, importXosc: unavailable, importTemplate: unavailable, templateFit: unavailable,
+    export: unavailable, exportMapContext: unavailable, importXosc: unavailable, importTemplate: unavailable, templateFit: unavailable, pickPackage: unavailable, importPackage: unavailable,
     openImported: unavailable, replayImported: unavailable, lidarFrame: unavailable, scenarioMetrics: unavailable, listImported: async () => [], readImported: unavailable, deleteImported: unavailable, deleteImportedRun: unavailable,
     cancelJob: async () => { for (const controller of active) controller.abort(); return true; },
     onProgress: callback => { listeners.add(callback); return () => { listeners.delete(callback); }; },

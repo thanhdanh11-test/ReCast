@@ -37,6 +37,7 @@ export function TrackView({
   warnings = [],
   display = defaultPreferences,
   onReady,
+  active = true,
 }: {
   scenario: Scenario | null;
   time: number;
@@ -48,6 +49,8 @@ export function TrackView({
   display?: Pick<Preferences, "camera" | "shadows" | "corridor" | "speedUnit">;
   /** Called once per built scene after its first frame is drawn (or when 3D cannot start). */
   onReady?: () => void;
+  /** false while the view is hidden (plan44): the built scene is kept, frames are skipped. */
+  active?: boolean;
 }) {
   const t = useT();
   const mount = useRef<HTMLDivElement>(null),
@@ -57,6 +60,7 @@ export function TrackView({
       display,
       lead: null as LeadVehicle | null,
       onReady: undefined as (() => void) | undefined,
+      active: true,
     }),
     leadBadge = useRef<HTMLDivElement>(null),
     actions = useRef<{
@@ -69,7 +73,7 @@ export function TrackView({
     [geometryNotice, setGeometryNotice] = useState(""),
     [contactNotice, setContactNotice] = useState("");
   const lead = nearestLeadVehicle(scenario, replay, time);
-  latest.current = { time, environmentSettings, display, lead, onReady };
+  latest.current = { time, environmentSettings, display, lead, onReady, active };
   const [showWarnings, setShowWarnings] = useState(false);
   const ego = scenario?.actors.find((a) => a.role === "ego");
   const rows = ego ? replayRows(ego, replay) : [];
@@ -349,6 +353,12 @@ export function TrackView({
     let readyNotified = false;
     function draw() {
       if (lost || !active) return; // a frame queued before cleanup must not touch the host
+      if (!latest.current.active) {
+        // Hidden view (plan44): keep the scene, skip the work; resume on the next frame once shown.
+        lastFrameTime = performance.now();
+        frame = requestAnimationFrame(draw);
+        return;
+      }
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) / 1000, 0.1);
       lastFrameTime = now;

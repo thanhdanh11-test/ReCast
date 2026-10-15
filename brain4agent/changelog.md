@@ -2,6 +2,14 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.32.1 — Instant view switching, red active tab — 2026-10-15T09:38:53+07:00
+- Đổi Cảnh nguồn ⇄ OpenSCENARIO không còn dựng lại cảnh 3D: hai màn luôn mount, màn ẩn giữ props cũ và `TrackView active=false` bỏ qua vẽ. Đo Chrome thật: long task 2,5–2,7 s mỗi lần đổi ⇒ không còn; phát vẫn 60 fps. Icon rail tô đỏ theo màn đang hiện. vitest 436, server 41, E2E hồi quy PASS. [Plan44](../planning/44_2026-10-15_tab-switch/plan.md).
+
+## v0.32.0 — Import team real2sim packages — 2026-10-15T09:16:00+07:00
+- Thư viện OpenSCENARIO nạp được **gói real2sim** của team (thư mục `.xosc` OSC 1.1 + `report.json` + `trajectories.csv`): đường nạp riêng `topeye/scenario/real2sim.py` (`kind: "real2sim"`), KHÔNG nới `validate_xosc` của kịch bản tự tạo. Chỉ nhận hành vi phát lại (Teleport, FollowTrajectory position, Add/DeleteEntity theo thời gian); action khác bị từ chối có tên. Map/động học = ghi chú không chặn (`MAP_NOTE_*`, `DYNAMIC_NOTE`).
+- Tab "Số liệu" của gói real2sim = **Báo cáo kịch bản** từ `report.json` (kết luận, sự kiện, ego mô phỏng vs bản ghi, tài xế phản ứng, động học, va chạm, esmini, nguồn gốc) + ghi chú map của app; không tính `scenario_metrics`. Sửa bị khoá.
+- Gói mẫu `car_013_t01.0_stop_d3_a8` qua Chrome thật: 73 đối tượng, 31 ghi chú, nạp 4,7 s, mở lại kiểm hash đạt; backend 731, vitest 435, server 41. [Plan43](../planning/43_2026-10-15_real2sim-import/plan.md).
+
 ## v0.30.1 — No code when a scenario has no template — 2026-10-13T15:46:53+07:00
 - Gói không có template.json (nạp .xosc hoặc tạo trước 0.30.0): Sửa không mở XML nữa; có "Tạo lại bằng template" trên cùng map (thay thế gói, cũ vào .trash) và "Sửa XML (nâng cao)". Chrome + E2E thật PASS; backend 702, vitest 426, server 40. [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md).
 

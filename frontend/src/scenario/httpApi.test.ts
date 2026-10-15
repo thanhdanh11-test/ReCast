@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createHttpApi } from "./httpApi";
+import { createHttpApi, readPackage } from "./httpApi";
 
 function response(status: number, body: unknown) {
   return { ok: status < 400, status, json: async () => body } as Response;
@@ -50,5 +50,27 @@ describe("createHttpApi", () => {
     expect(eventSource).toHaveBeenCalledWith("/api/events?token=abc");
     expect(seen).toEqual([{ phase: "x", completed: 1, total: 2 }]);
     expect(source.close).toHaveBeenCalled();
+  });
+});
+
+describe("readPackage (plan43)", () => {
+  const file = (path: string, body: string) => Object.assign(new File([body], path.split("/").at(-1)!), { webkitRelativePath: path }) as File;
+  it("keeps the folder's xosc, report and csv, reads the scene and lists skipped files", async () => {
+    const picked = await readPackage([
+      file("car_013/car_013.xosc", "<OpenSCENARIO/>"),
+      file("car_013/report.json", JSON.stringify({ scene: "scene-1077" })),
+      file("car_013/trajectories.csv", "scene,time_s"),
+      file("car_013/scene-1077_map.xodr", "<OpenDRIVE/>"),
+      file("car_013/nested/report.json", "{}"),
+    ]);
+    expect(picked.files.map(f => f.name)).toEqual(["car_013.xosc", "report.json", "trajectories.csv"]);
+    expect(atob(picked.files[0].data_base64)).toBe("<OpenSCENARIO/>");
+    expect(picked.scene).toBe("scene-1077");
+    expect(picked.skipped).toEqual(["scene-1077_map.xodr", "report.json"]);
+  });
+  it("needs exactly one xosc and ignores an unusable scene", async () => {
+    await expect(readPackage([file("p/report.json", "{}")])).rejects.toThrow(/đúng 1 file .xosc/);
+    const picked = await readPackage([file("p/a.xosc", "x"), file("p/report.json", '{"scene":"../x"}')]);
+    expect(picked.scene).toBeNull();
   });
 });

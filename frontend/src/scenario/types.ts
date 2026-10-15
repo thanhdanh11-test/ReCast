@@ -106,9 +106,27 @@ export interface Replay {
     validity: { dynamic_checks: boolean };
   };
 }
-export interface Diagnostic { code: string; message: string; actor_id?: string; vertex_index?: number; xml_line?: number }
+export interface Diagnostic { code: string; message: string; actor_id?: string; vertex_index?: number; xml_line?: number; /** real2sim notes (plan43): when it happens. */ t_s?: number }
 export interface MapContext { schema_version: 1; profile: string; map_id: string; scene: string; coordinates: { frame: string; units: string; yaw_units: string; axes: string; origin_global_m: number[] }; bounds_m: number[]; polygons: Environment["polygons"]; static_obstacles: {kind: string; footprint: number[][]; estimated: true}[]; source_actors: {id: string; role: string; category: string; length_m: number; width_m: number; height_m: number; initial_pose: {x_m: number; y_m: number; z_m: number; yaw_rad: number}}[]; limits: {max_xml_bytes: number; max_actors: number; max_duration_s: number; max_vertices_per_actor: number; min_duration_s: number; max_speed_mps: {vehicle: number; pedestrian: number}; max_acceleration_mps2: {vehicle: number; pedestrian: number}}; capabilities: {xosc_version: string; position: string; action: string; shape: string; time: string; external_assets: boolean; road_relative_positions: boolean}; dataset_version: string }
-export interface ImportedScenario extends Scenario { mode: "imported"; profile: string; map_id: string; environment: Environment; import: {sha256: string; diagnostics: Diagnostic[]}; /** Only after importTemplate: where it landed on the source ego path. */ placement?: Placement }
+export interface ImportedScenario extends Scenario { mode: "imported"; profile: string; map_id: string; environment: Environment; import: {sha256: string; diagnostics: Diagnostic[]; file_name?: string}; /** Only after importTemplate: where it landed on the source ego path. */ placement?: Placement;
+  /** Team real2sim replay package (plan43): own admission path; map findings are notes in import.diagnostics. */
+  kind?: "real2sim"; report?: Real2simReport | null }
+/** Filtered real2sim report.json (plan43 01-CONTRACTS §3); absent fields are null/empty, never invented. */
+export interface Real2simReport {
+  id: string; scene: string; source: string; valid: boolean | null; reasons: string[]; group: string | null;
+  event: { actor: string; t0: number | null; decel: number | null; target: string; dwell: number | null } | null;
+  drivers: { react: boolean; reaction_s: number | null; thresholds: Record<string, number>; per_vehicle: Record<string, { T?: number; s0?: number; max_decel?: number }> } | null;
+  ego: { stimulus?: number; a_min?: number; a_used?: number; min_gap?: number; min_ttc?: number; conflict_with?: string; recorded_min_gap?: number; recorded_min_ttc?: number } | null;
+  reacted: string[]; max_decel_used: Record<string, number>;
+  physics: Record<string, { max_speed?: number; max_accel?: number; t_accel?: number; max_decel?: number; t_decel?: number; limit_accel?: number; limit_decel?: number }>;
+  gaps: Record<string, { gap?: number; t?: number; speed?: number; leader?: string }>;
+  collisions: string[];
+  esmini: { exit: number | null; version: string | null; problems: string[]; replay_error_m: Record<string, { mean?: number; max?: number }> } | null;
+  run: { created: string | null; commit: string | null; dirty: boolean | null; esmini_version: string | null; dt: number | null; road: string | null } | null;
+}
+/** Files of a real2sim package folder as sent to importPackage (plan43). */
+export interface PackageFile { name: string; data_base64: string }
+export interface PackageSelection { files: PackageFile[]; /** report.json scene, if any. */ scene: string | null; skipped: string[] }
 export type TemplateFit = { scene: string; ok: true; placement: Placement } | { scene: string; ok: false; code: string; message: string };
 export interface ImportedReport { kind: "imported"; execution: "pass" | "fail"; fidelity: {coverage: number; max_xy_m: number; max_yaw_rad: number}; map_conformance: "pass" | "fail"; contacts: {actors: string[]; [key: string]: unknown}[]; warnings: string[] }
 export interface ImportedReplay extends Replay { report: ImportedReport }
@@ -148,6 +166,9 @@ export interface ImportedRun {
 export interface ImportedEntry {
   /** Made from a template: "Sửa" opens the template form. */
   has_template?: boolean;
+  /** "real2sim" = team replay package (plan43): view only, report instead of metrics. */
+  kind?: "imported" | "real2sim";
+  report?: { valid: boolean | null; group: string | null; event: Real2simReport["event"] } | null;
   scenario_id: string;
   package_path: string;
   name: string;
@@ -204,6 +225,9 @@ export interface DesktopAPI {
   importXosc(args: { source_id: string; xml?: string; file_name?: string }): Promise<ImportedScenario | null>;
   /** Compiles a scenario template (plan38) to profile XOSC in the worker and imports it like a file. */
   importTemplate(args: { source_id: string; template: ScenarioTemplate }): Promise<ImportedScenario>;
+  /** Picks a real2sim package folder (plan43); null when the picker is closed. */
+  pickPackage(): Promise<PackageSelection | null>;
+  importPackage(args: { source_id: string; files: PackageFile[] }): Promise<ImportedScenario>;
   /** Read-only: would this template pass the import gate on `scene`? (metrics worker, cached). */
   templateFit(args: { scene: string; template: ScenarioTemplate }): Promise<TemplateFit>;
   openImported(args: { source_id: string; path?: string }): Promise<ImportedScenario | null>;

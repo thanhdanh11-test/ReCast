@@ -3,6 +3,7 @@
 import copy
 import json
 import os
+import re
 import sys
 import tempfile
 import traceback
@@ -22,14 +23,38 @@ from topeye.scenario.library import (
 )
 from topeye.scenario.lidar_frame import lidar_frame
 from topeye.scenario.models import ScenarioError, guard_output, require, write_json
+from topeye.scenario.pastel import apply_pastel
 from topeye.scenario.replay import run_replay
 from topeye.scenario.source_scene import source_scene
-from topeye.scenario.pastel import apply_pastel
 from topeye.scenario.variants import make_variant
 
 # Source scenes are deterministic for a dataset/version/scene; rebuilding costs seconds of LiDAR
 # work. Kept in memory only (a new worker process starts empty, so code updates never reuse it).
 SOURCE_CACHE_SIZE = 12  # whole v1.0-mini (10 scenes); bounded for full datasets
+
+
+def decode_package(raw):
+    """[{name, data_base64}] from the HTTP layer → {basename: bytes} (plan43 01 §2)."""
+    import base64
+
+    require(isinstance(raw, list) and 1 <= len(raw) <= 3, "Gói real2sim gồm 1–3 file", "INVALID_INPUT")
+    files, total = {}, 0
+    for item in raw:
+        require(isinstance(item, dict), "Invalid package file", "INVALID_INPUT")
+        name, data = item.get("name"), item.get("data_base64")
+        require(
+            isinstance(name, str) and re.fullmatch(r"[^/\\\x00-\x1f]{1,120}", name) and name not in files,
+            "Invalid package file name",
+            "INVALID_INPUT",
+        )
+        require(isinstance(data, str), "Invalid package file data", "INVALID_INPUT")
+        total += len(data)
+        require(total <= 7.8 * 1024 * 1024, "Gói real2sim quá lớn (tối đa 7,8 MiB sau mã hoá)", "RESOURCE_LIMIT")
+        try:
+            files[name] = base64.b64decode(data, validate=True)
+        except ValueError as exc:
+            raise ScenarioError("INVALID_INPUT", "Invalid package file data") from exc
+    return files
 
 
 class Service:
@@ -112,6 +137,10 @@ class Service:
                 pass
         package = project / "import"
         gone = ScenarioError("NOT_FOUND", "Kịch bản đã bị xoá")
+        from topeye.scenario.real2sim import is_package
+
+        # plan43: real2sim packages carry the tool's own esmini measurements in report.json.
+        require(not is_package(package), "Gói real2sim dùng báo cáo của tool, không tính chỉ số", "UNSUPPORTED_KIND")
         try:
             stored = json.loads((package / "scenario.json").read_text())
             source = self.call("source_scene", {**params, "scene": stored["source"]["scene"]})
@@ -224,6 +253,7 @@ class Service:
                 "map_context",
                 "import_xosc",
                 "import_template",
+                "import_package",
                 "open_imported",
                 "replay_imported",
                 "lidar_frame",
@@ -291,7 +321,7 @@ class Service:
             source["source"]["dataset_root"] = str(self.adapter.root)
             self.sources[source["id"]] = source
             return source
-        if method in {"map_context", "import_xosc", "import_template", "open_imported"}:
+        if method in {"map_context", "import_xosc", "import_template", "import_package", "open_imported"}:
             from topeye.scenario.map_context import build_map_context
 
             source = self.sources.get(params.get("source_id"))
@@ -307,7 +337,21 @@ class Service:
             )
             from topeye.scenario.xosc_import import validate_xosc
 
-            if method in {"import_xosc", "import_template"}:
+            if method == "import_package":
+                # plan43: team real2sim replay package — its own admission path, map findings are notes.
+                from topeye.scenario.real2sim import parse_package, persist_package
+
+                files = decode_package(params.get("files"))
+                imported = parse_package(files, context)
+                imported["source"]["source_id"] = source["id"]
+                imported["source"]["dataset_root"] = str(self.adapter.root)
+                imported["environment"] = source["environment"]
+                require_ipc_budget(imported)
+                self.public_import(imported)
+                package = persist_package(
+                    imported, files, context, workspace, self.adapter.root, display_name(imported["import"]["file_name"])
+                )
+            elif method in {"import_xosc", "import_template"}:
                 if method == "import_template":
                     from topeye.scenario.template import compile_template
 
@@ -341,8 +385,11 @@ class Service:
                     stored_template,
                 )
             else:
+                from topeye.scenario.real2sim import is_package, load_package
+
                 package = Path(params["package_path"])
-                imported = load_imported(package, context, self.adapter.root)
+                load = load_package if is_package(package) else load_imported
+                imported = load(package, context, self.adapter.root)
                 imported["source"]["source_id"] = source["id"]
                 imported["environment"] = source["environment"]
             imported["source"]["dataset_root"] = str(self.adapter.root)
@@ -363,6 +410,7 @@ class Service:
 
             entry = self.imports.get(params.get("scenario_id"))
             require(entry is not None, "Nạp lại kịch bản trước", "STALE_CONTEXT")
+            require(entry["scenario"].get("kind") != "real2sim", "Gói real2sim không chạy lại trong app", "UNSUPPORTED_KIND")
             source = self.sources.get(entry["source_id"])
             require(source is not None, "Tải lại cảnh nguồn trước", "STALE_CONTEXT")
             context = build_map_context(source)

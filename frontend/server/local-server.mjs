@@ -26,6 +26,7 @@ export const allowed = {
   exportMapContext: ["source_id"],
   importXosc: ["source_id", "xml_base64", "file_name"],
   importTemplate: ["source_id", "template"],
+  importPackage: ["source_id", "files"],
   templateFit: ["scene", "template"],
   openImported: ["source_id", "path"],
   replayImported: ["scenario_id"],
@@ -47,13 +48,16 @@ export const allowed = {
   listFeedback: [],
 };
 const ID = /^[a-f0-9]{32}$/;
+/** real2sim package (plan43): one .xosc + optional report.json / trajectories.csv, ≤ 7.8 MiB base64 in total. */
+export const PACKAGE_BASE64_MAX = Math.floor(7.8 * 1024 * 1024);
+const PACKAGE_NAME = /^(?:[^/\\\x00-\x1f]{1,115}\.xosc|report\.json|trajectories\.csv)$/;
 
 export function validateArgs(name, args) {
   if (!args || typeof args !== "object" || Array.isArray(args)) throw fail("INVALID_INPUT", "Invalid request");
   if (!allowed[name] || Object.keys(args).some((k) => !allowed[name].includes(k))) throw fail("INVALID_INPUT", "Unknown field");
-  const limit = name === "importXosc" ? 3 * 1024 * 1024 : ["importTemplate", "templateFit"].includes(name) ? 256 * 1024 : 65536;
+  const limit = name === "importXosc" ? 3 * 1024 * 1024 : name === "importPackage" ? PACKAGE_BASE64_MAX + 65536 : ["importTemplate", "templateFit"].includes(name) ? 256 * 1024 : 65536;
   if (JSON.stringify(args).length > limit) throw fail("INVALID_INPUT", "Request too large");
-  if (["mapContext", "exportMapContext", "importXosc", "importTemplate", "openImported"].includes(name) &&
+  if (["mapContext", "exportMapContext", "importXosc", "importTemplate", "importPackage", "openImported"].includes(name) &&
       (typeof args.source_id !== "string" || !ID.test(args.source_id)))
     throw fail("INVALID_INPUT", "Invalid source identity");
   if (["replayImported", "readImported", "deleteImported", "deleteImportedRun"].includes(name) && (typeof args.scenario_id !== "string" || !ID.test(args.scenario_id)))
@@ -76,6 +80,22 @@ export function validateArgs(name, args) {
     throw fail("INVALID_INPUT", "Invalid file name");
   if (name === "importXosc" && (typeof args.xml_base64 !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(args.xml_base64)))
     throw fail("INVALID_INPUT", "Invalid XOSC payload");
+  if (name === "importPackage") {
+    const files = args.files;
+    if (!Array.isArray(files) || files.length < 1 || files.length > 3) throw fail("INVALID_INPUT", "Gói real2sim gồm 1–3 file");
+    const names = new Set();
+    let total = 0;
+    for (const f of files) {
+      if (!f || typeof f !== "object" || Object.keys(f).some((k) => !["name", "data_base64"].includes(k)) ||
+          typeof f.name !== "string" || !PACKAGE_NAME.test(f.name) || names.has(f.name) ||
+          typeof f.data_base64 !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(f.data_base64))
+        throw fail("INVALID_INPUT", "Invalid package file");
+      names.add(f.name);
+      total += f.data_base64.length;
+    }
+    if ([...names].filter((n) => n.endsWith(".xosc")).length !== 1) throw fail("INVALID_INPUT", "Gói phải có đúng 1 file .xosc");
+    if (total > PACKAGE_BASE64_MAX) throw fail("RESOURCE_LIMIT", "Gói real2sim quá lớn");
+  }
   return args;
 }
 
@@ -184,7 +204,7 @@ export function createLocalServer({
       saveSettings();
       return { name: basename(result.root), version: result.version, scenes: result.scenes };
     }
-    if (bridge.busy && ["mapContext", "exportMapContext", "importXosc", "importTemplate", "openImported", "replayImported", "readImported", "deleteImported", "deleteImportedRun"].includes(name))
+    if (bridge.busy && ["mapContext", "exportMapContext", "importXosc", "importTemplate", "importPackage", "openImported", "replayImported", "readImported", "deleteImported", "deleteImportedRun"].includes(name))
       throw fail("BUSY", "Dừng tác vụ trước khi nạp kịch bản");
     if (name === "mapContext" || name === "exportMapContext") return call("map_context", { source_id: checked.source_id });
     if (name === "replayImported") return call("replay_imported", checked);
@@ -200,6 +220,7 @@ export function createLocalServer({
       return call("import_xosc", { source_id: checked.source_id, xml_base64: bytes.toString("base64"), ...(checked.file_name ? { file_name: checked.file_name } : {}) });
     }
     if (name === "importTemplate") return call("import_template", checked);
+    if (name === "importPackage") return call("import_package", checked);
     // Read-only map suitability probe; queued on the metrics worker so the main worker stays free.
     if (name === "templateFit") return call("template_fit", checked, metricsBridge);
     if (name === "lidarFrame") return call("lidar_frame", checked, lidarBridge);
@@ -297,7 +318,7 @@ export function createLocalServer({
     let size = 0;
     try { for await (const chunk of req) {
       size += chunk.length;
-      if (size > 4 * 1024 * 1024) return send(400, { code: "INVALID_INPUT", message: "Request too large" });
+      if (size > (name === "importPackage" ? PACKAGE_BASE64_MAX + 128 * 1024 : 4 * 1024 * 1024)) return send(400, { code: "INVALID_INPUT", message: "Request too large" });
       raw += chunk;
     } } catch {
       if (!res.destroyed) send(400, { code: "INVALID_INPUT", message: "Incomplete request body" });

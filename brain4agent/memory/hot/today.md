@@ -127,3 +127,12 @@ GitHub destination correction: bonnet pushed/verified to P-056 main a451a1a, pat
 ## 2026-10-14 — Đồng bộ P-056 v0.31.1 + danh tính commit
 - Commit local `d29392c` (v0.31.1, gộp plan38–42; backend 712, vitest 432, server 40, tsc 0). Đồng bộ lên P-056 `9fe8c8b` (`source-tool/topeye`, verify identical trừ README/config/.gitignore của team).
 - Viết lại tác giả 3 commit P-056 cũ (`macos@Wanlevenmacos.local` → `danhtongAI11` noreply, force-with-lease, cây code không đổi) để GitHub hiện avatar; đặt `git config --global` theo danh tính này.
+
+## 2026-10-15 — Plan43 đợt 1: nạp gói real2sim (v0.32.0)
+- Chủ dự án: "okee làm đi" (kế hoạch 3 đợt theo gói `car_013_t01.0_stop_d3_a8`). Đợt 1 = nạp gói + báo cáo kịch bản.
+- Đo: toạ độ real2sim khớp hệ app tới mm (scene-1077); gói mẫu bị cổng cũ từ chối ở 4 chỗ (OSC 1.1, RoadNetwork, 73>32 actor, Add/DeleteEntity) ⇒ đường nạp riêng, không nới cổng cũ.
+- Gotcha: đạo hàm trên đỉnh real2sim cho gia tốc giả 2259 m/s² (đỉnh cách 1 ms, khớp nối keyframe 2 Hz) ⇒ ghi chú động học dùng lưới 0,1 s và cửa sổ gia tốc 0,5 s.
+- Cổng: backend 731, vitest 435, server 41, tsc/build 0; E2E Chrome thật với thư mục mẫu PASS (73 đối tượng, 31 ghi chú, báo cáo đúng 1,75 m/10,34 m/TTC 1,10 s).
+
+## 2026-10-15 — Plan44 chuyển tab mượt (v0.32.1)
+- Chủ dự án: chuyển tab trễ ~2 s, icon tab chọn phải đỏ. Đo: long task 2,5–2,7 s do dựng lại 3D khi đổi màn; phát vẫn 60 fps. Sửa: giữ hai màn mount + TrackView active; rail đỏ theo màn. Sau: không còn long task; vitest 436, E2E hồi quy PASS.

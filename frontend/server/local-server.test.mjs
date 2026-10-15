@@ -174,6 +174,26 @@ test("importTemplate forwards a bounded template object to the worker", async (t
   assert.deepEqual([calls.at(-1).method, calls.at(-1).params.template], ["import_template", template]);
 });
 
+test("importPackage forwards a bounded real2sim package to the main worker", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  const b64 = Buffer.from("<x/>").toString("base64");
+  const id = "a".repeat(32);
+  for (const files of [[], [{ name: "report.json", data_base64: b64 }], [{ name: "a.xosc", data_base64: b64 }, { name: "b.xosc", data_base64: b64 }],
+    [{ name: "../a.xosc", data_base64: b64 }], [{ name: "map.xodr", data_base64: b64 }], [{ name: "a.xosc", data_base64: "!!" }],
+    [{ name: "a.xosc", data_base64: b64, path: "/" }], [{ name: "a.xosc", data_base64: b64 }, { name: "report.json", data_base64: b64 }, { name: "report.json", data_base64: b64 }]])
+    assert.equal((await post("importPackage", { source_id: id, files })).status, 400, JSON.stringify(files).slice(0, 80));
+  assert.equal((await post("importPackage", { source_id: "x", files: [{ name: "a.xosc", data_base64: b64 }] })).status, 400);
+  const files = [{ name: "car_013.xosc", data_base64: b64 }, { name: "report.json", data_base64: b64 }, { name: "trajectories.csv", data_base64: b64 }];
+  assert.equal((await post("importPackage", { source_id: id, files })).status, 200);
+  assert.deepEqual([calls.at(-1).method, calls.at(-1).params.files.length], ["import_package", 3]);
+  // Larger than the usual 4 MiB body but within the package budget is accepted; beyond it is refused.
+  const big = "A".repeat(5 * 1024 * 1024);
+  assert.equal((await post("importPackage", { source_id: id, files: [{ name: "a.xosc", data_base64: big }] })).status, 200);
+  assert.equal((await post("importPackage", { source_id: id, files: [{ name: "a.xosc", data_base64: "A".repeat(8 * 1024 * 1024) }] })).status, 400);
+});
+
 test("templateFit probes a scene on the metrics worker", async (t) => {
   const calls = [];
   const { post, dataset } = await start(t, calls);

@@ -2,6 +2,8 @@
 
 ## Tóm tắt phiên bản hiện hành
 
+- 0.32.1: đổi Cảnh nguồn ⇄ OpenSCENARIO tức thì — hai màn luôn mount (`.view-pane`), màn ẩn giữ cảnh 3D đã dựng và không vẽ (`TrackView active`); trước đó mỗi lần đổi dựng lại cả cảnh ≈2,5 s. Icon rail đỏ theo màn đang hiện. Plan44.
+- 0.32.0: **nạp gói real2sim của team** — Tạo kịch bản → "Nạp gói real2sim" → chọn thư mục gói (`<tên>.xosc` OpenSCENARIO 1.0–1.2, tuỳ chọn `report.json`, `trajectories.csv`; `.xodr` bị bỏ qua). Cảnh lấy từ `report.json` (`scene`), thiếu thì dùng map đang chọn. Đường nạp riêng `topeye/scenario/real2sim.py`: chỉ hiểu Teleport, FollowTrajectory (position, absolute, Polyline WorldPosition) và Add/DeleteEntity theo `SimulationTimeCondition`; action/điều kiện khác ⇒ `UNSUPPORTED_XOSC` nêu tên. Toạ độ = hệ của app (gốc ego t=0, đo khớp mm). Kiểm map/động học chỉ là ghi chú (`MAP_NOTE_SURFACE|OBSTACLE|OUTSIDE`, `DYNAMIC_NOTE` trên lưới 0,1 s, gia tốc cửa sổ 0,5 s). Giới hạn: xosc ≤ 4 MiB, report ≤ 256 KiB, csv ≤ 1,5 MiB, ≤ 256 actor, tổng base64 ≤ 7,8 MiB. Lưu `<ws>/<id>/import/` manifest `kind: "real2sim"` (hash mọi file). Tab "Số liệu" = Báo cáo kịch bản từ `report.json` (`Real2simReport.tsx`); không tính chỉ số/không chạy esmini; Sửa bị khoá; Xuất trả `.xosc` gốc. Spec: `planning/43_2026-10-15_real2sim-import/`.
 - 0.10.0: ego VinFast VF3 có giấy phép, xe giao thông xám, khoảng cách xe trước, 22 preset thời tiết CARLA (chỉ hiển thị), XOSC trên header.
 - 0.10.1: bỏ mảng trắng lớn của vùng dừng nuScenes.
 - 0.11.0: nền LiDAR/annotation, tiếp xúc/nghiêng theo nguồn, cắt nhà theo hành lang xe.

@@ -11,6 +11,7 @@
 </agent_startup_protocol>
 
 <project_foundation>
+- v0.32.0 (plan43): gói real2sim của team (thư mục .xosc OSC1.1 + report.json + trajectories.csv) nạp qua đường RIÊNG real2sim.py (kind real2sim, chỉ action phát lại, map = ghi chú) — KHÔNG nới validate_xosc; tab Số liệu = Real2simReport từ report.json; toạ độ real2sim = hệ app (gốc ego t=0).
 - v0.28–0.30 (plan38): Tạo kịch bản = ScenarioCreator (authoring/): 20 loại/5 nhóm → template topeye-scenario-template-v1 → worker import_template (template.py) → validate_xosc; đặt dọc quỹ đạo ego nguồn, auto vị trí + lật trái/phải; v0.29.0 gợi ý map (worker template_fit trên worker chỉ số, cổng thật); v0.30.0 Sửa = form template (template.json cạnh import/, ngoài hash); tab AI chatbot mock (P03 AI thật chưa làm).
 - v0.26.1(plan37): runner camera bottom12px; sparse real keyframe rail separate from motion, no timeline footer; confirmed single-run history deletion→workspace/.trash, scenario preserved.
 - v0.26.0 (plan36): runner2:1 player + real XOSC vertex timeline / tabbed library, metrics, saved history; fixed create footer; source speed threshold0.1m/s; timeline seek pauses and shares player time.

@@ -89,6 +89,10 @@ Tổng hợp các lỗi khó, các lưu ý dị biệt hoặc cách workaround �
 2026-10-09 clarification: user finds nativevideo acceptable, interactive3D muchmorebroken. Supersedes inference that nativequality is primaryblocker. Confirmed from Spark2.3.1 source/docs: default PackedSplats positionsfloat16, defaultLODgenerated; audit background31centersoutsideFP16finite range,588beyond3000m; float32inputmax2422217. Candidate viewer ?precision=1 uses extSplats:true, accumExtSplats:true, enableLod:false/lod:false, countguard2285393; defaultmodeunchanged. JSsyntaxPASS. VisualeffectUNMEASURED; browser14hardstop/usercontrol, MUSTwaitexplicitcontinuebeforeclaim/resume. No train/job/paidresource.
 
 
+## View switching — 2026-10-15 (plan44)
+- Render có điều kiện `view === "runner" ? A : B` gỡ màn kia ⇒ TrackView dispose WebGL và dựng lại toàn cảnh (≈2,5 s long task) mỗi lần đổi tab. Giữ cả hai màn mount (`.view-pane[hidden]`), màn ẩn nhận props đóng băng, `TrackView active=false` để không vẽ. Test mock TrackView đếm số lần build để chặn hồi quy.
+- `aria-pressed` của icon rail = màn đang hiện, KHÔNG phải ngăn kéo đang mở; helper test/E2E "mở ngăn Cảnh nguồn" phải kiểm có panel `complementary` chứ không dựa vào aria-pressed.
+
 ## N3-09B — 2026-10-09
 - esmini tự dịch bounding center khi RearAxle positionX khác 0. Replay vị trí chọn RearAxle X=0; engine đọc lại/assert dimensions và center offsets tại t0. Không suy từ sai số XY nhỏ rằng hộp va chạm đã đúng.
 - Gap >1s cắt qua biên clip phải kiểm trên mọi cặp observation giao interval; lọc rows trong start±1s có thể bỏ mất bracket lỗi.

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowLeft, Check, Download, FileUp, LayoutGrid, MapPin, Sparkles, TriangleAlert, Upload, X } from "lucide-react";
+import { ArrowLeft, Check, Download, FileUp, FolderOpen, LayoutGrid, MapPin, Sparkles, TriangleAlert, Upload, X } from "lucide-react";
 import { useT } from "../i18n";
 import { TYPE_BY_ID, newTemplate, type ScenarioType } from "./catalog";
 import { AiChat } from "./AiChat";
@@ -15,9 +15,11 @@ import "./authoring.css";
  * “Tạo từ template” compiles it in the worker (P02) and imports it like a .xosc file; the existing .xosc import and
  * map-context export stay available in the footer.
  */
-export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportMap, onImportXosc, onCreateTemplate, fitTemplate, editing }: {
+export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportMap, onImportXosc, onImportPackage, onCreateTemplate, fitTemplate, editing }: {
     scenes: string[]; currentScene: string; busy: boolean; onClose: () => void;
     onExportMap: (scene: string) => Promise<unknown>; onImportXosc: (scene: string) => Promise<boolean | undefined>;
+    /** real2sim package folder (plan43); its report.json picks the scene, else the selected map. */
+    onImportPackage?: (scene: string) => Promise<boolean | undefined>;
     onCreateTemplate: (template: ScenarioTemplate) => Promise<boolean | undefined>;
     /** Map suggestions; absent (e.g. static demo) hides them. */
     fitTemplate?: FitProbe;
@@ -119,6 +121,7 @@ export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportM
                 <div className="authoring-foot-group">
                     <button disabled={busy || !scene} onClick={() => void onExportMap(scene)}><MapPin size={14} aria-hidden/> {t("Tải thông tin map")}</button>
                     <button disabled={busy || !scene} onClick={() => void onImportXosc(scene).then(ok => { if (ok) onClose(); })}><Upload size={14} aria-hidden/> {t("Chọn file .xosc")}</button>
+                    {onImportPackage && <button disabled={busy || !scene} title={t("Chọn thư mục gói real2sim (.xosc + report.json + trajectories.csv)")} onClick={() => void onImportPackage(scene).then(ok => { if (ok) onClose(); })}><FolderOpen size={14} aria-hidden/> {t("Nạp gói real2sim")}</button>}
                     <button onClick={() => file.current?.click()}><FileUp size={14} aria-hidden/> {t("Nạp template")}</button>
                     <input ref={file} type="file" accept=".json,application/json" hidden aria-label={t("File template")} onChange={e => void load(e.target.files?.[0])}/>
                 </div>

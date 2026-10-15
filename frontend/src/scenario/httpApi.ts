@@ -1,4 +1,4 @@
-import type { DesktopAPI } from "./types";
+import type { DesktopAPI, PackageSelection } from "./types";
 
 type Doc = Pick<Document, "createElement" | "querySelector" | "body">;
 export interface HttpApiOptions {
@@ -27,6 +27,49 @@ function pickFile(doc: Doc, accept: string): Promise<File | null> {
     doc.body.appendChild(input);
     input.click();
   });
+}
+
+/** Read every file of a user-picked folder (webkitdirectory); null when cancelled. */
+function pickFolder(doc: Doc): Promise<File[] | null> {
+  return new Promise((resolve) => {
+    const input = doc.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.setAttribute("webkitdirectory", "");
+    input.style.display = "none";
+    input.addEventListener("change", () => { resolve(input.files ? Array.from(input.files) : null); input.remove(); });
+    input.addEventListener("cancel", () => { resolve(null); input.remove(); });
+    doc.body.appendChild(input);
+    input.click();
+  });
+}
+
+/** real2sim package limits (plan43 01-CONTRACTS §1); the worker checks them again. */
+const PACKAGE_LIMITS: Record<string, number> = { xosc: 4 * 1024 * 1024, "report.json": 256 * 1024, "trajectories.csv": 1536 * 1024 };
+
+/** Keeps the package files of a folder (one .xosc, report.json, trajectories.csv) and reads the report's scene. */
+export async function readPackage(files: File[]): Promise<PackageSelection> {
+  const top = files.filter(f => !(f.webkitRelativePath || f.name).split("/").slice(1, -1).length); // folder root only
+  const xosc = top.filter(f => f.name.toLowerCase().endsWith(".xosc"));
+  if (xosc.length !== 1) throw failure("INVALID_INPUT", `Thư mục phải có đúng 1 file .xosc (đang có ${xosc.length})`);
+  const kept = [...xosc, ...top.filter(f => f.name === "report.json" || f.name === "trajectories.csv")];
+  const skipped = files.filter(f => !kept.includes(f)).map(f => f.name);
+  let scene: string | null = null;
+  const out = [];
+  for (const f of kept) {
+    const limit = PACKAGE_LIMITS[f === xosc[0] ? "xosc" : f.name];
+    if (f.size > limit) throw failure("RESOURCE_LIMIT", `${f.name} vượt ${Math.round(limit / 1024)} KiB`);
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (f.name === "report.json") {
+      try {
+        const value = (JSON.parse(new TextDecoder().decode(bytes)) as { scene?: unknown }).scene;
+        if (typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value)) scene = value;
+      } catch { /* the worker reports the malformed file */ }
+    }
+    const name = f === xosc[0] && !/^[^/\\\x00-\x1f]{1,115}\.xosc$/.test(f.name) ? "package.xosc" : f.name;
+    out.push({ name, data_base64: toBase64(bytes) });
+  }
+  return { files: out, scene, skipped };
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -116,6 +159,11 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
       return call("importXosc", { source_id, xml_base64, file_name: file.name });
     },
     importTemplate: (args) => call("importTemplate", args),
+    pickPackage: async () => {
+      const files = await pickFolder(doc);
+      return files?.length ? readPackage(files) : null;
+    },
+    importPackage: (args) => call("importPackage", args),
     templateFit: (args) => call("templateFit", args),
     exportMapContext: async ({ source_id }) => {
       const context = await call<{ scene: string }>("exportMapContext", { source_id });

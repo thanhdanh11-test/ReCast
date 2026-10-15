@@ -7,7 +7,8 @@ vi.mock("./TrackView", async () => {
     return {
         // Like the real view: reports ready after drawing each new scene.
         TrackView: ({environmentSettings, time, scenario, onReady}: {environmentSettings: {preset: string; quality: string}; time: number; scenario: unknown; onReady?: () => void}) => {
-            useEffect(() => { if (scenario) onReady?.(); }, [scenario]);
+            // Counts scene builds like the real view's [scenario] effect (plan44: view switches must not rebuild).
+            useEffect(() => { if (scenario) { (globalThis as {trackBuilds?: number}).trackBuilds = ((globalThis as {trackBuilds?: number}).trackBuilds ?? 0) + 1; onReady?.(); } }, [scenario]);
             return <div data-testid="viewport" data-preset={environmentSettings.preset} data-quality={environmentSettings.quality} data-time={time}/>;
         },
     };
@@ -28,6 +29,8 @@ const mock = {
     exportMapContext: vi.fn(),
     importXosc: vi.fn(),
     importTemplate: vi.fn(),
+    pickPackage: vi.fn(),
+    importPackage: vi.fn(),
     templateFit: vi.fn(() => new Promise<never>(() => {})),
     openImported: vi.fn(),
     replayImported: vi.fn(),
@@ -51,8 +54,12 @@ const viewState = () => screen.getByRole("region", { name: "Mô phỏng 3D" }).g
 // 0.18.0: every control lives behind an icon-rail tool (drawer) or the OpenSCENARIO runner.
 function tool(name: string) {
     const button = screen.getByRole("button", { name: new RegExp(`^${name}`) });
-    if (button.getAttribute("aria-pressed") !== "true") fireEvent.click(button);
+    // plan44: the rail marks the view on screen; "Cảnh nguồn" is pressed while its drawer may still be closed.
+    const open = name === "Cảnh nguồn" ? !!screen.queryByRole("complementary", { name: "Cảnh nguồn" }) : button.getAttribute("aria-pressed") === "true";
+    if (!open) fireEvent.click(button);
 }
+/** Both views stay mounted (plan44); the scene view's 3D stub lives in the "Mô phỏng 3D" region. */
+const sceneViewport = () => document.querySelector('[aria-label="Mô phỏng 3D"] [data-testid="viewport"]')!;
 function settingsSection(name: string) {
     tool("Cài đặt");
     fireEvent.click(within(screen.getByRole("navigation", { name: "Mục cài đặt" })).getByRole("button", { name }));
@@ -271,6 +278,39 @@ describe('OpenSCENARIO runner',()=>{
   fireEvent.keyDown(window,{key:'Escape'});
   expect(screen.queryByRole('dialog')).toBeNull();
  });
+ it('imports a real2sim package folder on the scene of its report and shows the tool report instead of metrics (plan43)',async()=>{
+  const report = {id:'car_013',scene:'scene-0103',source:'nuscenes-mini',valid:true,reasons:[],group:'close',
+   event:{actor:'car_013',t0:1,decel:8,target:'stop',dwell:3},
+   drivers:{react:true,reaction_s:1,thresholds:{},per_vehicle:{ego:{T:1.46,s0:2,max_decel:8}}},
+   ego:{a_min:3.2,a_used:5.27,min_gap:1.751,min_ttc:1.1,conflict_with:'car_013',recorded_min_gap:10.335},
+   reacted:['ego'],max_decel_used:{ego:5.27},physics:{ego:{max_speed:12.01,max_decel:5.1,t_decel:2.85,limit_decel:8.2}},gaps:{},collisions:[],
+   esmini:{exit:0,version:'v3.9.0',problems:[],replay_error_m:{ego:{mean:0,max:0.0001}}},
+   run:{created:'2026-10-14T15:23:15',commit:'a75ce6bb3f',dirty:false,esmini_version:'v3.9.0',dt:0.05,road:'map'}};
+  const packaged = {...importedScenario,id:'e'.repeat(32),kind:'real2sim',profile:'real2sim-replay-v1',report,
+   import:{sha256:'h',diagnostics:[{code:'MAP_NOTE_SURFACE',actor_id:'car-new',t_s:3.96,message:'car-new ra ngoài mặt đường lúc t=3.96s'}]}};
+  mock.pickPackage.mockResolvedValue({files:[{name:'car_013.xosc',data_base64:'eA=='}],scene:'scene-0103',skipped:['scene-1077_map.xodr']});
+  mock.importPackage.mockResolvedValue(packaged);
+  mock.listImported.mockResolvedValue([{...entry('e'.repeat(32),'car_013.xosc'),kind:'real2sim',report:{valid:true,group:'close',event:report.event}}]);
+  mock.scenarioMetrics.mockClear();
+  await openRunner();
+  fireEvent.click(runner().getByRole('button',{name:'Tạo kịch bản'}));
+  fireEvent.click(createDialog().getByRole('button',{name:'Nạp gói real2sim'}));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(mock.importPackage).toHaveBeenCalledWith({source_id:'source',files:[{name:'car_013.xosc',data_base64:'eA=='}]});
+  await screen.findByText('Đã nạp gói real2sim · 3 đối tượng · 1 ghi chú map');
+  expect(runner().getByText('1 ghi chú map')).toBeTruthy();
+  expect(runner().queryByText('Đúng map')).toBeNull();
+  expect((runner().getByRole('button',{name:'Sửa car_013.xosc'}) as HTMLButtonElement).disabled).toBe(true);
+  expect(within(runner().getByLabelText('Thư viện kịch bản')).getByText('Hợp lệ')).toBeTruthy();
+  fireEvent.click(runner().getByRole('tab',{name:'Số liệu'}));
+  const panel = runner().getByLabelText('Báo cáo kịch bản real2sim');
+  expect(within(panel).getByText('car_013 dừng hẳn · giảm tốc 8,0 m/s² lúc 1,0 s · đứng 3,0 s')).toBeTruthy();
+  expect(within(panel).getByRole('cell',{name:'1,75 m'})).toBeTruthy();
+  expect(within(panel).getByRole('cell',{name:'10,34 m'})).toBeTruthy();
+  expect(within(panel).getByText('car-new ra ngoài mặt đường lúc t=3.96s')).toBeTruthy();
+  expect(runner().queryByText('Kết quả lần chạy gần nhất')).toBeNull();
+  expect(mock.scenarioMetrics).not.toHaveBeenCalled();
+ });
  it('creates a scenario from a template through the worker and opens it',async()=>{
   mock.importTemplate.mockResolvedValue(importedScenario);
   await openRunner();
@@ -449,6 +489,29 @@ describe('OpenSCENARIO runner',()=>{
   expect(mock.importTemplate).toHaveBeenCalledWith({source_id:'source',template:expect.objectContaining({scenario_type:'emergency_stop'})});
   expect(mock.deleteImported).toHaveBeenCalledWith({scenario_id:'a'.repeat(32)});
  });
+ it('switches views without rebuilding either 3D scene and marks the shown view on the rail (plan44)',async()=>{
+  mock.listImported.mockResolvedValue([entry('a'.repeat(32),'one.xosc')]);
+  mock.openImported.mockResolvedValue(importedScenario);
+  await openRunner();
+  fireEvent.click(await runner().findByRole('button',{name:/^one\.xosc/}));
+  await waitFor(() => expect(runner().getByText(/scene-0103 · topeye-map-trajectories-v1 · 3 đối tượng/)).toBeTruthy());
+  const rail = within(screen.getByRole('navigation',{name:'Công cụ'}));
+  const pressed = () => ['Cảnh nguồn','OpenSCENARIO'].map(n => rail.getByRole('button',{name:n}).getAttribute('aria-pressed'));
+  expect(pressed()).toEqual(['false','true']);
+  const builds = () => (globalThis as {trackBuilds?: number}).trackBuilds ?? 0;
+  fireEvent.click(rail.getByRole('button',{name:'Cảnh nguồn'}));
+  fireEvent.keyDown(window,{key:'Escape'});
+  const settled = builds();
+  expect(pressed()).toEqual(['true','false']);
+  expect(screen.getByTestId('scenario-runner').closest('.view-pane')!.hasAttribute('hidden')).toBe(true);
+  for (let i = 0; i < 3; i++) {
+   fireEvent.click(rail.getByRole('button',{name:'OpenSCENARIO'}));
+   expect(runner().getByText(/scene-0103 · topeye-map-trajectories-v1 · 3 đối tượng/)).toBeTruthy();
+   fireEvent.click(rail.getByRole('button',{name:'Cảnh nguồn'}));
+   fireEvent.keyDown(window,{key:'Escape'});
+  }
+  expect(builds()).toBe(settled);
+ });
  it('deletes only after confirmation',async()=>{
   mock.listImported.mockResolvedValue([entry('a'.repeat(32),'cut-in.xosc')]);
   mock.deleteImported.mockResolvedValue({trash_path:'/ws/.trash/x'});
@@ -497,12 +560,12 @@ describe("environment session settings", () => {
   fireEvent.click(within(screen.getByRole("radiogroup", {name:"Chất lượng đồ hoạ"})).getByRole("radio", {name:"Cân bằng"}));
   fireEvent.click(within(screen.getByRole("radiogroup", {name:"Chế độ màu"})).getByRole("radio", {name:"Sáng"}));
   fireEvent.click(screen.getByRole("button", {name:"Quay lại"}));
-  expect(screen.getByTestId("viewport").getAttribute("data-time")).toBe("1");
-  expect(screen.getByTestId("viewport").getAttribute("data-preset")).toBe("ClearNoon");
+  expect(sceneViewport().getAttribute("data-time")).toBe("1");
+  expect(sceneViewport().getAttribute("data-preset")).toBe("ClearNoon");
   expect(document.querySelector(".studio")?.getAttribute("data-theme")).toBe("light");
   tool("Cảnh nguồn");
   fireEvent.click(screen.getByRole("button", {name:/^scene-0103/}));
-  expect(screen.getByTestId("viewport").getAttribute("data-quality")).toBe("balanced");
+  expect(sceneViewport().getAttribute("data-quality")).toBe("balanced");
   expect(JSON.parse(localStorage.getItem("topeye.preferences.v1")!)).toMatchObject({appearance:"light", quality:"balanced"});
   expect(mock.replay).not.toHaveBeenCalled();
   localStorage.clear();
@@ -634,7 +697,7 @@ describe("shell 0.18.0", () => {
         render(<ScenarioApp />);
         openDatasetPicker();
         await screen.findByText("Đã đọc 1 cảnh");
-        const viewTime = () => screen.getByTestId("viewport").getAttribute("data-time");
+        const viewTime = () => sceneViewport().getAttribute("data-time");
         fireEvent.keyDown(window, { key: "ArrowRight" });
         expect(viewTime()).toBe("1");
         fireEvent.keyDown(screen.getByRole("slider", { name: "Thời gian mô phỏng" }), { key: "ArrowRight" });

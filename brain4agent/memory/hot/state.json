@@ -1,24 +1,24 @@
 {
-  "current_version": "0.31.1",
+  "current_version": "0.32.1",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-13T10:33:47+07:00",
-    "scope": "0.25.0 plan35 settings page",
+    "timestamp": "2026-10-15T09:38:53+07:00",
+    "scope": "0.32.1 plan44 view switching",
     "backend_tests": {
-      "total": 667,
-      "pass": 667
+      "total": 731,
+      "pass": 731
     },
     "frontend_tests": {
-      "total": 365,
-      "pass": 365
+      "total": 436,
+      "pass": 436
     },
     "server_tests": {
-      "total": 37,
-      "pass": 37
+      "total": 41,
+      "pass": 41
     },
-    "e2e_local_web": "14/14",
-    "evidence": "planning/34_2026-10-13_dataset-intake/evidence"
+    "e2e_local_web": "regression PASS; tab switch 2.8s→<0.3s",
+    "evidence": "planning/44_2026-10-15_tab-switch/evidence"
   },
   "active_plans_completed": 1,
   "engine_sha": "1e68b141926025230d15ac986b2022c3d70a1e33",

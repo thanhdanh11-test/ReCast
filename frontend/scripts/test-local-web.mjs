@@ -41,7 +41,9 @@ try {
   const footer = () => p.locator('[aria-label="Trạng thái tác vụ"] span').first().textContent();
   const tool = async (name) => {
     const button = p.getByRole("button", { name: new RegExp(`^${name}`) });
-    if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+    // plan44: the rail marks the view on screen; the "Cảnh nguồn" drawer is open only when its panel exists.
+    const open = name === "Cảnh nguồn" ? await p.getByRole("complementary", { name: "Cảnh nguồn" }).count() > 0 : (await button.getAttribute("aria-pressed")) === "true";
+    if (!open) await button.click();
   };
   const waitFooter = async (re, timeout = 120000) => {
     await p.waitForFunction((src) => new RegExp(src).test(document.querySelector('[aria-label="Trạng thái tác vụ"] span')?.textContent || ""), re.source, { timeout });

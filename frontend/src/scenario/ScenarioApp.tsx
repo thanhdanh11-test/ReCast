@@ -1,7 +1,7 @@
 import topeyeLogo from "./assets/topeye-logo.png";
 import type { ScenarioTemplate } from "./authoring/template";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ImportedEntry, Replay, Scene, Scenario, Settings } from "./types";
+import { ImportedEntry, ImportedScenario, Replay, Scene, Scenario, Settings } from "./types";
 import { TrackView } from "./TrackView";
 import { LidarView } from "./LidarView";
 import { TacticalMap } from "./TacticalMap";
@@ -183,7 +183,8 @@ export default function ScenarioApp({ onLibrary, onLogout }: { onLibrary?: () =>
         setSceneLoading(false);
         if (preferences.autoplay) setPlaying(true);
     };
-    const metricsScene = view === "runner" && scenario?.mode === "imported" && settings?.mode !== "web-demo" ? scenario.id : null;
+    // real2sim packages (plan43) carry the tool's own measurements; the app does not compute metrics for them.
+    const metricsScene = view === "runner" && scenario?.mode === "imported" && (scenario as ImportedScenario).kind !== "real2sim" && settings?.mode !== "web-demo" ? scenario.id : null;
     const metricsSceneRef = useRef(metricsScene);
     metricsSceneRef.current = metricsScene;
     useEffect(() => {
@@ -233,7 +234,15 @@ export default function ScenarioApp({ onLibrary, onLogout }: { onLibrary?: () =>
         window.addEventListener("keydown", key);
         return () => window.removeEventListener("keydown", key);
     }, [settingsOpen, busy, scenario, time, timelineEnd]);
-    const imported = scenario?.mode === "imported";
+    /**
+     * plan44: both views stay mounted and the hidden one keeps the props it last showed, so switching views
+     * does not tear down and rebuild the 3D scene (measured ≈2.5 s main-thread block per switch before).
+     */
+    const shownIn = useRef<Record<View, { scenario: Scenario | null; replay: Replay | null; time: number }>>({
+        scene: { scenario: null, replay: null, time: 0 }, runner: { scenario: null, replay: null, time: 0 },
+    });
+    shownIn.current[view] = { scenario, replay, time };
+    const sceneProps = shownIn.current.scene, runnerProps = shownIn.current.runner;
     const resetPlayback = () => { setReplay(null); setTime(0); setPlaying(false); };
     // ---- OpenSCENARIO library (plan26) -------------------------------------------------------
     async function refreshLibrary() {
@@ -270,6 +279,21 @@ export default function ScenarioApp({ onLibrary, onLogout }: { onLibrary?: () =>
             const s = await checked(api!.importXosc({ source_id: source.id }));
             if (!s) { setMessage(t("Đã đóng hộp chọn · giữ nguyên cảnh đang xem")); return false; }
             showImported(s, t("Đã nạp OpenSCENARIO · {n} đối tượng · đúng map hiện tại", { n: s.actors.length }));
+            await refreshLibrary();
+            return true;
+        });
+    }
+    /** real2sim package folder (plan43): the scene comes from its report.json, else the map chosen in the creator. */
+    function importPackage(scene: string) {
+        return job(t("Đang nạp gói real2sim"), async () => {
+            const picked = await checked(api!.pickPackage());
+            if (!picked) { setMessage(t("Đã đóng hộp chọn · giữ nguyên cảnh đang xem")); return false; }
+            const target = picked.scene ?? scene;
+            if (!scenes.some(s => s.scene === target)) throw new Error(t("Gói thuộc cảnh {scene}, không có trong dữ liệu đang mở", { scene: target }));
+            const source = await ensureSource(target);
+            const s = await checked(api!.importPackage({ source_id: source.id, files: picked.files }));
+            const notes = s.import.diagnostics.length;
+            showImported(s, t("Đã nạp gói real2sim · {n} đối tượng · {notes} ghi chú map", { n: s.actors.length, notes }));
             await refreshLibrary();
             return true;
         });
@@ -425,7 +449,8 @@ export default function ScenarioApp({ onLibrary, onLogout }: { onLibrary?: () =>
         void job(t('Đang dựng cảnh gốc'), () => loadSource(s));
     }
     const drawer = tool ? drawers[tool] : null;
-    const activeRail = settingsOpen ? "settings" : view === "runner" && !tool ? "runner" : tool;
+    // The rail always marks the view on screen (plan44: red), not only an open drawer.
+    const activeRail = settingsOpen ? "settings" : view;
     async function chooseDataset() {
         await job(t("Đang mở dữ liệu"), async () => {
             const res = await checked(api!.chooseDataset());
@@ -463,30 +488,30 @@ export default function ScenarioApp({ onLibrary, onLogout }: { onLibrary?: () =>
         {drawer.body}
         {demo && <div className="drawer-credits"><ModelCredits/><p className="sensor-note">nuScenes © Motional, CC BY-NC-SA 4.0</p><p className="sensor-note">CARLA weather presets · MIT</p></div>}
       </aside>}
-      {view === "runner" ? <ScenarioRunner entries={library} activeId={activeEntry}
+      <div className="view-pane" hidden={view !== "runner"}><ScenarioRunner active={view === "runner"} entries={library} activeId={activeEntry}
           busy={busy} metrics={metrics} duration={timelineEnd} onSeek={value => { setPlaying(false); setTime(value); }}
           scenes={scenes.map(s => s.scene)} currentScene={original?.source.scene ?? scenes[0]?.scene ?? ""}
-          scenario={scenario} replay={replay} time={time} environmentSettings={environmentSettings} playback={playback}
-          loading={sceneLoading && <LoadingOverlay/>} onSceneReady={sceneReady}
+          scenario={runnerProps.scenario} replay={runnerProps.replay} time={runnerProps.time} environmentSettings={environmentSettings} playback={playback}
+          loading={view === "runner" && sceneLoading && <LoadingOverlay/>} onSceneReady={sceneReady}
           onSelect={entry => void job(t("Đang mở {name}", { name: entry.name }), () => openEntry(entry))}
-          onCreate={createScenario} onCreateTemplate={createFromTemplate} onFitTemplate={api?.templateFit ? (scene, template) => api.templateFit({ scene, template }) : undefined} onExportMap={exportMap}
-          onExport={entry => void exportEntry(entry)} onLoadXml={loadEntryXml} onSaveEdit={saveEdit} onSaveTemplateEdit={saveTemplateEdit} onDelete={deleteEntry} onDeleteRun={deleteRun}/>
-      : <main ref={workspaceRef} className={`view-workspace ${expanded ? `expanded expanded-${expanded}` : ''}`}>
-        <section className="viewport-panel primary-view" aria-label={t("Mô phỏng 3D")} data-view-state={!scenario ? "empty" : replay ? "replay" : scenario.mode === "source" ? "source" : imported ? "imported-preview" : "preview"}>
+          onCreate={createScenario} onImportPackage={importPackage} onCreateTemplate={createFromTemplate} onFitTemplate={api?.templateFit ? (scene, template) => api.templateFit({ scene, template }) : undefined} onExportMap={exportMap}
+          onExport={entry => void exportEntry(entry)} onLoadXml={loadEntryXml} onSaveEdit={saveEdit} onSaveTemplateEdit={saveTemplateEdit} onDelete={deleteEntry} onDeleteRun={deleteRun}/></div>
+      <div className="view-pane" hidden={view !== "scene"}><main ref={workspaceRef} className={`view-workspace ${expanded ? `expanded expanded-${expanded}` : ''}`}>
+        <section className="viewport-panel primary-view" aria-label={t("Mô phỏng 3D")} data-view-state={!sceneProps.scenario ? "empty" : sceneProps.replay ? "replay" : sceneProps.scenario.mode === "source" ? "source" : sceneProps.scenario.mode === "imported" ? "imported-preview" : "preview"}>
           <ExpandButton panel="track" label="khung 3D" expanded={expanded} onChange={setExpanded}/>
-          <div className="panel-content"><TrackView scenario={scenario} time={time} replay={replay} environmentSettings={environmentSettings} warnings={warnings} display={preferences} onReady={sceneReady}/></div>
+          <div className="panel-content"><TrackView scenario={sceneProps.scenario} time={sceneProps.time} replay={sceneProps.replay} environmentSettings={environmentSettings} warnings={warnings} display={preferences} active={view === "scene"} onReady={view === "scene" ? sceneReady : undefined}/></div>
         </section>
         <section className="viewport-panel lidar-panel" aria-label="LiDAR">
           <ExpandButton panel="lidar" label="khung LiDAR" expanded={expanded} onChange={setExpanded}/>
-          <div className="panel-content"><LidarView scenario={scenario} time={time} replay={replay} loadLidar={api?.lidarFrame} display={preferences}/></div>
+          <div className="panel-content"><LidarView scenario={sceneProps.scenario} time={sceneProps.time} replay={sceneProps.replay} loadLidar={api?.lidarFrame} display={preferences}/></div>
         </section>
         <section className="viewport-panel map-panel" aria-label={t("Map tích hợp")}>
           <ExpandButton panel="map" label="khung map" expanded={expanded} onChange={setExpanded}/>
-          <div className="panel-content"><TacticalMap scenario={scenario} time={time} replay={replay}/></div>
+          <div className="panel-content"><TacticalMap scenario={sceneProps.scenario} time={sceneProps.time} replay={sceneProps.replay}/></div>
         </section>
-        {sceneLoading && <LoadingOverlay/>}
+        {view === "scene" && sceneLoading && <LoadingOverlay/>}
         {error && <div className="error-toast" aria-live="assertive"><span>{error.replace(/^[A-Z_]+: /, '')}</span>{(demo || !!window.scenarioDemo) && <button disabled={busy} onClick={() => void job(t("Đang thử lại"), refresh)}>{t("Thử lại")}</button>}<button aria-label={t("Đóng thông báo lỗi")} onClick={() => setError('')}><X size={14} aria-hidden/></button></div>}
-      </main>}
+      </main></div>
       </div>
     </div>
     {view === "scene" && !settingsOpen && playback}
