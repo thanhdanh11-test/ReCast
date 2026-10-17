@@ -109,18 +109,23 @@ try {
     await p.keyboard.press("Escape");
   }
   step("expandPanels", expandedClasses.map(c => c.match(/expanded-\w+/)?.[0]));
-  // 5. OpenSCENARIO: create dialog → map context download (scene-0061 has a valid map)
+  // 5. Scenario Studio (plan50): “Kịch bản có sẵn” dialog → map context download (scene-0061 has a valid map)
   await tool("Cảnh nguồn");
   await p.getByRole("button", { name: /^scene-0061/ }).click();
   // The status still shows the previous scene's "Cảnh gốc" line, so wait for 0061 itself to be current.
   await p.waitForFunction(() => document.querySelector('.scene-list [aria-current="true"] strong')?.textContent === "scene-0061", null, { timeout: 90000 });
   await notBusy();
   await p.getByRole("button", { name: "Kịch bản", exact:true }).click();
-  await p.getByTestId("scenario-runner").waitFor();
+  const studio = p.getByTestId("scenario-studio");
+  await studio.waitFor();
   await notBusy();
-  step("libraryUi", { checkboxes: await p.locator(".runner-list input[type=checkbox]").count(), headerButtons: await p.locator(".runner-head button").count(), createRed: await p.getByRole("button", { name: "Tạo kịch bản" }).evaluate(e => getComputedStyle(e).backgroundColor) });
-  await p.getByRole("button", { name: "Tạo kịch bản" }).click();
+  await p.waitForFunction(() => document.querySelector(".studio-create .create-scenario")?.disabled === false, null, { timeout: 180000 });
+  step("libraryUi", { columns: await p.locator(".studio-page > :is(.studio-scenes,.studio-center,.studio-history)").count(), oldToolbar: await p.locator(".sw-actions, .runner-tabs, .ud-flow").count(),
+    createRed: await studio.getByRole("button", { name: "Tạo kịch bản" }).evaluate(e => getComputedStyle(e).backgroundColor) });
+  await studio.getByRole("button", { name: "Tạo kịch bản" }).click();
+  await studio.getByRole("menuitem", { name: /Kịch bản có sẵn/ }).click();
   const dialog = p.getByRole("dialog", { name: "Tạo kịch bản" });
+  await dialog.locator(".authoring-more > summary").click(); // plan52: secondary actions live under “Thêm”
   const [download] = await Promise.all([p.waitForEvent("download"), dialog.getByRole("button", { name: "Tải thông tin map" }).click()]);
   const contextFile = join(out, download.suggestedFilename());
   await download.saveAs(contextFile);
@@ -134,57 +139,27 @@ try {
   await chooser.setFiles(xosc);
   await notBusy();
   await dialog.waitFor({state:"hidden"});
-  const created = p.locator(".runner-item.active");
-  step("create", { footer: await footer(), dialogClosed: await dialog.count() === 0, name: await created.locator("strong").textContent(), mapInReport: await p.locator('.runner-report [aria-label="Map 2D"] [data-testid="map-view"]').count(), runButtons: await p.getByRole("button", { name: /Chạy (lại )?kịch bản này/ }).count() });
-  // Seed one saved-run fixture only in this test's temporary workspace, then exercise history deletion.
-  const entries = await p.evaluate(async () => {
-    const token = document.querySelector('meta[name="topeye-token"]').content;
-    const r = await fetch('/api/listImported', {method:'POST', headers:{'Content-Type':'application/json','X-Topeye-Token':token},body:'{}'});
-    return (await r.json()).value;
-  });
-  const historyId = 'd'.repeat(32);
-  const historyDir = join(userData, 'workspace', entries[0].scenario_id, 'runs', historyId);
-  fs.mkdirSync(historyDir, {recursive:true});
-  fs.writeFileSync(join(historyDir, 'status.json'), JSON.stringify({status:'completed'}));
-  await tool('Cảnh nguồn'); await p.getByRole('button', {name:'Kịch bản',exact:true}).click(); await p.getByRole("button",{name:"Làm mới thư viện",exact:true}).click(); await notBusy();
-  await p.getByRole('tab', {name:'Lịch sử',exact:true}).click();
-  const removeRun = p.getByRole('button', {name:/Xoá lần chạy/});
-  await removeRun.waitFor();
-  p.once('dialog', d => d.dismiss()); await removeRun.click();
-  if (!fs.existsSync(historyDir)) throw new Error('Cancelled history deletion changed files');
-  p.once('dialog', d => d.accept()); await removeRun.click(); await notBusy();
-  await p.getByText('Chưa có lịch sử.', {exact:true}).waitFor();
-  if (fs.existsSync(historyDir) || !fs.existsSync(join(userData,'workspace',entries[0].scenario_id,'import','original.xosc'))) throw new Error('History deletion scope');
-  const trashRun = fs.readdirSync(join(userData,'workspace','.trash')).find(n=>n.includes(historyId));
-  if (!trashRun) throw new Error('History not recoverable');
-  step('deleteHistory', {cancelPreserved:true,scenarioPreserved:true,trashed:true});
-  await p.getByRole('tab', {name:'Thư viện',exact:true}).click();
-  const layout = await p.locator('.scenario-workspace').evaluate(el => ({
-    tracks:el.querySelectorAll('.actor-time-lane').length,
-    players:el.querySelectorAll('.ud-stage').length,
-    embeddedPlayers:el.querySelectorAll('.runner-center').length
-  }));
-  if(layout.tracks!==3||layout.players!==1||layout.embeddedPlayers!==0)throw new Error(JSON.stringify(layout));
-  await p.getByRole('slider', { name: /^Thời gian của/ }).first().focus();
-  await p.keyboard.press('End');
-  const timelineEnd = await p.getByRole('slider', { name: /^Thời gian của/ }).first().getAttribute('aria-valuemax');
-  if (Number(await p.getByRole('slider', { name: 'Thời gian',exact:true }).inputValue()) !== Number(timelineEnd)) throw new Error('Timeline and playback disagree');
-  await p.keyboard.press('Home');
-  await p.screenshot({ path: join(out, 'runner-library-timeline.png') });
-  step('timelineAndLayout', layout);
-  await p.getByRole('tab', { name: 'Lịch sử', exact: true }).click();
-  if (!(await p.getByRole('tabpanel', { name: 'Lịch sử', exact: true }).isVisible()) || await p.getByRole('button', { name: 'Tạo kịch bản', exact: true }).isVisible()) throw new Error('History tab visibility');
-  await p.screenshot({ path: join(out, 'runner-history.png') });
-  await p.getByRole('tab', { name: 'Số liệu', exact: true }).click();
-  // Metrics of the opened scenario are computed automatically on the metrics worker (plan33).
-  const metricsBox = p.locator('[aria-label="Chỉ số kịch bản"]');
+  const created = p.locator(".studio-history-list li.active");
+  await created.waitFor({ timeout: 90000 });
+  step("create", { footer: await footer(), dialogClosed: await dialog.count() === 0, name: await created.locator("strong").textContent(), map: await p.locator('.studio-center [data-testid="map-view"]').count() });
+  const layout = await p.locator(".studio-page").evaluate(el => ({ rows: el.querySelectorAll(".studio-timeline-row").length, stages: el.querySelectorAll(".studio-stage").length, oldPlayers: el.querySelectorAll(".ud-stage, .runner-center").length }));
+  if (layout.rows !== 3 || layout.stages !== 1 || layout.oldPlayers !== 0) throw new Error(JSON.stringify(layout));
+  const slider = studio.getByRole("slider", { name: "Thời gian", exact: true });
+  await slider.focus(); await p.keyboard.press("End");
+  if (Number(await slider.inputValue()) !== Number(await slider.getAttribute("max"))) throw new Error("Timeline end");
+  await p.keyboard.press("Home");
+  await p.screenshot({ path: join(out, "studio-timeline.png") });
+  step("timelineAndLayout", layout);
+  // Phân tích: trajectory metrics of the opened scenario on the metrics worker (plan33), as its only section.
+  await created.getByRole("button", { name: /^Phân tích / }).click();
+  const tabs = await p.getByRole("tablist", { name: "Mục phân tích" }).getByRole("tab").allTextContents();
+  const metricsBox = p.locator(".studio-analysis-body");
   await metricsBox.locator(".metrics-cards").waitFor({ timeout: 180000 });
   const cards = await metricsBox.locator(".metrics-card strong").allTextContents();
-  if (cards.length !== 4 || cards.includes("—")) throw new Error(`metrics cards ${JSON.stringify(cards)}`);
-  await metricsBox.scrollIntoViewIfNeeded();
+  if (cards.length !== 4 || cards.includes("—") || JSON.stringify(tabs) !== '["Độ khớp quỹ đạo"]') throw new Error(`metrics ${JSON.stringify({ tabs, cards })}`);
   await p.screenshot({ path: join(out, "scenario-metrics.png") });
   step("scenarioMetrics", cards);
-  await p.getByRole('tab', { name: 'Thư viện', exact: true }).click();
+  await p.getByRole("button", { name: "Quay lại Studio" }).click();
   // 7. edit the XML (rename + new description), saved as a validated new package
   const xml = fs.readFileSync(xosc, "utf8");
   await created.getByRole("button", { name: /^Sửa / }).click();
@@ -196,14 +171,26 @@ try {
   await editor.getByRole("button", { name: "Lưu" }).click();
   await notBusy();
   await editor.waitFor({state:"hidden"});
-  const edited = p.locator(".runner-item", { hasText: "e2e-edited.xosc" });
-  step("edit", { footer: await footer(), listed: await edited.count(), active: (await p.locator(".runner-item.active strong").textContent()) });
-  // 8. export downloads the stored .xosc
-  const [exported] = await Promise.all([p.waitForEvent("download"), edited.getByRole("button", { name: /^Xuất / }).click()]);
+  const edited = p.locator(".studio-history-list li", { hasText: "e2e-edited.xosc" });
+  await edited.waitFor({ timeout: 90000 });
+  step("edit", { footer: await footer(), listed: await edited.count(), active: (await p.locator(".studio-history-list li.active strong").textContent()) });
+  // 8. Lưu → “Chỉ .xosc” → Đã xuất page → 100 % → download zip with the edited XOSC
+  await edited.getByRole("button", { name: /^Lưu / }).click();
+  const save = p.getByRole("dialog", { name: /^Lưu kịch bản/ });
+  await save.getByRole("combobox", { name: "Định dạng xuất" }).selectOption("xosc");
+  await save.getByRole("button", { name: "Xác nhận" }).click();
+  await save.waitFor({ state: "hidden" });
+  await p.getByRole("button", { name: "Đã xuất", exact: true }).click();
+  const exportRow = p.locator(".studio-exports-table tr", { hasText: "e2e-edited.xosc" });
+  await p.locator('.studio-exports-table tr[data-status="done"]', { hasText: "e2e-edited.xosc" }).waitFor({ timeout: 120000 });
+  const [exported] = await Promise.all([p.waitForEvent("download"), exportRow.getByRole("link", { name: /^Tải về / }).click()]);
   const exportedFile = join(out, exported.suggestedFilename());
   await exported.saveAs(exportedFile);
-  await notBusy();
-  step("export", { file: exported.suggestedFilename(), hasEdit: fs.readFileSync(exportedFile, "utf8").includes('description="E2E edited"') });
+  const listing = spawnSync(join(root, "backend/.venv/bin/python"), ["-I", "-c", "import sys,zipfile,json;z=zipfile.ZipFile(sys.argv[1]);x=[n for n in z.namelist() if n.endswith('.xosc')][0];print(json.dumps({'files':sorted(z.namelist()),'hasEdit':b'description=\"E2E edited\"' in z.read(x)}))", exportedFile]);
+  if (listing.status !== 0) throw new Error("zip: " + listing.stderr);
+  const zipped = JSON.parse(String(listing.stdout));
+  step("export", { file: exported.suggestedFilename(), ...zipped, progress: await exportRow.locator("progress").getAttribute("value") });
+  await p.getByRole("button", { name: "Kịch bản", exact: true }).click();
   // 10. delete (confirm) — also leaves the owner's library as it was
   p.once("dialog", d => d.accept());
   await edited.getByRole("button", { name: /^Xoá / }).click();
@@ -225,8 +212,8 @@ console.log(JSON.stringify(summary, null, 1));
 // Deleting a scenario while its metrics are still computing answers NOT_FOUND for that computation.
 const unexpected = summary.failed.filter(([status, path, , body]) => !(status === 400 && path === "/api/mapContext" && body.includes("INVALID_MAP_GEOMETRY")) && !(status === 409 && /^\/api\/replay(Imported)?$/.test(path) && body.includes("CANCELLED"))
   && !(status === 400 && path === "/api/scenarioMetrics" && body.includes('"NOT_FOUND"')));
-if (!ok || summary.steps.length !== 16 || !summary.metadataUnchanged || summary.workersLeft || summary.external.length || unexpected.length) {
+if (!ok || summary.steps.length !== 15 || !summary.metadataUnchanged || summary.workersLeft || summary.external.length || unexpected.length) {
   console.error("Local web E2E: FAIL");
   process.exit(1);
 }
-console.log("Local web E2E (real dataset, measured LiDAR, pan/expand, OpenSCENARIO create/edit/export/delete, dataset integrity): PASS");
+console.log("Local web E2E (real dataset, measured LiDAR, pan/expand, Studio create/analyse/edit/export/delete, dataset integrity): PASS");

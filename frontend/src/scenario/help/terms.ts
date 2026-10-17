@@ -19,7 +19,7 @@ export const TERMS = {
     decel: ["Mức phanh (m/s²)",
         "Độ giảm tốc mà xe phía trước giữ khi phanh. Lực phanh tăng dần, độ giật tối đa 10 m/s³, như chân người đạp phanh. Giới hạn: xe con 8 m/s², xe buýt và xe tải 5 m/s² (FMVSS 121: xe tải dừng từ 60 mph trong 250 ft, trung bình khoảng 4,7 m/s²)."],
     target: ["Rồi làm gì",
-        "Dừng hẳn: phanh tới khi đứng yên rồi đi tiếp ngay. Dừng 3 s: đứng yên 3 giây rồi đi tiếp. Chậm lại: giảm còn một nửa tốc độ rồi tăng lại. Sau đó xe quay về kế hoạch của nó (tăng tốc tối đa 1,5 m/s²)."],
+        "Dừng hẳn: phanh tới khi đứng yên và đứng yên đến hết kịch bản. Dừng 3 s rồi đi tiếp: đứng yên 3 giây rồi chạy lại. Dừng rồi đi ngay: đứng yên rồi chạy lại ngay (cách đo của chỉ số cảnh). Chậm lại 50%: giảm còn một nửa tốc độ rồi tăng lại. Khi chạy lại, xe quay về kế hoạch của nó (tăng tốc tối đa 1,5 m/s²)."],
     dwell: ["Thời gian dừng (s)", "Số giây xe phía trước đứng yên trước khi đi tiếp (chỉ khi đích là dừng)."],
     reaction: ["Phản xạ người lái (s)",
         "Thời gian từ lúc người lái thấy xe trước chậm lại (chậm hơn kế hoạch 0,3 m/s, hoặc tụt sau 0,2 m) tới lúc bắt đầu tự xử lý. Mặc định 1,0 s (cùng giá trị với tiêu chí tình huống hiếm). Trong lúc phản xạ, xe vẫn chạy như bản ghi."],

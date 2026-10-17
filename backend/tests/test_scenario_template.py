@@ -373,3 +373,52 @@ def test_map_status_matches_map_context_gate(tmp_path, monkeypatch):
     assert status["scene-good"] is None and "road_segment" in status["scene-bad"] and status["scene-empty"]
     assert api.call("map_status", {"dataset": str(adapter.root)}) == status
     assert calls == list(sources)  # cached per dataset
+
+
+def test_ego_hitting_another_actor_is_saved_but_flagged_invalid():
+    """plan51 D3: a template whose ego runs into the lead is compiled (not rejected) with an EGO_COLLISION note,
+    and the library lists it as invalid with that note; a clean one carries neither."""
+    from topeye.scenario.library import _invalid
+
+    crash = template([
+        actor("ego", "ego", route=[(150, 0)], speed=(13.9, 13.9, 0)),
+        actor("lead", start=(24.5, 0, 0), route=[(200, 0)], speed=(13.9, 13.9, 0)),
+    ], [{"id": "b", "type": "hard_brake", "actor": "lead", "at_s": 4, "params": {"decel_mps2": 6}}], duration=12)
+    crash["map"]["ego_react"] = False  # scripted ego path: drives into the stopped lead
+    imported, _, _ = compiled(crash)
+    notes = [d for d in imported["import"]["diagnostics"] if d["code"] == "EGO_COLLISION"]
+    assert len(notes) == 1 and notes[0]["actor_id"] == "lead" and 6 < notes[0]["t_s"] < 8
+    assert _invalid("imported", imported)["code"] == "EGO_COLLISION"
+    calm = template([
+        actor("ego", "ego", route=[(150, 0)], speed=(10, 10, 0)),
+        actor("lead", start=(40, 0, 0), route=[(200, 0)], speed=(13.9, 13.9, 0)),
+    ], [], duration=8)
+    clean, _, _ = compiled(calm)
+    assert not [d for d in clean["import"]["diagnostics"] if d["code"] == "EGO_COLLISION"] and _invalid("imported", clean) is None
+    report = {"valid": False, "reasons": ["[ego_collision] Xe của bạn (ego) va chạm vật thể khác"],
+              "topeye": {"summary": "Không hợp lệ · xe của bạn vẫn va chạm car_001 lúc 6,2 s. Cách sửa: …"}}
+    assert _invalid("real2sim", {"report": report}) == {"code": "EGO_COLLISION", "message": report["topeye"]["summary"]}
+    assert _invalid("real2sim", {"report": {"valid": True}}) is None
+
+
+
+def test_ego_reacts_by_default_and_keeps_its_own_path_and_brakes():
+    """plan52: with ego_react (default) the ego yields to what blocks its lane — same path, later in time —
+    within the dynamic limits; an ego that already brakes on its own keeps its scripted motion exactly."""
+    crash = template([
+        actor("ego", "ego", route=[(150, 0)], speed=(13.9, 13.9, 0)),
+        actor("lead", start=(24.5, 0, 0), route=[(200, 0)], speed=(13.9, 13.9, 0)),
+    ], [{"id": "b", "type": "hard_brake", "actor": "lead", "at_s": 4, "params": {"decel_mps2": 6}}], duration=12)
+    imported, _, _ = compiled(crash)
+    assert not [d for d in imported["import"]["diagnostics"] if d["code"] == "EGO_COLLISION"]
+    ego = next(a for a in imported["actors"] if a["id"] == "ego")["reference_samples"]
+    lead = next(a for a in imported["actors"] if a["id"] == "lead")["reference_samples"]
+    gap = math.hypot(lead[-1]["x_m"] - ego[-1]["x_m"], lead[-1]["y_m"] - ego[-1]["y_m"]) - 4.5
+    assert 1.0 < gap < 6.0  # stops behind the lead at about the IDM standstill gap
+    speeds = [math.hypot(b["x_m"] - a["x_m"], b["y_m"] - a["y_m"]) * 10 for a, b in pairwise(ego)]
+    assert min(speeds) >= 0 and speeds[-1] < 0.2  # IDM creeps up to its standstill gap
+    scripted = template([actor("ego", "ego", route=[(150, 0)], speed=(13.9, 13.9, 0))],
+                        [{"id": "e", "type": "hard_brake", "actor": "ego", "at_s": 2, "params": {"decel_mps2": 6}}], duration=7)
+    plain = copy.deepcopy(scripted)
+    plain["map"]["ego_react"] = False
+    assert compiled(scripted)[0]["actors"][0]["reference_samples"] == compiled(plain)[0]["actors"][0]["reference_samples"]

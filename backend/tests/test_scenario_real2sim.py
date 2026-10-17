@@ -287,3 +287,19 @@ def test_owner_sample_package_shape(context):
     assert by["ego"]["reference_samples"][-1]["t_s"] == pytest.approx(19.95)
     assert by["barrier_001"]["reference_samples"][0]["t_s"] == pytest.approx(7.8997)
     assert s["report"]["ego"]["min_gap"] == 1.751
+
+
+def test_persist_reuses_the_parse_but_still_refuses_a_changed_import(context, tmp_path):
+    """plan52: persist_package(parsed=…) skips the second parse of the same bytes, never the integrity check."""
+    f = files(csv_text=",".join(CSV_HEADER) + "\n")
+    parsed = parse_package(f, context)
+    imported = copy.deepcopy(parsed)
+    imported["source"]["source_id"] = "x" * 32  # bookkeeping fields the worker adds are not semantic
+    package = persist_package(imported, f, context, tmp_path / "ws", tmp_path / "dataset", "car_001.xosc", parsed=parsed)
+    assert json.loads((package / "manifest.json").read_text())["kind"] == "real2sim"
+    tampered = copy.deepcopy(parsed)
+    tampered["id"] = "b" * 32
+    tampered["actors"][0]["samples"][1]["x_m"] += 5.0
+    with pytest.raises(ScenarioError) as exc:
+        persist_package(tampered, f, context, tmp_path / "ws2", tmp_path / "dataset", "car_001.xosc", parsed=parsed)
+    assert exc.value.code == "HASH_MISMATCH"

@@ -209,16 +209,21 @@ def build_xosc(model, tracks, event, description):
     return b'<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="utf-8")
 
 
-def build_csv(model, tracks):
+def trajectories_csv(scene, tracks):
+    """trajectories.csv bytes (real2sim CSV_HEADER); tracks: (id, category, (length, width, height), [(t, x, y, yaw)])."""
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(CSV_HEADER)
-    for agent, rows in tracks:
-        length, width, height = model.tracks[model.index[agent.name]].size
+    for name, category, (length, width, height), rows in tracks:
         for t, x, y, h in rows:
-            writer.writerow([model.name, f"{t:.4f}", agent.name, agent.category, f"{x:.4f}", f"{y:.4f}", f"{h:.4f}",
+            writer.writerow([scene, f"{t:.4f}", name, category, f"{x:.4f}", f"{y:.4f}", f"{h:.4f}",
                              f"{length:.3f}", f"{width:.3f}", f"{height:.3f}"])
     return out.getvalue().encode()
+
+
+def build_csv(model, tracks):
+    return trajectories_csv(model.name, [(agent.name, agent.category, model.tracks[model.index[agent.name]].size, rows)
+                                         for agent, rows in tracks])
 
 
 def code_version():
@@ -312,7 +317,7 @@ def _markers(model, outcome, result, gap):
     event = outcome.event
     e = model.index[event.actor]
     phase = {"brake_start": "brake_start", "event_start": "event_start",
-             "target_reached": "stopped" if event.target == "stop" else "resume",
+             "target_reached": "stopped" if event.target in ("stop", "hold") else "resume",
              "dwell_end": "resume", "lane_arrived": "lane_arrived"}
     markers = [{"t": round(float(v), 2), "kind": phase[key], "agent": event.actor}
                for key, v in outcome.event_phases.items() if key in phase]
@@ -350,8 +355,23 @@ def _vehicles(model, outcome, result, watch):
     return out
 
 
+# plan51: how to fix a scenario whose ego still hits something, per event kind (first hint = the strongest lever).
+EGO_FIX = {
+    "brake": "phanh xe phía trước nhẹ hơn, cho tình huống xảy ra lúc xe của bạn còn xa hơn, hoặc giảm thời gian phản ứng",
+    "accelerate": "tăng tốc nhẹ hơn, chọn lúc khác, hoặc giảm thời gian phản ứng",
+    "stopline": "chọn vạch dừng hoặc thời điểm khác để xe của bạn còn đủ khoảng cách, hoặc giảm thời gian phản ứng",
+    "lane_change": "chuyển làn chậm hơn (thời gian dài hơn), chọn lúc khoảng trống lớn hơn, hoặc chọn xe khác",
+}
+
+
 def summary(model, outcome, result):
     """One plain Vietnamese sentence (replay-forge thiet-ke-giao-dien.md §4): verdict, key number, hint if not usable."""
+    if not result.valid and "ego_collision" in result.reasons:
+        hit = next((c for c in result.collisions if "ego" in c[:2]), None)
+        other = (hit[1] if hit[0] == "ego" else hit[0]) if hit else "vật thể khác"
+        when = f" lúc {_vn(hit[2])} s" if hit else ""
+        return (f"Không hợp lệ · xe của bạn vẫn va chạm {other}{when} dù đã phản ứng. "
+                f"Cách sửa: {EGO_FIX[outcome.event.kind]}.")
     if outcome.event.kind != "brake":
         label = {"accelerate": "tăng tốc", "stopline": "dừng ở vạch", "lane_change": "chuyển làn"}[outcome.event.kind]
         if result.valid:

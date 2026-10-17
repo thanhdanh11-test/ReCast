@@ -10,16 +10,22 @@ export const INTENTS: Record<ReactiveKind, { title: string; description: string 
   lane_change: { title: "Xe phía trước chuyển làn", description: "Quan sát xe đổi làn và phản ứng của các xe theo sau." },
 };
 export interface GuidedOption { label: string; params: Params; time: number }
+/** s of ordinary driving shown before a guided event, when the vehicle's windows allow it. */
+export const LEAD_IN_S = 2;
 export function guidedOptions(candidate: Candidate, kind: ReactiveKind, source: Scenario): GuidedOption[] {
   if (!kindsOf(candidate).includes(kind)) return [];
   const base = initialParams(candidate, kind);
   const options: {label: string; params: Params}[] = kind === "brake"
-    ? brakeLevels(candidate).map(decel => ({ label: `Phanh ${BRAKE_LEVEL_LABEL[decel]?.toLowerCase() ?? decel} · ${decel} m/s²`, params: { ...base, decel } }))
+    // plan52: "Vừa" (4 m/s²) first — a light 2 m/s² brake rarely makes a situation worth testing.
+    ? [...brakeLevels(candidate)].sort((a, b) => Math.abs(a - 4) - Math.abs(b - 4) || a - b).map(decel => ({ label: `Phanh ${BRAKE_LEVEL_LABEL[decel]?.toLowerCase() ?? decel} · ${decel} m/s²`, params: { ...base, decel } }))
     : kind === "accelerate" ? ACCELS.map(accel => ({ label: `Tăng tốc ${accel === 1 ? "nhẹ" : accel === 2 ? "vừa" : "mạnh"} · ${accel} m/s²`, params: { ...base, accel } }))
     : kind === "stopline" ? DWELLS.map(dwell => ({ label: dwell ? `Dừng ${dwell} giây` : "Dừng rồi đi ngay", params: { ...base, dwell } }))
     : (["left", "right"] as const).flatMap(direction => DURATIONS.map(duration => ({ label: `Sang ${direction === "left" ? "trái" : "phải"} trong ${duration} giây`, params: { ...base, direction, duration } })));
   return options.flatMap(option => {
-    const time = windowsOf(candidate, kind, option.params)[0]?.[0];
+    const windows = windowsOf(candidate, kind, option.params);
+    // plan52: prefer a start with ≥ LEAD_IN_S of normal driving before the event (t=0 has no build-up).
+    const late = windows.find(([, hi]) => hi >= LEAD_IN_S);
+    const time = late ? Math.max(late[0], LEAD_IN_S) : windows[0]?.[0];
     return time !== undefined && reactionChoice(candidate, kind, option.params, time, source).event ? [{ ...option, time }] : [];
   });
 }

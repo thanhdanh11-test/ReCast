@@ -110,6 +110,7 @@ def list_imported(workspace):
         ]
         runs.sort(key=lambda r: r["at"], reverse=True)
         template = project / "template.json"
+        invalid = _invalid(manifest["kind"], scenario)
         entries.append(
             {
                 "scenario_id": project.name,
@@ -126,10 +127,29 @@ def list_imported(workspace):
                 "duration_s": float(interval[1]) - float(interval[0]),
                 "created_at": _iso(manifest_path),
                 "runs": runs,
+                **({"invalid": invalid} if invalid else {}),
             }
         )
     entries.sort(key=lambda e: e["created_at"], reverse=True)
     return entries
+
+
+def _invalid(kind, scenario):
+    """{code, message} when the scenario is not valid (plan51): the ego hits something in an imported/template
+    scenario, or the package's report says invalid (its summary carries the fix hint). None when valid."""
+    if kind == "real2sim":
+        report = scenario.get("report") if isinstance(scenario.get("report"), dict) else {}
+        if report.get("valid") is False:
+            detail = report.get("topeye") if isinstance(report.get("topeye"), dict) else {}
+            reasons = [r for r in report.get("reasons") or [] if isinstance(r, str)]
+            message = detail.get("summary") if isinstance(detail.get("summary"), str) else "; ".join(reasons)
+            code = "EGO_COLLISION" if any("ego_collision" in r for r in reasons) else "REPORT_INVALID"
+            return {"code": code, "message": message[:400] or "Báo cáo đánh dấu không hợp lệ"}
+        return None
+    diagnostics = (scenario.get("import") or {}).get("diagnostics") or []
+    hit = next((d for d in diagnostics if isinstance(d, dict) and d.get("code") == "EGO_COLLISION"), None)
+    return {"code": "EGO_COLLISION", "message": str(hit.get("message", ""))[:400], "actor_id": hit.get("actor_id"),
+            "t_s": hit.get("t_s")} if hit else None
 
 
 def _report_summary(scenario):

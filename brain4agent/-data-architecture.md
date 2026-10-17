@@ -59,3 +59,9 @@ Immutable reaction packages now include validated `source.reactive_event` before
 `<workspace>/.scenario-groups.json` schema1 is separate, atomically replaced, max4MiB on reads AND writes, and never repaired by overwrite on parse/validation failure. Complete or partial group IDs reference existing package IDs; deletion moves only the explicit package to trash while metadata/surviving partner remain. Baseline-only retry reuses baseline; metadata-only retry never repeats either simulation.
 
 Parent source/dataset/preferences survive scene/scenario navigation. Resource epochs prevent stale asynchronous scene/map/candidate/library writes. Main-worker readonly calls queue; mutating jobs retain BUSY protection. Reopening the already selected real dataset after reload only queues list_scenes and rechecks authorization; changing dataset remains blocked while any data worker is busy.
+
+## v0.38.0 — exports (plan50)
+`<workspace>/exports/<id>/` = `job.json` (schema1: status queued/running/done/failed, progress 0–100 chỉ tăng, step, files[{name,bytes,sha256}], notes, error) + `files/` (gói) + `<stem>.zip`. Ghi nguyên tử (files.tmp→files, .zip.tmp→zip, job.json qua tmp+replace). Gói là bản sao bất biến của gói thư viện đã kiểm hash (`stored_package`); xoá bản xuất = rename sang `.trash/export-<id>-<ms>`, kịch bản gốc không đổi. `list_imported` bỏ qua `exports/` (không khớp ID). Job queued/running mồ côi ⇒ failed INTERRUPTED khi server liệt kê.
+
+## v0.40.0 — nuScenes only (plan52)
+Catalog lists/accepts only `format: nuscenes`; an older AV2 entry stays in dataset-catalog.json but is hidden. The AV2 intake (`backend/data/dataset-intake-20261013/`, 31 GB) was deleted 2026-10-17 at the owner's request; ArgoverseAdapter code remains (unit tests on fixtures) but there is no AV2 data on this machine. nuScenes root: ~/cvat-day2/tools/traffic_pipeline/data/nuscenes (unchanged, raw immutable).

@@ -159,11 +159,13 @@ interface ReactiveEventBase {
   react: boolean;
   reaction_s: number;
 }
+/** plan51: "hold" = stop and stand still to the end; "stop" = replay-forge stop (stand `dwell_s`, then drive on). */
+export type BrakeTarget = "stop" | "half" | "hold";
 /** plan45 braking event; without `kind` it is a brake (v0.34.0 packages). */
 export interface BrakeEvent extends ReactiveEventBase {
   kind?: "brake";
   decel_mps2: number;
-  target: "stop" | "half";
+  target: BrakeTarget;
   dwell_s: number;
 }
 /**
@@ -214,6 +216,8 @@ export interface ImportedRun {
 export interface ImportedEntry {
   /** Made from a template: "Sửa" opens the template form. */
   has_template?: boolean;
+  /** plan51: present when the scenario is not valid (ego collision / invalid report), with the reason to show. */
+  invalid?: { code: string; message: string; actor_id?: string; t_s?: number };
   /** "real2sim" = team replay package (plan43): view only, report instead of metrics. */
   kind?: "imported" | "real2sim";
   report?: { valid: boolean | null; group: string | null; event: Real2simReport["event"] } | null;
@@ -296,6 +300,12 @@ export interface DesktopAPI {
   templateFit(args: { scene: string; template: ScenarioTemplate }): Promise<TemplateFit>;
   /** Read-only: why each scene's map is rejected for scenario creation (null = usable). Metrics worker, cached. */
   mapStatus?(): Promise<Record<string, string | null>>;
+  /** plan50 exports (absent in the static demo ⇒ no Lưu button / Đã xuất page). */
+  exportScenario?(args: { scenario_id: string; format: ExportFormat }): Promise<ExportJob>;
+  listExports?(): Promise<ExportJob[]>;
+  deleteExport?(args: { id: string }): Promise<{ removed: true }>;
+  /** URL of a finished export's zip (browser download). */
+  exportUrl?(id: string): string;
   openImported(args: { source_id: string; path?: string }): Promise<ImportedScenario | null>;
   listImported(): Promise<ImportedEntry[]>;
   /** `template` is set for scenarios made from a template (plan38): they are edited in the template form, not as XML. */
@@ -330,4 +340,13 @@ export type WithoutReact<T> = T extends unknown ? Omit<T, "react"> : never;
 export interface ScenarioGroup {
  schema_version: 1; id: string; scene: string; map_id: string; event: WithoutReact<ReactiveEvent>;
  baseline_id: string | null; pilot_id: string | null; created_at: string;
+}
+
+/** plan50 01-CONTRACTS §1: one export job (CARLA package or plain .xosc). */
+export type ExportFormat = "carla" | "xosc";
+export type ExportStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+export interface ExportJob {
+  schema_version: 1; id: string; scenario_id: string; name: string; scene: string; format: ExportFormat;
+  status: ExportStatus; progress: number; step: string; created_at: string; finished_at: string | null;
+  files: { name: string; bytes: number; sha256: string }[]; notes: string[]; error: { code: string; message: string } | null;
 }

@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from lxml import etree as E
 
+from topeye.scenario.contacts import first_ego_contact
 from topeye.scenario.map_context import LIMITS, PROFILE, centered_samples, check_map, verify_context
 from topeye.scenario.models import ScenarioError, finite, require
 
@@ -464,6 +465,12 @@ def validate_xosc(xml_bytes, context):
     require(seen == ids, "Missing maneuver", "INVALID_TRAJECTORY")
     trigger(board.find("StopTrigger"), duration)
     diagnostics = check_map(actors, context)
+    hit = first_ego_contact(actors)
+    if hit:
+        # plan51 D3: an ego that touches another actor makes the scenario invalid. It is saved and flagged (like a
+        # reacting pilot), not rejected: most template egos are reference paths that do not brake.
+        diagnostics.append({"code": "EGO_COLLISION", "actor_id": hit[0], "t_s": hit[1],
+                            "message": f"Xe của bạn (ego) va chạm {hit[0]} lúc {hit[1]:.2f} s".replace(".", ",")})
     return {
         "schema_version": 1,
         "id": uuid.uuid4().hex,

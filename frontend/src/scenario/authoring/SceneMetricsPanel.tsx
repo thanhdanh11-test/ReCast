@@ -20,7 +20,7 @@ const REASONS = [
     ["collision", "Va chạm", "c_collision"], ["appearing", "Xe mới vào khung hình", "c_appear"], ["merge", "Nhập làn / cắt ngang", "c_merge"],
     ["label_error", "Nhãn gốc lỗi", "c_label"], ["tailgating", "Bám sát phi lý", "c_tailgate"], ["physics", "Vượt giới hạn vật lý", "c_physics"],
 ] as const;
-const TARGET_LABEL: Record<string, string> = { "stop:0": "dừng hẳn", "stop:3": "dừng 3 s", "half:0": "chậm lại 50%" };
+const TARGET_LABEL: Record<string, string> = { "stop:0": "dừng rồi đi ngay", "stop:3": "dừng 3 s rồi đi tiếp", "half:0": "chậm lại 50%" };
 const METHODS: ReplayMethod[] = ["exact", "baseline", "pilot"];
 const REPLAY_GROUPS: ReplayGroupName[] = ["all", "moving", "static", "vehicle", "pedestrian", "obstacle"];
 const REPLAY_GROUP_LABEL: Record<ReplayGroupName, string> = { all: "tất cả", moving: "đang chạy", static: "đứng yên", vehicle: "xe", pedestrian: "người đi bộ", obstacle: "vật cản" };

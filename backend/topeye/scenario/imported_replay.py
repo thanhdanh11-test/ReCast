@@ -1,5 +1,6 @@
 """Atomic import packages and isolated measured replay; legacy admission unchanged."""
 
+import copy
 import json
 import math
 import os
@@ -72,9 +73,11 @@ def contact_observations(measured, times):
     return [contacts[pair] for pair in sorted(contacts)]
 
 
-def persist_import(imported, xml_bytes, context, workspace, dataset, display_name=None, template=None):
+def persist_import(imported, xml_bytes, context, workspace, dataset, display_name=None, template=None, validated=None):
+    """`validated` (plan52): an untouched copy of `validate_xosc(xml_bytes, context)` from the same call, reused
+    instead of validating the same bytes twice; the semantic check against `imported` still runs."""
     require_ipc_budget(imported)
-    checked = validate_xosc(xml_bytes, context)
+    checked = copy.deepcopy(validated) if validated is not None else validate_xosc(xml_bytes, context)
     require(
         semantic(checked) == semantic(imported),
         "Import does not match validated XML",

@@ -7,6 +7,7 @@ import { join, resolve, basename, dirname, extname, sep } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { createExports } from "./scenario-exports.mjs";
 import { scenarioGroups, recordScenarioGroup } from "./scenario-groups.mjs";
 import { createAuth } from "./local-auth.mjs";
 import { createCatalog } from "./dataset-catalog.mjs";
@@ -38,6 +39,9 @@ export const allowed = {
   esminiCheck: ["scenario_id"],
   templateFit: ["scene", "template"],
   mapStatus: [],
+  exportScenario: ["scenario_id", "format"],
+  listExports: [],
+  deleteExport: ["id"],
   openImported: ["source_id", "path"],
   replayImported: ["scenario_id"],
   lidarFrame: ["scene", "time_s"],
@@ -79,8 +83,10 @@ export function validateArgs(name, args) {
   if (name === "lidarFrame" && (typeof args.scene !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(args.scene) ||
       typeof args.time_s !== "number" || !Number.isFinite(args.time_s)))
     throw fail("INVALID_INPUT", "Invalid LiDAR request");
-  if (["scenarioMetrics", "esminiCheck"].includes(name) && (typeof args.scenario_id !== "string" || !/^[a-f0-9]{32}$/.test(args.scenario_id)))
+  if (["scenarioMetrics", "esminiCheck", "exportScenario"].includes(name) && (typeof args.scenario_id !== "string" || !/^[a-f0-9]{32}$/.test(args.scenario_id)))
     throw fail("INVALID_INPUT", "Invalid scenario");
+  if (name === "exportScenario" && !["carla", "xosc"].includes(args.format)) throw fail("INVALID_INPUT", "Invalid export format");
+  if (name === "deleteExport" && (typeof args.id !== "string" || !ID.test(args.id))) throw fail("INVALID_INPUT", "Invalid export identity");
   // Template content is checked field by field in the worker (topeye/scenario/template.py).
   if (["importTemplate", "templateFit"].includes(name) && (!args.template || typeof args.template !== "object" || Array.isArray(args.template)))
     throw fail("INVALID_INPUT", "Invalid template");
@@ -119,9 +125,12 @@ export function validateArgs(name, args) {
   return args;
 }
 
-const statusFor = (code) =>
+// plan52: a worker ScenarioError code is the user's input being rejected (400); only failures of the server or
+// the worker themselves are 500.
+const SERVER_FAILURES = ["INTERNAL", "IO_ERROR", "ENGINE_FAILED", "ENGINE_MISSING", "ESMINI_FAILED", "ESMINI_MISSING", "ESMINI_BUILD_VERSION", "TIMEOUT", "HASH_MISMATCH", "LIDAR_UNAVAILABLE"];
+export const statusFor = (code) =>
   code === "UNAUTHENTICATED" || code === "INVALID_CREDENTIALS" ? 401 : code === "RATE_LIMITED" ? 429 : code === "ACCOUNT_EXISTS" ? 409 : code === "FORBIDDEN" ? 403 : ["BUSY", "CANCELLED"].includes(code) ? 409 :
-  ["INVALID_INPUT", "RESOURCE_LIMIT", "PATH_ESCAPE", "DATASET_INVALID", "NOT_FOUND", "INVALID_MAP_GEOMETRY", "GROUP_METADATA_INVALID"].includes(code) ? 400 : 500;
+  !code || SERVER_FAILURES.includes(code) || !/^[A-Z][A-Z0-9_]+$/.test(code) ? 500 : 400;
 
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".woff2": "font/woff2", ".json": "application/json", ".svg": "image/svg+xml", ".glb": "model/gltf-binary" };
@@ -174,6 +183,17 @@ export function createLocalServer({
   const lidarBridge = bridgeFactory({ ...workerOptions, role: "lidar" });
   // Scenario metrics run esmini for seconds; a third worker keeps viewing responsive meanwhile.
   const metricsBridge = bridgeFactory({ ...workerOptions, role: "metrics" });
+  // plan50: export jobs run one at a time in their own process (progress read from job.json).
+  const exportsQueue = createExports({
+    workspace: () => settings.workspace,
+    spawnJob: (id) => {
+      const child = spawn(python, ["-m", "topeye.scenario.export_job", "run", "--workspace", settings.workspace,
+        "--dataset", settings.dataset, "--dataset-version", settings.datasetVersion || "v1.0-mini", "--job", id, "--version", version],
+      { cwd: userData, env: workerOptions.env, stdio: ["ignore", "ignore", "pipe"] });
+      child.stderr.on("data", (chunk) => log.write(chunk));
+      return child;
+    },
+  });
   const params = (args) => ({
     ...args,
     dataset: settings.dataset,
@@ -231,7 +251,8 @@ export function createLocalServer({
       saveSettings();
       return { name: basename(result.root), version: result.version, scenes: result.scenes };
     }
-    if (bridge.busy && ["importXosc", "importTemplate", "importPackage", "replayImported", "deleteImported", "deleteImportedRun", "importReactive", "reactiveSensitivity"].includes(name))
+    // reactiveSensitivity only simulates (nothing saved): it queues like other reads (plan52 pre-checks call it often).
+    if (bridge.busy && ["importXosc", "importTemplate", "importPackage", "replayImported", "deleteImported", "deleteImportedRun", "importReactive"].includes(name))
       throw fail("BUSY", "Dừng tác vụ trước khi nạp kịch bản");
     if (name === "mapContext" || name === "exportMapContext") return call("map_context", { source_id: checked.source_id });
     if (name === "replayImported") return call("replay_imported", checked);
@@ -258,9 +279,13 @@ export function createLocalServer({
     // Read-only map suitability probe; queued on the metrics worker so the main worker stays free.
     if (name === "templateFit") return call("template_fit", checked, metricsBridge);
     if (name === "mapStatus") return call("map_status", checked, metricsBridge);
+    if (name === "exportScenario") return exportsQueue.enqueue(await call("export_create", checked, metricsBridge));
+    if (name === "listExports") return exportsQueue.list();
+    if (name === "deleteExport") return exportsQueue.remove(checked.id);
     if (name === "lidarFrame") return call("lidar_frame", checked, lidarBridge);
     if (name === "scenarioMetrics") return call("scenario_metrics", checked, metricsBridge);
-    if (name === "listImported") return call("list_imported");
+    // plan52: read-only listing on the (mostly idle) LiDAR worker: it no longer waits behind imports/replays.
+    if (name === "listImported") return call("list_imported", { readonly: true }, lidarBridge);
     if (name === "readImported") return call("read_imported", checked);
     if (name === "deleteImportedRun") return call("delete_imported_run", checked);
     if (name === "deleteImported") return call("delete_imported", checked);
@@ -334,6 +359,20 @@ export function createLocalServer({
       }
       catch (e) { return send(statusFor(e.code), { code: e.code || "INTERNAL", message: "Không đọc được thư viện dữ liệu" }); }
     }
+    // plan50: download a finished export; token in the query like /api/events (a link cannot send headers).
+    const exportZip = /^\/api\/exports\/([a-f0-9]{32})\.zip$/.exec(url.pathname);
+    if (exportZip && req.method === "GET") {
+      if (url.searchParams.get("token") !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
+      if (!auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
+      let zip;
+      try { zip = exportsQueue.zip(exportZip[1]); } catch (e) { return send(404, { code: "NOT_FOUND", message: String(e.message).replace(/^[A-Z_]+: /, "") }); }
+      // Open before the 200 header: an unreadable file is a 404, and a stream error ends this response, never the server.
+      let handle;
+      try { handle = fs.openSync(zip.path, "r"); } catch { return send(404, { code: "NOT_FOUND", message: "Không đọc được tệp zip" }); }
+      res.writeHead(200, { "Content-Type": "application/zip", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": `attachment; filename="${zip.name}"` });
+      return fs.createReadStream(null, { fd: handle }).on("error", () => res.destroy()).pipe(res);
+    }
     if (url.pathname === "/api/events" && req.method === "GET") {
       if (url.searchParams.get("token") !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
       if (!auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
@@ -399,6 +438,7 @@ export function createLocalServer({
 
   async function close() {
     for (const res of clients.keys()) res.end();
+    exportsQueue.stop();
     await Promise.all([bridge.stop(), lidarBridge.stop(), metricsBridge.stop()]);
     await new Promise((r) => server.close(r));
     log.end();

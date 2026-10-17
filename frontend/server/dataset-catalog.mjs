@@ -3,6 +3,9 @@ import { basename, join, sep } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { fail } from "./worker-bridge.mjs";
 
+/** nuScenes only (plan52): older catalogs may still list an Argoverse 2 entry; it is kept on disk but hidden. */
+const supported = (e) => (e.format || "nuscenes") === "nuscenes";
+
 export function createCatalog({ path, seeds = [], inspect }) {
   let entries = [];
   try {
@@ -19,6 +22,8 @@ export function createCatalog({ path, seeds = [], inspect }) {
     if (typeof input !== "string" || !input.trim() || input.length > 4096) throw fail("INVALID_INPUT", "Cần đường dẫn thư mục dữ liệu");
     if (name !== undefined && (typeof name !== "string" || name.length > 100)) throw fail("INVALID_INPUT", "Tên bộ dữ liệu tối đa 100 ký tự");
     const result = await inspect(input);
+    // plan52: the app works on nuScenes only (owner 2026-10-17); other formats are refused, files untouched.
+    if (result.version === "av2-sensor") throw fail("DATASET_INVALID", "Ứng dụng chỉ dùng bộ dữ liệu nuScenes");
     authorize();
     const root = fs.realpathSync(result.root);
     const id = createHash("sha256").update(root).digest("hex").slice(0, 24);
@@ -45,7 +50,7 @@ export function createCatalog({ path, seeds = [], inspect }) {
   })();
   const get = (id) => {
     if (typeof id !== "string" || !/^[a-f0-9]{24}$/.test(id)) throw fail("INVALID_INPUT", "Invalid dataset identity");
-    const entry = entries.find(e => e.id === id);
+    const entry = entries.find(e => e.id === id && supported(e));
     if (!entry) throw fail("NOT_FOUND", "Không tìm thấy bộ dữ liệu");
     return entry;
   };
@@ -53,7 +58,7 @@ export function createCatalog({ path, seeds = [], inspect }) {
     add, get,
     async list() {
       await initialize();
-      return entries.map(e => ({ ...e, status: fs.existsSync(e.root) ? e.status : "unavailable", previewUrl: e.previewPath ? `/api/catalog/preview/${e.id}` : null, previewPath: undefined }));
+      return entries.filter(supported).map(e => ({ ...e, status: fs.existsSync(e.root) ? e.status : "unavailable", previewUrl: e.previewPath ? `/api/catalog/preview/${e.id}` : null, previewPath: undefined }));
     },
     preview(id) {
       const entry = get(id);

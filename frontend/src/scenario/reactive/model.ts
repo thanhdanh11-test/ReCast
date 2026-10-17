@@ -1,6 +1,6 @@
 import { vehicleClass, VEHICLE_CLASS_LABELS } from "../vehicleClass";
 import { DECEL_LEVELS, clampToWindows, windowsFor } from "../authoring/ReactiveForm";
-import type { Actor, Candidate, ReactiveEvent } from "../types";
+import type { Actor, BrakeTarget, Candidate, ReactiveEvent } from "../types";
 import type { MarkerKind, ReactiveDetail, ReactiveKind, ReactiveMarker, VariantOutcome } from "../reactiveTypes";
 
 /**
@@ -19,12 +19,15 @@ export const START_MARK: Record<ReactiveKind, string> = { brake: "phanh", accele
 export const STEP2_LABEL: Record<ReactiveKind, string> = { brake: "Chỉnh cách phanh", accelerate: "Chỉnh cách tăng tốc", stopline: "Chỉnh cách dừng", lane_change: "Chỉnh cách chuyển làn" };
 
 export const GOALS = {
-    stop: { label: "Dừng hẳn", target: "stop", dwell_s: 0 },
-    dwell: { label: "Dừng 3 s", target: "stop", dwell_s: 3 },
+    /** plan51: “Dừng hẳn” stands still until the scene ends (worker target "hold"). */
+    stop: { label: "Dừng hẳn (đứng yên đến hết)", target: "hold", dwell_s: 0 },
+    dwell: { label: "Dừng 3 s rồi đi tiếp", target: "stop", dwell_s: 3 },
+    /** replay-forge “stop” with no dwell: the scene-metric cells are measured with it. */
+    go: { label: "Dừng rồi đi ngay", target: "stop", dwell_s: 0 },
     half: { label: "Chậm lại 50%", target: "half", dwell_s: 0 },
 } as const;
 export type Goal = keyof typeof GOALS;
-export const goalOf = (target: "stop" | "half", dwell: number): Goal => target === "half" ? "half" : dwell > 0 ? "dwell" : "stop";
+export const goalOf = (target: BrakeTarget, dwell: number): Goal => target === "half" ? "half" : target === "hold" ? "stop" : dwell > 0 ? "dwell" : "go";
 export const BRAKE_LEVEL_LABEL: Record<number, string> = { 2: "Nhẹ", 4: "Vừa", 6: "Gấp", 8: "Khẩn" };
 /** C1 value sets (EVENT_NOT_ALLOWED outside them). */
 export const ACCELS = [1, 2, 3] as const;

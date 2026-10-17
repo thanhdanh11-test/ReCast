@@ -176,6 +176,10 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
     esminiCheck: (args) => call("esminiCheck", args),
     templateFit: (args) => call("templateFit", args),
     mapStatus: () => call("mapStatus", {}),
+    exportScenario: (args) => call("exportScenario", args),
+    listExports: () => call("listExports", {}),
+    deleteExport: (args) => call("deleteExport", args),
+    exportUrl: (id) => `${base}/exports/${id}.zip?token=${encodeURIComponent(token)}`,
     exportMapContext: async ({ source_id }) => {
       const context = await call<{ scene: string }>("exportMapContext", { source_id });
       const name = `topeye-${context.scene}-map.json`;

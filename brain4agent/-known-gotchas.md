@@ -258,3 +258,22 @@ Owner screenshot shows distant pavement breakup. Pilot camera now adapts near pl
 - A pilot may have persisted before group-write failure: retry metadata only, otherwise a retry creates duplicate pilot. Separate this from baseline-only partial persistence.
 - Cancel/reload/scene switch require generation checks after awaited operations, including manual esmini/scene metrics. A library refresh failure never hides an already generated result.
 - E2E waits must include the child job controller (`.sw-cancel`), not only source busy indicator; library is an embedded tab (Thư viện), not a second scenario route.
+
+## Plan50 Studio — v0.38.0
+- Server từ chối mutation (409 BUSY) khi worker chính đang đọc (openImported). Studio tự mở kịch bản vừa tạo ⇒ nút Tạo kịch bản và lớp Tự tạo phải khoá theo `busy` của Studio, nếu không người dùng bấm Chạy ngay sẽ gặp BUSY (E2E bắt được, test hồi quy 'blocks creating while the Studio is still opening').
+- Chế độ 2D/3D của Studio nhớ trong localStorage `topeye.studio.view`: test phải xoá khoá này, không thì test sau thừa hưởng 3D và mất map-view.
+- AV2: chế độ Có hướng dẫn thường không có xe (không xe nào có ego theo sau) ⇒ dùng Chi tiết; CARLA không xuất được cho AV2 (không có arcline lane).
+- `work()` của Studio xoá thông báo khi bắt đầu; lần tự mở sau khi tạo dùng `keepNotice` để giữ 'Đã lưu…'.
+- Studio: viewer, timeline và vòng phát phải dùng cùng `displayed` (kịch bản đang mở, không thì cảnh gốc); tách ra thì màn xem có cảnh nhưng Phát bị khoá vì duration 0.
+- Xuất (review F1–F5): stream file trong handler HTTP phải mở trước writeHead và có `.on('error')`, nếu không một tệp không đọc được làm chết cả server cùng mọi worker; job.json queued do worker ghi TRƯỚC khi Node enqueue ⇒ list() chỉ coi là mồ côi nếu created_at trước lúc khởi động hàng đợi; tiến trình xuất phải đọc lại trạng thái trước mỗi lần ghi.
+
+## Plan51 — v0.39.0
+- `stop` (replay-forge) = đứng `dwell` s rồi chạy lại, kể cả dwell 0 ⇒ KHÔNG gắn nhãn “Dừng hẳn” cho nó; “Dừng hẳn” là `hold`. Đừng đổi nghĩa `stop`: chỉ số cảnh đối chiếu replay-forge đo bằng nó.
+- Luật ego va chạm KHÔNG đặt vào `assess()` mặc định: metric 2 và baseline đo chính va chạm của ego. Chỉ pilot dùng `strict_ego=True`.
+- Ego của 20 mẫu là quỹ đạo tham chiếu không phanh ⇒ nhiều mẫu va chạm sẵn; vì vậy mẫu/.xosc va chạm được lưu + đánh dấu, không bị từ chối.
+
+## Plan52 — v0.40.0
+- Server chặn ghi (importReactive/Template/Xosc…) khi worker chính bận ⇒ mọi kiểm/đọc chạy nền phải KHÔNG khởi động trong lúc đang tạo và việc tạo phải chờ kiểm đang chạy xong; reactiveSensitivity là đọc (không bị chặn).
+- `listImported` chạy trên worker LiDAR với `readonly` (bỏ recovery); KHÔNG đưa thao tác ghi sang worker phụ.
+- Ego mẫu tự phanh phải bám VỊ TRÍ kế hoạch (không chỉ tốc độ) — bám tốc độ gây vượt giới hạn gia tốc khi kế hoạch dừng.
+- Tên lịch sử hiển thị là tên dễ đọc; tên kỹ thuật ở `title` — E2E tìm dòng theo `strong[title=…]`.

@@ -3,6 +3,7 @@
 Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại OpenSCENARIO từ nuScenes; đo quỹ đạo và số kịch bản hợp lệ. Blender/NuRec/perception là nghiên cứu phụ, chưa nghiệm thu và không tự chạy tiếp.
 
 ## Mục tiêu hiện tại (Active)
+- [x] **Plan50 Scenario Studio (v0.38.0, ✅ local; ⬜ chủ duyệt mắt + chạy gói trên CARLA thật)**: trang Kịch bản 3 cột (cảnh · viewer 2D/3D baseline nét đứt + pilot, timeline màu · lịch sử Sửa/Xoá/Phân tích/Lưu), menu Tạo kịch bản (có sẵn/tự tạo), trang Phân tích chia mục, xuất CARLA (.xosc+.xodr+csv+report) / .xosc, trang Đã xuất có tiến độ. `planning/50_2026-10-17_scenario-studio/`.
 - [ ] [Plan49](../planning/49_2026-10-16_scenario-unify/plan.md) **Owner UX pending:** v0.37.0 local technical work/rollout complete; one Scenario workspace, durable pair reload, resource/map/job/report repairs. FE538/server51/BE819 + browser gates pass. Full same-lane two-way ego remains separate.
 - [ ] [Plan48](../planning/48_2026-10-15_unified-scenario-demo/plan.md) v0.36.1: chọn dataset trên web chính mở thẳng cùng component/bộ nút demo (Có hướng dẫn/Chuyên sâu/thanh5bước). AccessApp initialGuided=true, chờ source load trước khi gọi API. Back trả công cụ cũ.72tests/typecheck/build pass;Chrome12bước12gói0lỗi. Full same-lane ego interaction remains pending; owner visual feedback open.
 - [ ] [Plan47](../planning/47_2026-10-15_reactive-kinds-ui/plan.md) v0.35.0: ba loại phản ứng mới + workspace mới; cổng kỹ thuật local đạt (BE819/FE505/server43, Chrome ba kind), chờ chủ dự án duyệt ảnh từng kind và hình thức.
@@ -59,6 +60,11 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [ ] Dữ liệu thật 8 cam của team: viết adapter mới. Nếu không có map làn thì tự dò làn từ intensity LiDAR.
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
+- Đặt mẫu theo giao lộ thật (Cắt ngang đường, Vượt đèn đỏ: 0/8 cảnh vì đường cắt ngang 66 m chỉ nằm trên mặt đường ở giao lộ) — cần nhận diện giao lộ từ map.
+- Dò ✓/✗ thư viện mẫu nhanh hơn (hiện ~1 phút lần đầu/cảnh vì mỗi mẫu thử tới 81 vị trí): tính sẵn khi mở cảnh hoặc dò nhẹ không tìm vị trí.
+- Mẫu kịch bản có ego tự phản ứng (phanh theo IDM như pilot) để 20 mẫu mặc định không còn va chạm sẵn (plan51 đo: 10/19 lần đặt mẫu thành công trên 4 cảnh có ego đâm).
+- Xuất CARLA cho Argoverse 2: dựng .xodr từ vector map AV2 (lane centerline) — hiện bị chặn có lý do (plan50 D5).
+- Gắn nhãn mốc timeline thông minh khi Tình huống và Phản ứng sát nhau (nhãn đang chồng nhau ở t0≈0).
 - (plan46) Dịch EN cho 48 thuật ngữ `help/terms.ts` (hiện chỉ tiếng Việt).
 - (plan46) Giữ `.xodr` khi nạp gói real2sim của team để esmini check chạy được (đổi đường nạp plan43).
 - (plan46) Quét chỉ số 2 cho cả dataset chạy nền có tiến độ + lưu kết quả (hiện đo từng cảnh, RAM cache).
@@ -102,6 +108,9 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [x] ~~Bowl view / adaptive bowl~~: đã loại (REVIEW.md).
 
 ## Đã hoàn thành (Done)
+- ✅ 2026-10-17T19:36:25+07:00 v0.40.0 — Plan52: sửa 14 mục đánh giá, chỉ nuScenes, giảm thời gian chờ.
+- ✅ 2026-10-17T17:38:15+07:00 v0.39.0 — Plan51: Dừng hẳn đứng yên đến hết; ego va chạm = không hợp lệ + cách sửa; timeline gọn.
+- ✅ 2026-10-17T16:19:03+07:00 v0.38.0 — Plan50 Scenario Studio: bố cục 3 cột, Phân tích chia mục, xuất CARLA/.xosc, trang Đã xuất.
 - ✅ 2026-10-17T14:25:05+07:00 v0.37.1 — Làm mờ cảnh có map lỗi ở ô Cảnh nguồn (trang Kịch bản) và bộ chọn Map của Tạo kịch bản (`map_status`).
 - [x] Plan49 technical delivery0.37.0: mainweb5180,13packages/5groups reload proof,20scene classification18valid/2sourceinvalid,EN/light/mobile,independent review approved. Owner visual sign-off remains Active above.
 - ✅ v0.34.0 (2026-10-15) — Đủ phần đo đạc/baseline/thuật ngữ replay-forge: baseline vs pilot mỗi kịch bản, chỉ số 1 + 2 theo cảnh, ca hiếm, lưới tham số, esmini check, 48 thuật ngữ; khớp số replay-forge 10 cảnh. [Plan46](../planning/46_2026-10-15_reactive-metrics/plan.md)

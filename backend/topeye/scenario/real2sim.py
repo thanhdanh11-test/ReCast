@@ -660,9 +660,11 @@ def semantic(scenario):
 STORED = {"original.xosc": "xosc", REPORT: "report", CSV: "csv"}
 
 
-def persist_package(imported, files, context, workspace, dataset, display_name=None):
+def persist_package(imported, files, context, workspace, dataset, display_name=None, parsed=None):
+    """`parsed` (plan52): an untouched copy of `parse_package(files, context)` the caller already computed in this
+    process — reused instead of parsing the same bytes twice; the semantic check against `imported` still runs."""
     _, xml_bytes, report_bytes, csv_bytes = split_files(files)
-    checked = parse_package(files, context)
+    checked = copy.deepcopy(parsed) if parsed is not None else parse_package(files, context)
     checked["id"] = imported["id"]
     require(semantic(checked) == semantic(imported), "Import does not match package files", "HASH_MISMATCH")
     require(re.fullmatch(r"[a-f0-9]{32}", imported["id"]), "Invalid scenario identity")

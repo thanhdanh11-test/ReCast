@@ -270,7 +270,7 @@ export function newTemplate(type: ScenarioType, scene: string, name: string, par
     const base: ScenarioTemplate = {
         profile: TEMPLATE_PROFILE, name, description: type.summary, tags: [type.group],
         scenario_type: type.id, params, customized: false,
-        map: { scene, placement: { ...DEFAULT_PLACEMENT }, duration_s: 10, sample_hz: 10 },
+        map: { scene, placement: { ...DEFAULT_PLACEMENT }, duration_s: 10, sample_hz: 10, ego_react: true },
         environment: { weather_preset: "ClearNoon" },
         actors: [], events: [], expect: expectSafe(),
         provenance: { mode: "template", created_at: new Date().toISOString() },

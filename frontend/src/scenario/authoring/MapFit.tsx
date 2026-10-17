@@ -27,7 +27,9 @@ export function fitKey(t: ScenarioTemplate): string {
  * Suggests maps for the current template: each scene is probed with the real import gate (worker `template_fit`,
  * read-only, cached), current map first. Re-probes 1 s after the template's geometry/timing changes.
  */
-export function MapFit({ template, scenes, scene, probe, onPick }: { template: ScenarioTemplate; scenes: string[]; scene: string; probe: FitProbe; onPick: (scene: string) => void }) {
+export function MapFit({ template, scenes, scene, probe, onPick, onCurrent }: { template: ScenarioTemplate; scenes: string[]; scene: string; probe: FitProbe; onPick: (scene: string) => void;
+    /** plan52: verdict of the chosen map for the current template content (null while unknown). */
+    onCurrent?: (fit: TemplateFit | null) => void }) {
     const t = useT();
     const [fits, setFits] = useState<Record<string, TemplateFit>>({});
     const [running, setRunning] = useState(false);
@@ -68,6 +70,8 @@ export function MapFit({ template, scenes, scene, probe, onPick }: { template: S
     const pending = order.filter(s => !fits[s]);
     const current = fits[scene];
     const checking = running || probed !== key;
+    const verdict = probed === key ? current ?? null : null;
+    useEffect(() => { onCurrent?.(verdict); }, [verdict?.ok, verdict?.scene, probed === key]);
     const label = (fit: TemplateFit) => fit.ok
         ? `${Math.round(fit.placement.start_m)} m${fit.placement.mirror ? ` · ${t("lật")}` : ""}`
         : t(reasonOf(fit.code));

@@ -1,8 +1,8 @@
 import {useEffect,useRef,useState,type Dispatch,type SetStateAction} from "react";
 import {ScenarioRunner} from "../ScenarioRunner";
 import {ReactiveDock} from "../reactive/ReactiveDock";
-import {DEFAULT_PARAMS,goalOf,type Params} from "../reactive/model";
-import {paramsOf} from "../reactive/kindMetrics";
+import {type Params} from "../reactive/model";
+import {SceneTechnical} from "./SceneTechnical";
 import {useT} from "../i18n";
 import {environmentSettingsFor,type SceneEnvironmentSettings} from "../weather";
 import type {DesktopAPI,ImportedEntry,ImportedScenario,ReactiveCandidates,ReactiveEvent,Scenario,ScenarioGroup} from "../types";
@@ -11,7 +11,6 @@ import type {MetricsState} from "../MetricsPanel";
 type DockMetrics=Parameters<typeof ReactiveDock>[0]['metrics'];
 export function ScenarioTools(p:{api:DesktopAPI;active:boolean;scenes:string[];onSelectScene?:(scene:string)=>Promise<Scenario>;sourceAction:<T>(operation:(id:string)=>Promise<T>)=>Promise<T>;source:Scenario|null;entries:ImportedEntry[];groups:ScenarioGroup[];artifact:ImportedScenario|null;activeId:string|null;checked:<T>(request:Promise<T>)=>Promise<T>;onClear:()=>void;onStatus:(message:string)=>void;busy:boolean;time:number;end:number;scene:string;canCreate:boolean;environmentSettings?:SceneEnvironmentSettings;onSeek:(t:number)=>void;onSelect:(e:ImportedEntry)=>void;onResult:(s:ImportedScenario)=>void;onWork:(action:()=>Promise<void>)=>Promise<void>;refresh:()=>Promise<void>;onReaction:()=>void;onCreatePair:(event:ReactiveEvent)=>Promise<void>;offers:ReactiveCandidates|null;kind:ReactiveKind;dockMetrics:DockMetrics;setDockMetrics:Dispatch<SetStateAction<DockMetrics>>;fill:(id:string,kind:ReactiveKind,params:Params,start:number)=>void;}) {
  const t=useT(),api=p.api;
- const [technicalOpen,setTechnicalOpen]=useState(false);
  const [metrics,setMetrics]=useState<MetricsState|null>(null),[esmini,setEsmini]=useState<EsminiCheck|null>(null);
  const metricCache=useRef(new Map<string,MetricsState>()),mounted=useRef(true),selectedId=useRef(p.artifact?.id);selectedId.current=p.artifact?.id;
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
@@ -23,7 +22,6 @@ export function ScenarioTools(p:{api:DesktopAPI;active:boolean;scenes:string[];o
   const loading:MetricsState={key,status:'loading'};metricCache.current.set(key,loading);setMetrics(loading);
   void api.scenarioMetrics({scenario_id:key}).then(data=>{const value:MetricsState={key,status:'ready',data};metricCache.current.set(key,value);if(mounted.current&&selectedId.current===key)setMetrics(value);},e=>{const value:MetricsState={key,status:'error',error:e instanceof Error?e.message:String(e)};metricCache.current.set(key,value);if(mounted.current&&selectedId.current===key)setMetrics(value);});
  },[p.artifact?.id,p.active]);
- useEffect(()=>{p.setDockMetrics(null);},[p.scene,p.kind]);
  async function perform(action:()=>Promise<void>):Promise<boolean> {let ok=false;await p.onWork(async()=>{await action();ok=true;});return ok;}
  const sourceId=()=>{if(!p.source)throw new Error(t('Chưa có dữ liệu'));return p.source.id;};
  const accept=async(s:ImportedScenario|null)=>{if(s){p.onResult(s);p.onStatus(t("Đã nạp OpenSCENARIO · {n} đối tượng · đúng map hiện tại",{n:s.actors.length}));}else p.onStatus(t("Đã đóng hộp chọn · giữ nguyên cảnh đang xem."));await p.refresh();};
@@ -34,8 +32,6 @@ export function ScenarioTools(p:{api:DesktopAPI;active:boolean;scenes:string[];o
   return api.reactiveSensitivity({source_id:sourceId(),event:{actor_id:c.actor_id,t0_s:e.t0,decel_mps2:e.decel,target:e.target,dwell_s:e.dwell??0,react:true,reaction_s:p.artifact?.report?.drivers?.reaction_s??1}});
  }
  const check=()=>void p.onWork(async()=>{if(p.artifact)setEsmini(await p.checked(api.esminiCheck({scenario_id:p.artifact.id})));});
- const metricsKey=useRef('');metricsKey.current=`${p.scene}:${p.kind}`;
- async function loadSceneMetrics(){const key=metricsKey.current;p.setDockMetrics({status:'loading'});const currentKind=p.kind;try {const data=currentKind==='brake'?await api.reactiveMetrics({scene:p.scene}):(await api.reactiveMetrics({scene:p.scene,kinds:[currentKind]}))[currentKind];if(!data)throw new Error(t('Không có bộ đo chỉ số cảnh.'));if(mounted.current&&metricsKey.current===key)p.setDockMetrics({status:'ready',data});}catch(e){if(mounted.current&&metricsKey.current===key)p.setDockMetrics({status:'error',error:e instanceof Error?e.message:String(e)});}}
  return <section className="sw-tools" aria-label={t('Công cụ kịch bản')}>
   <ScenarioRunner embedded groups={p.groups} active={false} entries={p.entries} activeId={p.activeId} busy={p.busy} metrics={metrics} scenes={p.scenes} onSceneChange={p.onSelectScene?value=>{void p.onSelectScene!(value).catch(e=>p.onStatus(String(e)));}:undefined} currentScene={p.scene} scenario={p.artifact} replay={null} time={p.time} environmentSettings={p.environmentSettings??environmentSettingsFor('ClearNoon','auto')} playback={null} duration={p.end} onSeek={p.onSeek} loading={null} onSceneReady={()=>{}} onSelect={p.onSelect}
    canCreate={p.canCreate} onOpenReactive={p.onReaction}
@@ -52,14 +48,6 @@ export function ScenarioTools(p:{api:DesktopAPI;active:boolean;scenes:string[];o
    onSaveEdit={(entry,name,xml)=>perform(async()=>{const s=await p.checked(p.sourceAction(source_id=>api.importXosc({source_id,xml,file_name:name})));if(s){p.onResult(s);await p.checked(api.deleteImported({scenario_id:entry.scenario_id}));}await p.refresh();})}
    onSaveTemplateEdit={(entry,template)=>perform(async()=>{const s=await p.checked(p.sourceAction(source_id=>api.importTemplate({source_id,template})));p.onResult(s);await p.checked(api.deleteImported({scenario_id:entry.scenario_id}));p.onStatus(t("Đã xoá {name}",{name:entry.name}));await p.refresh();})}
    onSensitivity={p.artifact?.report?.topeye?sensitivity:undefined} esmini={esmini} onEsminiCheck={p.artifact?.kind==='real2sim'?check:undefined}/>
-  <details className="sw-technical" onToggle={e=>setTechnicalOpen(e.currentTarget.open)}><summary>{t('Chỉ số cảnh và phân tích phản ứng')}</summary><button disabled={p.busy||p.dockMetrics?.status==='loading'} onClick={()=>void loadSceneMetrics()}>{t('Tải chỉ số cảnh')}</button>
-   {technicalOpen && <ReactiveDock scene={p.scene} busy={p.busy} detail={p.artifact?.report?.topeye??null} report={p.artifact?.report??null} esmini={esmini} onEsminiCheck={check} metrics={p.dockMetrics} labelProblems={p.offers?.label_problems??[]} onSeek={p.onSeek}
-    onPickCell={cell=>p.fill(cell.actor_id,'brake',{...DEFAULT_PARAMS,decel:cell.decel,goal:goalOf(cell.target,cell.dwell)},cell.t0)}
-    onPickKindCell={(cell,kind)=>p.fill(cell.actor_id,kind,{...DEFAULT_PARAMS,...paramsOf(kind,cell.params)},cell.t0)}
-    onFill={c=>p.fill(c.actor_id,'brake',{...DEFAULT_PARAMS,decel:c.decel_mps2,goal:goalOf(c.target,c.dwell_s)},c.t0_s)}
-    onCreate={async(_,event)=>{await p.onCreatePair(event);return true;}}
-    reactiveMetrics={api.reactiveMetrics?(scene,reactions)=>api.reactiveMetrics({scene,...(reactions?{reactions}:{})}):undefined}
-    replayErrorMetrics={api.replayErrorMetrics?(scene)=>api.replayErrorMetrics({scene}):undefined}/>}
-  </details>
+  <SceneTechnical api={api} scene={p.scene} kind={p.kind} busy={p.busy} artifact={p.artifact} offers={p.offers} esmini={esmini} onEsminiCheck={check} onSeek={p.onSeek} fill={p.fill} onCreatePair={p.onCreatePair} dockMetrics={p.dockMetrics} setDockMetrics={p.setDockMetrics}/>
  </section>;
 }

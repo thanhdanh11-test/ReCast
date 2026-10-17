@@ -285,6 +285,7 @@ class Service:
                 "scenario_metrics",
                 "template_fit",
                 "map_status",
+                "export_create",
                 "reactive_metrics",
                 "replay_error_metrics",
                 "reactive_candidates",
@@ -327,6 +328,12 @@ class Service:
 
             return esmini_check(guard_output(params["workspace"], self.adapter.root), params.get("scenario_id"),
                                 params.get("engine"))
+        if method == "export_create":
+            # plan50: validate + queue (job.json); the local server runs the job in its own process.
+            from topeye.scenario.export_job import create_job
+
+            return create_job(guard_output(params["workspace"], self.adapter.root), params.get("scenario_id"),
+                              params.get("format"), self.adapter)
         if method == "map_status":
             # Read-only scene-picker probe (metrics worker): the map admission gate without LiDAR work.
             from topeye.scenario.source_scene import scene_map_error
@@ -383,6 +390,10 @@ class Service:
         if method == "lidar_frame":
             # Read-only and stateless: must not run workspace recovery (a sibling worker may own runs).
             return lidar_frame(self.adapter, params["scene"], params["time_s"])
+        if method == "list_imported" and params.get("readonly"):
+            # plan52: library listing served by the LiDAR worker so it never queues behind scenario jobs;
+            # pure read, so no workspace recovery here (the main worker owns that).
+            return list_imported(guard_output(params["workspace"], self.adapter.root))
         workspace = guard_output(params["workspace"], self.adapter.root)
         if workspace not in self.recovered_workspaces:
             self.recover(workspace, self.adapter.root)
@@ -447,7 +458,8 @@ class Service:
                     files = run_event(self.reactive_model(source)[0], params.get("event"))["files"]
                 else:
                     files = decode_package(params.get("files"))
-                imported = parse_package(files, context)
+                parsed = parse_package(files, context)
+                imported = copy.deepcopy(parsed)  # plan52: `parsed` stays untouched for persist_package's check
                 imported["source"]["source_id"] = source["id"]
                 if method == "import_reactive":
                     imported["source"]["reactive_event"] = copy.deepcopy(params["event"])
@@ -458,7 +470,7 @@ class Service:
                 name = display_name(imported["import"]["file_name"])
                 if method == "import_reactive":
                     name = name.removesuffix(".xosc")  # C2: "<name>_t<t0>_<target>_a<decel>"
-                package = persist_package(imported, files, context, workspace, self.adapter.root, name)
+                package = persist_package(imported, files, context, workspace, self.adapter.root, name, parsed=parsed)
             elif method in {"import_xosc", "import_template"}:
                 if method == "import_template":
                     from topeye.scenario.template import compile_template
@@ -477,7 +489,8 @@ class Service:
                     )
                     xml_bytes = base64.b64decode(encoded, validate=True)
                     file_name = params.get("file_name")
-                imported = validate_xosc(xml_bytes, context)
+                validated = validate_xosc(xml_bytes, context)
+                imported = copy.deepcopy(validated)  # plan52: `validated` stays untouched for persist_import's check
                 imported["source"]["source_id"] = source["id"]
                 imported["source"]["dataset_root"] = str(self.adapter.root)
                 imported["environment"] = source["environment"]
@@ -491,6 +504,7 @@ class Service:
                     self.adapter.root,
                     display_name(file_name),
                     stored_template,
+                    validated=validated,
                 )
             else:
                 from topeye.scenario.real2sim import is_package, load_package

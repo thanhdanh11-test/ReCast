@@ -492,3 +492,47 @@ def test_engine_ego_is_keyframes_2hz(scene_1094):
     result, by_id = _car_029_stop(model)
     assert result.valid and result.reasons == []
     assert by_id["physics"]["passed"] is True and by_id["physics"]["value"] <= by_id["physics"]["threshold"]
+
+
+def test_hold_stands_still_to_the_end_while_stop_drives_on(model):
+    """plan51: “Dừng hẳn” (hold) never drives off; replay-forge “stop” with dwell 0 still does (metrics parity)."""
+    held = simulate(model, Event("car_001", 2.0, 4.0, "hold", 0.0))
+    lead = model.index["car_001"]
+    k = round(held.event_phases["target_reached"] / DT)
+    assert "dwell_end" not in held.event_phases
+    assert np.nanmax(held.V[k:, lead]) == 0.0 and np.ptp(held.S[k:, lead]) == 0.0
+    moved = simulate(model, Event("car_001", 2.0, 4.0, "stop", 0.0))
+    assert "dwell_end" in moved.event_phases and np.nanmax(moved.V[k + 40:, lead]) > 1.0
+
+
+def test_hold_package_and_window_key(model):
+    result = run_event(model, event(model, "car_001", target="hold", dwell_s=0.0))
+    report = json.loads(result["files"]["report.json"])
+    assert report["event"]["target"] == "hold" and result["valid"] is True
+    markers = report["topeye"]["markers"]
+    assert any(m["kind"] == "stopped" for m in markers) and not any(m["kind"] == "resume" for m in markers)
+    lead = next(c for c in candidates(model)["candidates"] if c["name"] == "car_001")
+    assert lead["windows_by_event"]["hold:0:4"]
+
+
+def ego_close_behind():
+    """Ego 12 m behind a lead at 10 m/s: a hard hold of the lead with a slow ego reaction ends in a rear-end hit."""
+    source = source_fixture()
+    source["interval_s"] = [0, 20.0]
+    source["actors"] = [actor("ego", 0.0, 10.0, 20.0, role="ego", dt=0.05), actor("lead-token", 12.0, 10.0, 20.0)]
+    source["environment"]["polygons"][0]["outer"] = [[-50, -40], [400, -40], [400, 40], [-50, 40]]
+    return scene_model(source)
+
+
+def test_pilot_with_an_ego_collision_is_invalid_baseline_and_metrics_keep_replay_forge_rules():
+    m = ego_close_behind()
+    e = {"actor_id": "lead-token", "t0_s": 2.0, "decel_mps2": 8.0, "target": "hold", "dwell_s": 0.0, "react": True, "reaction_s": 3.0}
+    pilot = run_event(m, e)
+    assert pilot["valid"] is False and any(r.startswith("[ego_collision]") for r in pilot["reasons"])
+    report = json.loads(pilot["files"]["report.json"])
+    collision = next(c for c in report["topeye"]["checks"] if c["id"] == "collision")
+    assert report["topeye"]["summary"].startswith("Không hợp lệ · xe của bạn vẫn va chạm car_001") and "Cách sửa" in report["topeye"]["summary"]
+    assert collision["passed"] is False and "xe của bạn chạm" in collision["detail"]
+    outcome = simulate(m, reactive.parse_event(m, e)[0], react=True, reaction=3.0)
+    assert "ego_collision" not in reactive.assess(m, outcome).reasons  # scene metrics / baseline rule unchanged
+    assert "ego_collision" in reactive.assess(m, outcome, strict_ego=True).reasons

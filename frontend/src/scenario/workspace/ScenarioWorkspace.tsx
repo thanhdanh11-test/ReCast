@@ -20,12 +20,18 @@ import type { ReactNode } from "react";
 import type { SceneEnvironmentSettings } from "../weather";
 import type { Preferences } from "../preferences";
 import { ScenarioTools } from "./ScenarioTools";
+import { SceneTechnical } from "./SceneTechnical";
 import { ReactiveDock } from "../reactive/ReactiveDock";
 import type { DesktopAPI, ImportedEntry, ImportedScenario, Scenario, ScenarioGroup, ReactiveEvent } from "../types";
 import type { EsminiCheck, ReactiveKind } from "../reactiveTypes";
 import "../authoring/authoring.css";
 import "../unified/unified.css";
 
+const REASON_TEXT: Record<string, string> = {
+  ego_collision: "xe của bạn vẫn va chạm", collision: "hai xe khác đâm nhau", physics: "vượt giới hạn phanh/gia tốc",
+  tailgating: "có xe bám quá sát", unsupported_interaction: "có xe cắt ngang hoặc người đi bộ chưa mô phỏng được",
+  unsupported_appearing: "một xe vừa xuất hiện đúng chỗ tình huống", label_error: "nhãn dữ liệu gốc lỗi ở đoạn này",
+};
 const STEPS = ["Chọn xe", "Chọn tình huống", "Chỉnh tham số", "Xem kết quả", "Lưu / Xuất"];
 type Step = 1 | 2 | 3 | 4 | 5;
 type View = "pair" | "baseline" | "pilot" | "source";
@@ -33,7 +39,11 @@ const message = (error: unknown) => error instanceof Error ? error.message : Str
 const fmt = (value: number | null | undefined, digits = 1) => value == null ? "—" : value.toFixed(digits).replace(".", ",");
 
 
-export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedSource, active = true, environmentSettings, preferences, onBusyChange, onDirtyChange, externalBusy=false, scenes, onSelectScene }: {
+/** plan50 "Tự tạo": the reaction flow inside the Studio overlay; no library/tools, closes itself once a pair exists. */
+export interface CreateMode { onCreated: (pilotId: string, pair: { baseline: ImportedScenario; pilot: ImportedScenario }) => void; onClose: () => void; initial?: { actorId: string; kind: ReactiveKind; params: Params; t0: number } }
+
+export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedSource, active = true, environmentSettings, preferences, onBusyChange, onDirtyChange, externalBusy=false, scenes, onSelectScene, create }: {
+  create?: CreateMode;
   api: DesktopAPI; scenes?:string[]; onSelectScene?:(scene:string)=>Promise<Scenario>; externalBusy?:boolean; scene?: string; source?: Scenario | null; active?: boolean;
   environmentSettings?: SceneEnvironmentSettings; preferences?: Preferences; onBusyChange?: (busy:boolean)=>void; onDirtyChange?: (dirty:boolean)=>void;
 }) {
@@ -42,13 +52,13 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
   const t = useT();
   const session = useScenarioSession(api,scene,providedSource);
   const {source,offers,entries,groups,loading,refreshLibrary} = session;
-  const [guided, setGuided] = useState(true);
+  const [guided, setGuided] = useState(!create?.initial);
   
-  const [step, setStep] = useState<Step>(1);
-  const [actorId, setActorId] = useState("");
-  const [kind, setKind] = useState<ReactiveKind>("brake");
-  const [params, setParams] = useState<Params>(DEFAULT_PARAMS);
-  const [t0, setT0] = useState(0);
+  const [step, setStep] = useState<Step>(create?.initial ? 3 : 1);
+  const [actorId, setActorId] = useState(create?.initial?.actorId ?? "");
+  const [kind, setKind] = useState<ReactiveKind>(create?.initial?.kind ?? "brake");
+  const [params, setParams] = useState<Params>(create?.initial?.params ?? DEFAULT_PARAMS);
+  const [t0, setT0] = useState(create?.initial?.t0 ?? 0);
   const [template, setTemplate] = useState<ScenarioTemplate | null>(null);
   const [activeEntryId,setActiveEntryId]=useState<string|null>(null);
   const [artifact, setArtifact] = useState<ImportedScenario | null>(null);
@@ -69,7 +79,11 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
   const [esmini, setEsmini] = useState<EsminiCheck | null>(null);
   const selected = offers?.candidates.find(c => c.actor_id === actorId);
   const templateMode = actorId === "ego";
-  const steps = templateMode ? ["Chọn cách tạo","Chọn mẫu","Điều chỉnh","Xem kết quả","Lưu / Xuất"] : guided ? ["Chọn tình huống","Xác nhận xe","Điều chỉnh","Xem kết quả","Lưu / Xuất"] : STEPS;
+  const allSteps = templateMode ? ["Chọn cách tạo","Chọn mẫu","Điều chỉnh","Xem kết quả","Lưu / Xuất"] : guided ? ["Chọn tình huống","Xác nhận xe","Điều chỉnh","Xem kết quả","Lưu / Xuất"] : STEPS;
+  // plan52: inside the Studio the overlay closes once the pair exists, so "Xem kết quả / Lưu" are never reached.
+  const steps = create ? allSteps.slice(0, 3) : allSteps;
+  /** plan52: verdict of the current choice before simulating (pilot validity at its reaction time). */
+  const [verdict, setVerdict] = useState<{ key: string; valid: boolean | null; reason?: string } | null>(null);
   const type = template ? TYPE_BY_ID.get(template.scenario_type) : undefined;
   const choice = reactionChoice(selected, kind, params, t0, source);
   useEffect(()=>{onDirtyChange?.(step===3&&!artifact);return()=>onDirtyChange?.(false);},[step,artifact?.id]);
@@ -112,13 +126,49 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
     invalidate();setActorId(method==="template"?"ego":"");setTemplate(null);setTime(0);setStep(method==="template"?2:1);
     if(method==="template")setGuided(false);
   }
+  /** Pilot validity of one event at its own reaction time, or null when it cannot be checked. */
+  /** The pre-check in flight: creating waits for it, since the server refuses writes while the worker is busy. */
+  const checking = useRef<Promise<unknown> | null>(null);
+  async function validityOf(event: ReactiveEvent): Promise<{ valid: boolean; reason?: string } | null> {
+    if (!api.reactiveSensitivity) return null;
+    const run = runCheck(event);
+    checking.current = run;
+    try { return await run; } finally { if (checking.current === run) checking.current = null; }
+  }
+  async function runCheck(event: ReactiveEvent): Promise<{ valid: boolean; reason?: string } | null> {
+    try {
+      const r = await session.sourceAction(source_id => api.reactiveSensitivity({ source_id, event: { ...event, react: true } }));
+      const run = r.runs.find(x => Math.abs(x.reaction_s - event.reaction_s) < 1e-6) ?? r.runs[0];
+      return run ? { valid: run.valid, reason: run.reasons[0] } : null;
+    } catch { return null; }
+  }
   function chooseIntent(next: ReactiveKind) {
     if (busy || !source || !offers) return;
     const candidate = guidedCandidates(offers.candidates, next, source)[0];
     if (!candidate) return;
-    const option = guidedOptions(candidate, next, source)[0];
-    invalidate(); setKind(next); setActorId(candidate.actor_id); setParams(option.params); setT0(option.time); setTime(0); setStep(2);
+    const options = guidedOptions(candidate, next, source);
+    // plan52: suggest the first preset whose pilot is valid (checked like the result will be), else the first.
+    void work(async () => {
+      let pick = options[0];
+      for (const option of options.slice(0, 4)) {
+        const event = reactionChoice(candidate, next, option.params, option.time, source).event;
+        if (!event) continue;
+        const v = await checked(validityOf(event));
+        if (v?.valid !== false) { pick = option; break; }
+      }
+      invalidate(); setKind(next); setActorId(candidate.actor_id); setParams(pick.params); setT0(pick.time); setTime(0); setStep(2);
+    });
   }
+  const eventKey = step === 3 && !templateMode && choice.event ? JSON.stringify(choice.event) : "";
+  useEffect(() => {
+    // Never while a create runs: the check would queue between the baseline and pilot writes (server: 409 BUSY).
+    if (busy) return;
+    if (!eventKey || !choice.event) { setVerdict(null); return; }
+    let live = true;
+    setVerdict({ key: eventKey, valid: null });
+    const timer = window.setTimeout(() => void validityOf(choice.event!).then(v => { if (live) setVerdict(v ? { key: eventKey, ...v } : null); }), 300);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [eventKey, busy]);
   function pickActor(id: string) {
     if (busy || resultMode) return;
     const candidate = offers?.candidates.find(c => c.actor_id === id);
@@ -166,6 +216,7 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
   async function createPair(event:ReactiveEvent, resume?:ScenarioGroup) {
     if(!source || !session.canCreate)return;
     await work(async()=>{
+      await checking.current?.catch(()=>{});
       let baseline:ImportedScenario|null=null,pilot:ImportedScenario|null=null;
       const {react: _react,...frozen}=event;
       let group:ScenarioGroup=resume??{schema_version:1,id:crypto.randomUUID().replaceAll("-",""),scene:SCENE,map_id:session.mapId!,event:frozen,baseline_id:null,pilot_id:null,created_at:new Date().toISOString()};
@@ -182,6 +233,7 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
         if(api.recordScenarioGroup)await checked(api.recordScenarioGroup({group}));
         const comparison={baseline,pilot};pairs.current.set(baseline.id,comparison);pairs.current.set(pilot.id,comparison);
         setPartialGroup(null);showResult(pilot,comparison);setNotice(t("Đã tạo hai quỹ đạo thật. Kéo thời gian để so sánh."));
+        create?.onCreated(pilot.id, comparison);
       } catch(e) {
         if(String(e).includes("CANCELLED"))throw e;
         if(baseline){showResult(pilot??baseline,pilot?{baseline,pilot}:null);setPartialGroup(group);}
@@ -230,9 +282,10 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
     : <TrackView scenario={scene} replay={null} time={time} active={active} display={preferences} environmentSettings={environmentSettings}/>;
   const artifactLabel = activeArtifact?.report?.drivers ? activeArtifact.report.drivers.react ? t("Pilot · có phản ứng") : t("Baseline · không phản ứng") : t("Kịch bản OpenSCENARIO");
 
-  return <main className={`unified-demo scenario-workspace ud-guided ${guided && step < 4 ? "ud-beginner-authoring" : ""}`}>
-    <header className="ud-head"><div><span className="ud-kicker">TOPEYE / SCENARIO</span><h1>{t("Kịch bản")}</h1></div><span className="ud-scene">{SCENE}</span></header>
-    <div className="sw-actions"><button disabled={busy} onClick={()=>newMethod("reaction")}>{t("Thử phản ứng")}</button><button disabled={busy||!session.canCreate} onClick={()=>newMethod("template")}>{t("Tạo từ mẫu")}</button><button disabled={busy||!session.canCreate} onClick={importXosc}>{t("Nạp tệp .xosc")}</button><button disabled={busy} onClick={()=>void safeRefresh()}>{t("Làm mới thư viện")}</button></div>
+  return <main className={`unified-demo scenario-workspace ud-guided ${guided && step < 4 ? "ud-beginner-authoring" : ""} ${create ? "sw-create" : ""}`}>
+    {create ? <header className="ud-head sw-create-head"><button className="sw-back" disabled={busy} onClick={create.onClose}><ArrowLeft size={14}/>{t("Quay lại Studio")}</button><div><span className="ud-kicker">{t("TẠO KỊCH BẢN")} · {SCENE}</span><h1>{t("Tự tạo")}</h1></div></header>
+    : <header className="ud-head"><div><span className="ud-kicker">TOPEYE / SCENARIO</span><h1>{t("Kịch bản")}</h1></div><span className="ud-scene">{SCENE}</span></header>}
+    {!create && <div className="sw-actions"><button disabled={busy} onClick={()=>newMethod("reaction")}>{t("Thử phản ứng")}</button><button disabled={busy||!session.canCreate} onClick={()=>newMethod("template")}>{t("Tạo từ mẫu")}</button><button disabled={busy||!session.canCreate} onClick={importXosc}>{t("Nạp tệp .xosc")}</button><button disabled={busy} onClick={()=>void safeRefresh()}>{t("Làm mới thư viện")}</button></div>}
     <div className="ud-mode"><div role="group" aria-label={t("Chế độ sử dụng")}><button disabled={busy} aria-pressed={guided} onClick={() => switchMode(true)}>{t("Có hướng dẫn")}</button><button disabled={busy} aria-pressed={!guided} onClick={() => switchMode(false)}>{t("Chi tiết")}</button></div><span>{guided ? t("Bắt đầu bằng điều bạn muốn thử. Không cần biết thông số kỹ thuật.") : t("Toàn bộ xe, 20 mẫu và tham số.")}</span></div>
     <nav className="ud-flow" aria-label={t("Luồng kịch bản")}>{steps.map((label, i) => <button key={label} aria-current={step === i + 1 ? "step" : undefined} disabled={busy || i + 1 > step} onClick={() => go(i + 1 as Step)}><b>{i + 1 < step ? <Check size={15}/> : `0${i + 1}`}</b>{t(label)}</button>)}</nav>
     {loading && <div className="ud-message" role="status"><LoaderCircle className="ud-spin" size={16}/>{t("Đang nạp xe và các tình huống phù hợp…")}</div>}
@@ -263,7 +316,13 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
             <div className="ud-kind ud-intents">{KINDS.map(value => {
               const available = source && guidedCandidates(offers?.candidates ?? [], value, source).length > 0;
               return <button key={value} disabled={busy || loading || !available || !session.canCreate} onClick={() => chooseIntent(value)}><strong>{t(INTENTS[value].title)}</strong><span>{t(INTENTS[value].description)}</span>{!loading && !available && <small>{t("Chưa có xe phù hợp trong cảnh này")}</small>}</button>;
-            })}</div><p className="ud-context">{t("Muốn tự thiết kế xe của mình hoặc dùng 20 mẫu? Chọn Chi tiết phía trên.")}</p>
+            })}</div>
+            {!loading && offers && source && !KINDS.some(value => guidedCandidates(offers.candidates, value, source).length) && <div className="ud-role ud-empty" role="status">
+              <strong>{offers.candidates.length ? t("Không có xe nào chạy ngay trước xe của bạn") : t("Cảnh này không có xe nào tạo được tình huống")}</strong>
+              <p>{offers.candidates.length ? t("Chế độ Chi tiết có {n} xe khác có thể gây tình huống cho các xe phía sau.", { n: offers.candidates.length }) : t("Cần một xe chạy nhanh hơn 3 m/s có xe khác bám theo. Hãy chọn cảnh khác ở cột bên trái, hoặc dùng Kịch bản có sẵn.")}</p>
+              {offers.candidates.length > 0 && <button className="ud-primary" onClick={() => switchMode(false)}>{t("Mở chế độ Chi tiết")}</button>}
+            </div>}
+            <p className="ud-context">{create ? t("Muốn chọn xe hoặc tham số chi tiết? Chọn Chi tiết phía trên. 20 mẫu nằm ở “Kịch bản có sẵn”.") : t("Muốn tự thiết kế xe của mình hoặc dùng 20 mẫu? Chọn Chi tiết phía trên.")}</p>
           </>}
           {guided && !templateMode && step === 2 && <>
             <div className="ud-role"><strong>{t("Xe của bạn: màu đỏ trên bản đồ")}</strong><p>{t("App đã gợi ý")}{selected?.name}{t("làm xe tạo tình huống vì xe của bạn nằm trong nhóm theo sau.")}</p></div>
@@ -273,9 +332,10 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
           </>}
           {!guided && step === 1 && <>
             <p className="ud-context">{t("Chọn xe để xác định vai trò trong tình huống.")}</p>
-            <button className={`ud-ego-choice ${templateMode ? "selected" : ""}`} onClick={() => pickActor("ego")} disabled={busy || !source}><strong>{t("Xe của tôi · ego")}</strong><span>{t("Thiết kế quỹ đạo bằng 20 mẫu tình huống")}</span></button>
+            {!create && <button className={`ud-ego-choice ${templateMode ? "selected" : ""}`} onClick={() => pickActor("ego")} disabled={busy || !source}><strong>{t("Xe của tôi · ego")}</strong><span>{t("Thiết kế quỹ đạo bằng 20 mẫu tình huống")}</span></button>}
+            {offers && !offers.candidates.length && <p className="ud-role ud-empty" role="status">{t("Cảnh này không có xe nào tạo được tình huống phản ứng (cần một xe chạy nhanh hơn 3 m/s có xe khác bám theo). Hãy chọn cảnh khác ở cột bên trái, hoặc dùng Kịch bản có sẵn.")}</p>}
             <label>{t("Xe gây sự kiện")}<select aria-label={t("Xe gây sự kiện")} disabled={busy || !offers} value={selected?.actor_id ?? ""} onChange={e => pickActor(e.target.value)}><option value="">{t("Chọn trực tiếp trên map hoặc tại đây")}</option>{offers?.candidates.slice().sort((a, b) => Number(b.followers.includes("ego")) - Number(a.followers.includes("ego"))).map(c => <option key={c.actor_id} value={c.actor_id}>{c.name} · {c.followers.includes("ego") ? t("ego theo sau") : `${c.followers.length} xe theo sau`}</option>)}</select></label>
-            <div className="ud-role" role="status"><strong>{templateMode ? t("Đã chọn ego để thiết kế") : selected ? `Đã chọn ${selected.name}` : t("Chưa chọn xe")}</strong><p>{templateMode ? t("Mẫu tạo các xe và quỹ đạo mới trên map nguồn. Bạn có thể chỉnh vận tốc, lộ trình và hành động của ego; bản ghi gốc được giữ nguyên.") : selected ? t("Xe này gây sự kiện. Ego và các xe theo sau có thể phản ứng trong pilot; baseline giữ chuyển động danh định của các xe còn lại.") : t("Chọn xe giao thông để thử phản ứng, hoặc ego để thiết kế từ mẫu.")}</p></div>
+            <div className="ud-role" role="status"><strong>{templateMode ? t("Đã chọn ego để thiết kế") : selected ? `Đã chọn ${selected.name}` : t("Chưa chọn xe")}</strong><p>{templateMode ? t("Mẫu tạo các xe và quỹ đạo mới trên map nguồn. Bạn có thể chỉnh vận tốc, lộ trình và hành động của ego; bản ghi gốc được giữ nguyên.") : selected ? t("Xe này gây sự kiện. Ego và các xe theo sau có thể phản ứng trong pilot; baseline giữ chuyển động danh định của các xe còn lại.") : t("Chọn xe giao thông để thử phản ứng.")}</p></div>
             <button className="ud-primary" disabled={!actorId || loading || busy} onClick={() => go(2)}>{t("Tiếp: chọn tình huống")}<ArrowRight size={16}/></button>
           </>}
           {(templateMode || !guided) && step === 2 && <>
@@ -288,6 +348,7 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
                : selected && source && <>
                 {guided && <fieldset disabled={busy} className="ud-fields"><label>{t("Cách xảy ra")}<select aria-label={t("Cách xảy ra")} value={guidedOptions(selected, kind, source).findIndex(o => JSON.stringify(o.params) === JSON.stringify(params))} onChange={e => { const option = guidedOptions(selected, kind, source)[Number(e.target.value)]; if (option) { setParams(option.params); setT0(option.time); } }}><option value={-1} disabled>{t("Đã tùy chỉnh thông số")}</option>{guidedOptions(selected, kind, source).map((o, i) => <option key={o.label} value={i}>{presetLabel(o)}</option>)}</select></label><label>{t("Xảy ra lúc")}<select aria-label={t("Xảy ra lúc")} value={choice.chosenTime} onChange={e => setT0(Number(e.target.value))}>{choice.availableTimes.map(seconds => <option key={seconds} value={seconds}>{t("Giây")} {fmt(seconds)}</option>)}</select></label><p className="ud-context">{t("Xe của bạn phản ứng sau")} {fmt(params.reaction)} {t("giây.")} {kind === "brake" ? params.goal === "half" ? t("Xe trước giảm tốc một nửa.") : t("Xe trước phanh đến khi dừng.") : t(INTENTS[kind].description)}</p></fieldset>}
                 <details open={guided ? undefined : true} className="ud-report"><summary>{t("Thông số chi tiết")}</summary><ReactionParameters selected={selected} source={source} kind={kind} params={params} setParams={setParams} t0={t0} setT0={setT0} busy={busy}/></details>
+                {verdict && verdict.key === eventKey && <p className={`ud-verdict ${verdict.valid === null ? "" : verdict.valid ? "ok" : "bad"}`} role="status">{verdict.valid === null ? t("Đang kiểm tra kịch bản này…") : verdict.valid ? t("✓ Kịch bản này hợp lệ: các xe phản ứng kịp.") : `${t("✗ Kịch bản này sẽ không hợp lệ")}: ${t(REASON_TEXT[verdict.reason ?? ""] ?? verdict.reason ?? "")}. ${t("Chọn cách xảy ra khác (phanh nhẹ hơn) hoặc thời điểm khác.")}`}</p>}
                 {!choice.event && <p role="status">{t("Thông số chưa phù hợp. Chọn lại một cách xảy ra ở trên hoặc đổi xe.")}</p>}
               </>}
             <p className="ud-context">{templateMode ? t("Tạo quỹ đạo và kiểm tra vị trí trên map. Kết quả được tự lưu.") : t("So sánh cùng tình huống khi không bật và có bật phản ứng. Hai kết quả được tự lưu để bạn xem lại.")}</p>
@@ -311,6 +372,6 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
 
       </aside>
     </div>
-    {renderTools()}
+    {create ? <SceneTechnical api={api} scene={SCENE} kind={kind} busy={busy} artifact={activeArtifact} offers={offers} esmini={esmini} onEsminiCheck={()=>{if(activeArtifact)void work(async()=>setEsmini(await checked(api.esminiCheck({scenario_id:activeArtifact.id}))));}} onSeek={value=>{setTime(value);setPlaying(false);}} fill={(id,k,p,start)=>{setGuided(false);setActorId(id);setKind(k);setParams(p);setT0(start);setStep(3);setPlaying(false);}} onCreatePair={createPair} dockMetrics={dockMetrics} setDockMetrics={setDockMetrics}/> : renderTools()}
   </main>;
 }

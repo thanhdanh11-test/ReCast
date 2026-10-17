@@ -12,7 +12,7 @@ import type { Diagnostic, Real2simReport as Report } from "./types";
 const fmt = (value: number | null | undefined, digits: number, unit = "") =>
     value === undefined || value === null || !Number.isFinite(value) ? "—" : `${value.toFixed(digits).replace(".", ",")}${unit}`;
 
-const TARGET: Record<string, string> = { stop: "dừng hẳn", half: "chậm lại 50%", slow: "giảm tốc" };
+const TARGET: Record<string, string> = { hold: "dừng hẳn", stop: "dừng rồi đi tiếp", half: "chậm lại 50%", slow: "giảm tốc" };
 
 /** Rejection reason codes of the reactive assessment (replay-forge format.js REASON_LABEL). */
 const REASON: Record<string, string> = {

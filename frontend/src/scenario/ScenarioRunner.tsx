@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
-import { Activity, Check, Download, Pencil, Trash2, TriangleAlert, X } from "lucide-react";
+import { Activity, Check, Download, Pencil, Trash2, TriangleAlert } from "lucide-react";
 import { ActorTimeline } from "./ActorTimeline";
+import { XmlEditDialog } from "./studio/XmlEditDialog";
 import { ScenarioCreator } from "./authoring/ScenarioCreator";
 import type { ScenarioTemplate } from "./authoring/template";
 import type { FitProbe } from "./authoring/MapFit";
@@ -70,7 +71,7 @@ export function ScenarioRunner(props: {
     const [tab, setTab] = useState<"library" | "metrics" | "history">("library");
     const [creating, setCreating] = useState(false);
     /** No template: offer "recreate with a template" first; the XML editor only after an explicit "advanced" click. */
-    const [editing, setEditing] = useState<{ entry: ImportedEntry; name: string; xml: string; showXml: boolean } | null>(null);
+    const [editing, setEditing] = useState<{ entry: ImportedEntry; name: string; xml: string } | null>(null);
     /** template null = recreate from the type gallery on the same map, replacing the scenario on save. */
     const [editingTemplate, setEditingTemplate] = useState<{ entry: ImportedEntry; template: ScenarioTemplate | null } | null>(null);
     useEffect(() => {
@@ -85,7 +86,7 @@ export function ScenarioRunner(props: {
         const doc = await props.onLoadXml(entry);
         // Template-made scenarios are edited as a template; only hand-imported .xosc files fall back to XML.
         if (doc?.template) setEditingTemplate({ entry, template: doc.template });
-        else if (doc) setEditing({ entry, name: doc.file_name, xml: doc.xml, showXml: false });
+        else if (doc) setEditing({ entry, name: doc.file_name, xml: doc.xml });
     };
     const active = entries.find(e => e.scenario_id === activeId) ?? null;
     const shown = scenario?.mode === "imported" ? scenario as ImportedScenario : null;
@@ -198,21 +199,8 @@ export function ScenarioRunner(props: {
             editing={{ name: editingTemplate.entry.name, template: editingTemplate.template }}
             onClose={() => setEditingTemplate(null)} onExportMap={props.onExportMap} onImportXosc={props.onCreate}
             onCreateTemplate={template => props.onSaveTemplateEdit(editingTemplate.entry, template)} fitTemplate={props.onFitTemplate} mapStatus={props.onMapStatus}/>}
-        {editing && <div className="runner-dialog-backdrop">
-            <div className="runner-dialog wide" role="dialog" aria-modal="true" aria-label={t("Sửa {name}", { name: editing.entry.name })}>
-                <div className="runner-dialog-head"><h2>{t("Sửa kịch bản")}</h2><button className="icon-button" aria-label={t("Đóng")} onClick={() => setEditing(null)}><X size={14} aria-hidden/></button></div>
-                {!editing.showXml ? <>
-                    <p className="runner-edit-note">{t("“{name}” không có template đi kèm (nạp từ file .xosc, hoặc tạo trước bản 0.30.0), nên không mở lại được form template.", { name: editing.entry.name })}</p>
-                    <p className="sensor-note">{t("Tạo lại bằng template trên cùng map {scene}: khi lưu, kịch bản mới thay thế kịch bản này (bản cũ vào thùng rác).", { scene: editing.entry.scene })}</p>
-                    <button className="primary full-width" disabled={busy} onClick={() => { setEditingTemplate({ entry: editing.entry, template: null }); setEditing(null); }}>{t("Tạo lại bằng template")}</button>
-                    <div className="button-pair"><button disabled={busy} onClick={() => setEditing(null)}>{t("Huỷ")}</button><button disabled={busy} onClick={() => setEditing({ ...editing, showXml: true })}>{t("Sửa XML (nâng cao)")}</button></div>
-                </> : <>
-                <label className="field">{t("Tên")}<input aria-label={t("Tên kịch bản")} value={editing.name} maxLength={120} onChange={e => setEditing({ ...editing, name: e.target.value })}/></label>
-                <label className="field">{t("Nội dung OpenSCENARIO (XML)")}<textarea aria-label={t("Nội dung OpenSCENARIO")} spellCheck={false} value={editing.xml} onChange={e => setEditing({ ...editing, xml: e.target.value })}/></label>
-                <p className="sensor-note">{t("Khi lưu, kịch bản được kiểm lại với map {scene} như lúc nạp; không hợp lệ thì giữ nguyên bản cũ.", { scene: editing.entry.scene })}</p>
-                <div className="button-pair"><button disabled={busy} onClick={() => setEditing(null)}>{t("Huỷ")}</button><button className="primary" disabled={busy || !editing.name.trim() || !editing.xml.trim()} onClick={() => void props.onSaveEdit(editing.entry, editing.name.trim(), editing.xml).then(ok => { if (ok) setEditing(null); })}>{t("Lưu")}</button></div>
-                </>}
-            </div>
-        </div>}
+        {editing && <XmlEditDialog entry={editing.entry} name={editing.name} xml={editing.xml} busy={busy} onClose={() => setEditing(null)}
+            onRecreate={() => { setEditingTemplate({ entry: editing.entry, template: null }); setEditing(null); }}
+            onSave={(name, xml) => props.onSaveEdit(editing.entry, name, xml)}/>}
     </div>;
 }

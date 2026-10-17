@@ -103,36 +103,29 @@ describe("ScenarioCreator", () => {
         fireEvent.change(dialog.getByRole("slider", { name: "Vận tốc ego" }), { target: { value: "70" } });
         expect(dialog.queryByText(/Đổi tham số chính sẽ sinh lại/)).toBeNull();
     });
-    it("chats in the AI tab: text replies, choices, refinement, then opens the template", async () => {
+    it("offers no mock AI tab; shows which types fit this map, blocks a known-bad map and shows the worker error inside", async () => {
         vi.useFakeTimers();
-        const { dialog } = setup();
-        expect(dialog.queryByRole("heading", { name: "Tạo kịch bản" })).toBeNull();
-        fireEvent.click(dialog.getByRole("tab", { name: "Bằng AI" }));
-        const log = within(dialog.getByRole("log", { name: "Hội thoại với AI" }));
-        expect(log.getByText(/Chào bạn!/)).toBeTruthy();
-        const box = dialog.getByRole("textbox", { name: "Nhắn cho AI" });
-        fireEvent.change(box, { target: { value: "một tình huống bất kỳ" } });
-        fireEvent.keyDown(box, { key: "Enter" });
-        expect(log.getByText("một tình huống bất kỳ")).toBeTruthy();
-        await act(async () => { vi.advanceTimersByTime(800); });
-        expect(log.getByText(/chưa nhận ra tình huống/)).toBeTruthy();
-        fireEvent.click(log.getByRole("button", { name: "Người đi bộ băng qua" }));
-        await act(async () => { vi.advanceTimersByTime(800); });
-        expect(log.getByRole("region", { name: "Kết quả AI" })).toBeTruthy();
-        fireEvent.change(box, { target: { value: "ego 30 km/h, từ bên trái, ban đêm" } });
-        fireEvent.click(dialog.getByRole("button", { name: "Gửi" }));
-        await act(async () => { vi.advanceTimersByTime(800); });
-        expect(log.getByText("Đã cập nhật kịch bản “Người đi bộ băng qua”.")).toBeTruthy();
-        // Choices on older replies are disabled; the latest stays active.
-        const opens = log.getAllByRole("button", { name: "Mở trong template để chỉnh" }) as HTMLButtonElement[];
-        expect(opens.map(b => b.disabled)).toEqual([true, false]);
-        fireEvent.click(opens[1]);
-        expect(dialog.getByRole("tab", { name: "Từ template" }).getAttribute("aria-selected")).toBe("true");
-        expect((dialog.getByRole("combobox", { name: "Xuất phát từ" }) as HTMLSelectElement).value).toBe("left");
-        expect((dialog.getByRole("slider", { name: "Vận tốc ego" }) as HTMLInputElement).value).toBe("30");
-        expect((dialog.getByRole("combobox", { name: "Thời tiết của template" }) as HTMLSelectElement).value).toBe("ClearNight");
-        fireEvent.click(dialog.getByRole("tab", { name: "Bằng AI" }));
-        expect(log.getByText("ego 30 km/h, từ bên trái, ban đêm")).toBeTruthy();
+        const fit = vi.fn(async (scene: string, template: ScenarioTemplate) => template.scenario_type === "pedestrian_occluded"
+            ? { scene, ok: true as const, placement: { start_m: 0, lateral_m: 0, auto: true, mirror: false } }
+            : { scene, ok: false as const, code: "STATIC_OBSTACLE", message: "ego chạm vật cản" });
+        const view = render(<LanguageProvider value="vi"><div className="studio"><ScenarioCreator scenes={["scene-0103"]} currentScene="scene-0103" busy={false}
+            onClose={vi.fn()} onExportMap={vi.fn(async () => ({}))} onImportXosc={vi.fn(async () => true)} onCreateTemplate={vi.fn(async () => false)} fitTemplate={fit}/></div></LanguageProvider>);
+        const dialog = within(screen.getByRole("dialog", { name: "Tạo kịch bản" }));
+        expect(dialog.queryByRole("tab", { name: "Bằng AI" })).toBeNull();
+        expect(dialog.getByRole("heading", { name: "Kịch bản có sẵn" })).toBeTruthy();
+        await act(async () => { for (let i = 0; i < 25; i++) await vi.advanceTimersByTimeAsync(1); });
+        const cards = dialog.getAllByRole("button", { name: /^Chọn loại / });
+        expect(cards[0].getAttribute("aria-label")).toBe("Chọn loại Trẻ em lao ra sau xe đỗ"); // the fitting type comes first
+        expect(within(cards[0]).getByText("✓ Đặt được trên map này")).toBeTruthy();
+        expect(within(cards[1]).getByText("✗ Không đặt được trên map này")).toBeTruthy();
+        fireEvent.click(dialog.getByRole("button", { name: "Chọn loại Dừng khẩn cấp" }));
+        await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+        const create = dialog.getByRole("button", { name: "Tạo từ template" }) as HTMLButtonElement;
+        expect(create.disabled).toBe(true);
+        expect(create.title).toContain("Chọn một map có ✓");
+        view.rerender(<LanguageProvider value="vi"><div className="studio"><ScenarioCreator scenes={["scene-0103"]} currentScene="scene-0103" busy={false} error="STATIC_OBSTACLE: “ego” lúc 0.0 s chạm vật cản tĩnh"
+            onClose={vi.fn()} onExportMap={vi.fn(async () => ({}))} onImportXosc={vi.fn(async () => true)} onCreateTemplate={vi.fn(async () => false)} fitTemplate={fit}/></div></LanguageProvider>);
+        expect(within(screen.getByRole("dialog", { name: "Tạo kịch bản" })).getByText("“ego” lúc 0.0 s chạm vật cản tĩnh")).toBeTruthy();
     });
     it("keeps the .xosc import and map export, disabled while a job runs", async () => {
         const busy = setup(true);
@@ -148,7 +141,7 @@ describe("ScenarioCreator", () => {
     it("renders in English", () => {
         const { dialog } = setup(false, "en");
         expect(dialog.getByRole("button", { name: "Choose type Emergency stop" })).toBeTruthy();
-        expect(dialog.getByRole("tab", { name: "With AI" })).toBeTruthy();
+        expect(dialog.getByRole("heading", { name: "Ready-made scenario" })).toBeTruthy();
     });
 });
 
@@ -161,10 +154,11 @@ describe("map suggestions", () => {
         render(<LanguageProvider value="vi"><div className="studio"><ScenarioCreator scenes={["scene-0061", "scene-0103"]} currentScene="scene-0103" busy={false}
             onClose={vi.fn()} onExportMap={vi.fn(async () => ({}))} onImportXosc={vi.fn(async () => true)} onCreateTemplate={vi.fn(async () => true)} fitTemplate={fit}/></div></LanguageProvider>);
         const dialog = within(screen.getByRole("dialog", { name: "Tạo kịch bản" }));
+        const galleryProbes = fit.mock.calls.length; // plan52: the gallery probes the chosen map for its badges first
         fireEvent.click(dialog.getByRole("button", { name: "Chọn loại Dừng khẩn cấp" }));
         expect(within(dialog.getByRole("region", { name: "Map phù hợp" })).getByText("Đang kiểm 0/2 map…")).toBeTruthy();
         await act(async () => { vi.advanceTimersByTime(10); });
-        expect(fit.mock.calls.map(c => c[0])).toEqual(["scene-0103", "scene-0061"]);
+        expect(fit.mock.calls.slice(galleryProbes).map(c => c[0])).toEqual(["scene-0103", "scene-0061"]);
         const box = within(dialog.getByRole("region", { name: "Map phù hợp" }));
         expect(box.getByText("1/2 map dùng được")).toBeTruthy();
         expect(box.getByText(/Map đang chọn \(scene-0103\) không đặt được loại này: cua gắt \/ vượt gia tốc/)).toBeTruthy();

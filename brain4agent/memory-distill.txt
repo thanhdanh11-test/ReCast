@@ -11,14 +11,13 @@
 </agent_startup_protocol>
 
 <project_foundation>
-- v0.37.1: ô Cảnh nguồn (Kịch bản) + Tạo kịch bản làm mờ cảnh có map lỗi (worker chỉ số map_status = validate_source_polygons, cùng cổng build_map_context). BE820/FE541/server51.
-- v0.35.0 (plan47, local technical gates): workspace Phản ứng theo ảnh chốt; thêm accelerate/stopline/lane_change, windows riêng từng kind, metric2 theo kind, cảnh đổi tải lại map; BE819/FE505/server43, chờ chủ duyệt ảnh từng kind.
+- v0.40.0 (plan52): ego mẫu tự phanh IDM (map.ego_react); chỉ nuScenes (catalog ẩn AV2; intake 31 GB đã xoá); lỗi trong hộp thoại, thẻ mẫu ✓/✗, kiểm hợp lệ trước khi tạo; nhanh hơn (cache, 3D giữ mounted, list trên worker LiDAR). BE835/FE558/server60.
+- v0.39.0 (plan51): Dừng hẳn = target `hold` (đứng yên đến hết; `stop` giữ nghĩa replay-forge); pilot ego va chạm ⇒ không hợp lệ + Cách sửa (baseline/metric giữ luật cũ); mẫu/.xosc va chạm ⇒ EGO_COLLISION đánh dấu; timeline chỉ ego + xe được chọn. BE834/FE557/server58.
+- v0.38.0 (plan50): Kịch bản = Studio 3 cột (cảnh · 2D baseline nét đứt/pilot + timeline · lịch sử Sửa/Xoá/Phân tích/Lưu); xuất CARLA (.xosc+.xodr port replay-forge+csv+report+manifest)/.xosc qua trang Đã xuất (hàng đợi Node, tiến trình riêng). BE830/FE554/server58.
 - v0.34.0 (plan46): đủ đo đạc replay-forge.
   - Mỗi kịch bản: report.json["topeye"] baseline vs pilot, 7 checks, charts, sensitivity, esmini_check.
   - Theo cảnh: chỉ số 2 (reactive_metrics) + chỉ số 1 (replay_error_metrics) trên worker chỉ số.
-  - 48 thuật ngữ help/terms.ts.
   - Engine dùng ego 2 Hz; khớp replay-forge 10 cảnh (777/225/591, ADE 1,771/0,098).
-  - BE792/FE471/server43.
 - v0.33.0 (plan45): tab "Phản ứng" = kịch bản phản ứng: xe thật phanh/dừng/chậm 50%, xe sau (kể cả ego) phản ứng IDM cải tiến (port replay-forge @ d36205b, reactive.py) → gói real2sim qua parse_package (KHÔNG validate_xosc); hình học ego dời +1,39 m (ego_pose = cầu sau). Template simulate giới hạn độ giật. BE763/FE445/server42.
 - v0.32.0 (plan43): gói real2sim của team (thư mục .xosc OSC1.1 + report.json + trajectories.csv) nạp qua đường RIÊNG real2sim.py (kind real2sim, chỉ action phát lại, map = ghi chú) — KHÔNG nới validate_xosc; tab Số liệu = Real2simReport từ report.json; toạ độ real2sim = hệ app (gốc ego t=0).
 - v0.28–0.30 (plan38): Tạo kịch bản = ScenarioCreator (authoring/): 20 loại/5 nhóm → template topeye-scenario-template-v1 → worker import_template (template.py) → validate_xosc; đặt dọc quỹ đạo ego nguồn, auto vị trí + lật trái/phải; v0.29.0 gợi ý map (worker template_fit trên worker chỉ số, cổng thật); v0.30.0 Sửa = form template (template.json cạnh import/, ngoài hash); tab AI chatbot mock (P03 AI thật chưa làm).

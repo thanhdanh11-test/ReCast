@@ -30,7 +30,7 @@ describe("ReactiveForm", () => {
         expect(load).toHaveBeenCalledWith("scene-0103");
         expect((screen.getByRole("slider", { name: "Thời điểm t0" }) as HTMLInputElement).value).toBe("2");
         expect(pressed("vừa 4 m/s²")).toBe("true");
-        expect(pressed("dừng hẳn")).toBe("true");
+        expect(pressed("dừng hẳn (đứng yên đến hết)")).toBe("true");
         expect(screen.getAllByLabelText("nhãn gốc lỗi")).toHaveLength(1);
     });
     it("says so when no vehicle has followers", async () => {
@@ -60,7 +60,7 @@ describe("ReactiveForm", () => {
     });
     it("moves the slider to the windows of the chosen event (plan46 windows_by_event) and blocks creation without one", async () => {
         const byEvent: ReactiveCandidates = { ...data, candidates: [{ ...data.candidates[0], windows: [[2, 12]],
-            windows_by_event: { "stop:0:4": [[2, 9]], "stop:0:6": [[2, 7]], "stop:3:4": [[2, 5]], "half:0:4": [[3, 11]] } }] };
+            windows_by_event: { "stop:0:4": [[2, 9]], "hold:0:4": [[2, 9]], "stop:0:6": [[2, 7]], "hold:0:6": [[2, 7]], "stop:3:4": [[2, 5]], "half:0:4": [[3, 11]] } }] };
         const { onCreate } = setup(byEvent);
         const slider = await screen.findByRole("slider", { name: "Thời điểm t0" }) as HTMLInputElement;
         expect([slider.min, slider.max]).toEqual(["2", "9"]);
@@ -70,15 +70,15 @@ describe("ReactiveForm", () => {
         fireEvent.click(screen.getByRole("button", { name: "vừa 4 m/s²" }));
         fireEvent.click(screen.getByRole("button", { name: "chậm lại 50%" }));
         expect([slider.min, slider.max, slider.value]).toEqual(["3", "11", "7"]);
-        fireEvent.click(screen.getByRole("button", { name: "dừng 3 s" }));
+        fireEvent.click(screen.getByRole("button", { name: "dừng 3 s rồi đi tiếp" }));
         expect([slider.min, slider.max, slider.value]).toEqual(["2", "5", "5"]);
         fireEvent.click(screen.getByRole("button", { name: "gấp 6 m/s²" }));
         expect(screen.getByRole("status").textContent).toContain("Không còn lúc nào hợp lệ");
         expect((screen.getByRole("button", { name: /Tạo tình huống/ }) as HTMLButtonElement).disabled).toBe(true);
         expect(slider.disabled).toBe(true);
-        fireEvent.click(screen.getByRole("button", { name: "dừng hẳn" }));
+        fireEvent.click(screen.getByRole("button", { name: "dừng hẳn (đứng yên đến hết)" }));
         fireEvent.click(screen.getByRole("button", { name: /Tạo tình huống/ }));
-        expect(onCreate).toHaveBeenCalledWith("scene-0103", expect.objectContaining({ t0_s: 5, decel_mps2: 6, target: "stop", dwell_s: 0 }));
+        expect(onCreate).toHaveBeenCalledWith("scene-0103", expect.objectContaining({ t0_s: 5, decel_mps2: 6, target: "hold", dwell_s: 0 }));
     });
     it("has a help mark next to every parameter", async () => {
         setup();
@@ -104,7 +104,7 @@ describe("ReactiveForm", () => {
         await screen.findByRole("option", { name: /car_001/ });
         fireEvent.change(screen.getByRole("slider", { name: "Thời điểm t0" }), { target: { value: "9.5" } });
         fireEvent.click(screen.getByRole("button", { name: "gấp 6 m/s²" }));
-        fireEvent.click(screen.getByRole("button", { name: "dừng 3 s" }));
+        fireEvent.click(screen.getByRole("button", { name: "dừng 3 s rồi đi tiếp" }));
         fireEvent.click(screen.getByRole("button", { name: "Nâng cao" }));
         fireEvent.click(screen.getByRole("button", { name: "1.5 s" }));
         fireEvent.click(screen.getByRole("button", { name: /Tạo tình huống/ }));
@@ -134,7 +134,7 @@ describe("ScenarioCreator (plan47)", () => {
     it("has no reactive tab: reactive events have their own workspace", () => {
         render(<LanguageProvider value="vi"><div className="studio"><ScenarioCreator scenes={["scene-0103"]} currentScene="scene-0103" busy={false}
             onClose={vi.fn()} onExportMap={vi.fn(async () => ({}))} onImportXosc={vi.fn(async () => true)} onCreateTemplate={vi.fn(async () => true)}/></div></LanguageProvider>);
-        expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["Từ template", "Bằng AI"]);
+        expect(screen.queryAllByRole("tab")).toHaveLength(0); // plan52: one way in (templates); the mock AI tab is gone
         expect(screen.queryByRole("tab", { name: "Phản ứng" })).toBeNull();
     });
 });

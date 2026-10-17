@@ -32,7 +32,7 @@ it("creates a frozen event pair and plays both maps on the same timeline", async
   expect((screen.getByRole("button", { name: "Tiếp: chọn tình huống" }) as HTMLButtonElement).disabled).toBe(true);
   await selectReaction(); fireEvent.click(screen.getByRole("button", { name: "Chạy baseline và pilot" }));
   await screen.findByRole("button", { name: "Đặt cạnh nhau" });
-  expect(api.importReactive.mock.calls.map(([arg]) => arg.event)).toEqual([false, true].map(react => ({ actor_id: "tok-car", t0_s: 0, decel_mps2: 4, target: "stop", dwell_s: 0, react, reaction_s: 1 })));
+  expect(api.importReactive.mock.calls.map(([arg]) => arg.event)).toEqual([false, true].map(react => ({ actor_id: "tok-car", t0_s: 0, decel_mps2: 4, target: "hold", dwell_s: 0, react, reaction_s: 1 })));
   expect(screen.getAllByTestId("demo-map").map(el => el.getAttribute("data-scene"))).toEqual([baseline.id, pilot.id]);
   fireEvent.change(screen.getByRole("slider", { name: "Thời gian" }), { target: { value: "4.5" } });
   expect(screen.getAllByTestId("demo-map").map(el => el.getAttribute("data-time"))).toEqual(["4.5", "4.5"]);
@@ -99,8 +99,8 @@ it("guides a beginner from intent to suggested vehicle and real paired simulatio
   await waitFor(() => expect((screen.getByRole("button", { name: /Xe phía trước phanh/ }) as HTMLButtonElement).disabled).toBe(false));
   expect(screen.queryByRole("combobox", { name: "Xe gây sự kiện" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /Xe phía trước phanh/ }));
-  expect((screen.getByRole("combobox", { name: "Xe tạo tình huống" }) as HTMLSelectElement).value).toBe("tok-car");
-  fireEvent.click(screen.getByRole("button", { name: "Dùng xe này" }));
+  expect(((await screen.findByRole("combobox", { name: "Xe tạo tình huống" })) as HTMLSelectElement).value).toBe("tok-car");
+  fireEvent.click((await screen.findByRole("button", { name: "Dùng xe này" })));
   expect(screen.getByRole("combobox", { name: "Cách xảy ra" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Xem xe của tôi phản ứng" }));
   await screen.findByRole("button", { name: "Đặt cạnh nhau" });

@@ -85,17 +85,17 @@ export interface MethodCount {
   reasons: { collision: number; appearing: number; merge: number; label_error: number; tailgating: number; physics: number };
 }
 export interface GridCell {
-  actor: string; actor_id: string; t0: number; decel: number; target: "stop" | "half"; dwell: number;
+  actor: string; actor_id: string; t0: number; decel: number; target: "stop" | "half" | "hold"; dwell: number;
   baseline: { valid: boolean; group: ReactiveGroup | null };
   pilot: { valid: boolean; group: ReactiveGroup | null; min_gap: number | null };
 }
 export interface RareCase {
-  actor: string; actor_id: string; t0: number; decel: number; target: "stop" | "half"; dwell: number;
+  actor: string; actor_id: string; t0: number; decel: number; target: "stop" | "half" | "hold"; dwell: number;
   group: "hard" | "close"; ego_min_gap: number | null; ego_min_ttc: number | null; ego_a_min: number | null;
 }
 export interface ReactiveMetrics {
   scene: string;
-  grid: { event_step_s: number; decels: number[]; targets: ["stop" | "half", number][] };
+  grid: { event_step_s: number; decels: number[]; targets: ["stop" | "half" | "hold", number][] };
   reaction_s: number;
   tried: number;
   encounters: number;
@@ -133,7 +133,7 @@ export interface ReplayErrorMetrics {
 }
 
 /** reactiveCandidates extension: windows depend on the event (fits needs AFTER_EVENT s after it ends). */
-export type WindowKey = `${"stop" | "half"}:${number}:${number}`;
+export type WindowKey = `${"stop" | "half" | "hold"}:${number}:${number}`;
 export interface CandidateWindows { windows_by_event: Partial<Record<WindowKey, [number, number][]>> }
 
 // ------------------------------------------------------------------ plan47: event kinds (planning/47_2026-10-15_reactive-kinds-ui/specs/01-CONTRACTS.md)

@@ -32,9 +32,9 @@ try {
  for(const viewport of [{width:1360,height:900},{width:1050,height:720},{width:390,height:844}]) {
   await page.setViewportSize(viewport);
   // Tiles have fixed CSS sizes; wait for the catalog to settle instead of measuring mid-render.
-  await page.waitForFunction(()=>{const r=[...document.querySelectorAll(".dataset-tile")].map(e=>e.getBoundingClientRect());return r.length>=3&&r.every(s=>Math.abs(s.width-r[0].width)<1&&s.height===r[0].height);},null,{timeout:10000}).catch(()=>{});
+  await page.waitForFunction(()=>{const r=[...document.querySelectorAll(".dataset-tile")].map(e=>e.getBoundingClientRect());return r.length>=2&&r.every(s=>Math.abs(s.width-r[0].width)<1&&s.height===r[0].height);},null,{timeout:10000}).catch(()=>{});
   const sizes = await page.locator(".dataset-tile").evaluateAll(els=>els.map(e=>({width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height})));
-  assert.ok(sizes.length>=3);
+  assert.ok(sizes.length>=2); // plan52: nuScenes + the add tile
   assert.ok(sizes.every(s=>Math.abs(s.width-sizes[0].width)<1 && s.height===sizes[0].height));
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
   assert.equal(overflow,false);
@@ -50,7 +50,10 @@ try {
  await dialog.getByRole("alert").waitFor();
  report.steps.push("invalid dataset rejected");
  await dialog.getByRole("button",{name:"Đóng nhập dữ liệu"}).click();
- for (const name of ["nuScenes mini","Argoverse 2 Sensor"]) {
+ // plan52: the app is nuScenes-only; an Argoverse 2 catalog entry must not be offered.
+ assert.equal(await page.getByRole("button",{name:"Mở Argoverse 2 Sensor",exact:true}).count(),0);
+ report.steps.push("only nuScenes is offered");
+ for (const name of ["nuScenes mini"]) {
   await page.getByRole("button",{name:`Mở ${name}`,exact:true}).click();
   await page.getByRole("button",{name:"Cảnh nguồn",exact:true}).click();
   await page.locator('[data-testid="lidar-view"][data-mode="measured"]').waitFor({timeout:180000});

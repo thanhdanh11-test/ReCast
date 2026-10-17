@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import { join } from "node:path";
-import { createLocalServer, validateArgs } from "./local-server.mjs";
+import { createLocalServer, statusFor, validateArgs } from "./local-server.mjs";
 
 function fixture(t, calls = []) {
   const dir = fs.mkdtempSync(join(os.tmpdir(), "topeye-local-"));
@@ -132,6 +132,12 @@ test("importXosc bounds payload and identity", async (t) => {
 test("validateArgs enforces the request allowlist", () => {
   assert.throws(() => validateArgs("replayImported", { scenario_id: "../x" }), /Invalid scenario identity/);
   assert.throws(() => validateArgs("extract", []), /Invalid request/);
+  // plan50 exports
+  assert.doesNotThrow(() => validateArgs("exportScenario", { scenario_id: "a".repeat(32), format: "carla" }));
+  assert.throws(() => validateArgs("exportScenario", { scenario_id: "a".repeat(32), format: "zip" }), /Invalid export format/);
+  assert.throws(() => validateArgs("exportScenario", { scenario_id: "../x", format: "xosc" }), /Invalid scenario/);
+  assert.throws(() => validateArgs("deleteExport", { id: "../../x" }), /Invalid export identity/);
+  assert.throws(() => validateArgs("listExports", { path: "/" }), /Unknown field/);
   assert.doesNotThrow(() => validateArgs("extract", { scene: "s", actor_tokens: [], start_s: 1, end_s: 2 }));
 });
 
@@ -317,4 +323,39 @@ test("reopens the same dataset read-only during a pending worker without allowin
  assert.equal(calls.at(-1).method,"list_scenes");
  const other=join(dir,"other-dataset");fs.mkdirSync(other);
  assert.equal((await post("chooseDataset",{path:other})).status,409);
+});
+
+test("plan50: an unreadable export zip is a 404, never a crashed server (review F1)", async () => {
+  const root = fs.mkdtempSync(join(os.tmpdir(), "topeye-zip-"));
+  const ws = join(root, "ws"), userData = join(root, "user");
+  fs.mkdirSync(userData, { recursive: true });
+  fs.writeFileSync(join(userData, "scenario-settings.json"), JSON.stringify({ workspace: ws, dataset: "/nonexistent", datasetVersion: "v1.0-mini" }));
+  const make = (id, kind) => {
+    const dir = join(ws, "exports", id); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(join(dir, "job.json"), JSON.stringify({ id, status: "done", progress: 100, created_at: "2030-01-01T00:00:00Z" }));
+    if (kind === "dir") fs.mkdirSync(join(dir, "s.zip"));
+    else if (kind === "perm") { fs.writeFileSync(join(dir, "s.zip"), "PK"); fs.chmodSync(join(dir, "s.zip"), 0o000); }
+    else if (kind === "link") { fs.writeFileSync(join(root, "secret.txt"), "TOP-SECRET"); fs.symlinkSync(join(root, "secret.txt"), join(dir, "s.zip")); }
+    else fs.writeFileSync(join(dir, "s.zip"), "PK-OK");
+  };
+  const ids = { dir: "1".repeat(32), perm: "2".repeat(32), link: "3".repeat(32), ok: "4".repeat(32) };
+  for (const [kind, id] of Object.entries(ids)) make(id, kind);
+  const host = createLocalServer({ staticDir: root, userData, catalogSeeds: [], version: "t", bridgeFactory: () => ({ busy: false, stop: async () => {}, request: async () => ({}) }) });
+  const port = await host.listen(0);
+  try {
+    const setup = await fetch(`http://127.0.0.1:${port}/api/auth/setup`, { method: "POST", body: JSON.stringify({ username: "zip-owner", password: "zip-only-passphrase" }), headers: { "Content-Type": "application/json", "X-Topeye-Token": host.token } });
+    const cookie = setup.headers.get("set-cookie").split(";")[0];
+    const get = (id) => fetch(`http://127.0.0.1:${port}/api/exports/${id}.zip?token=${host.token}`, { headers: { Cookie: cookie } });
+    for (const kind of ["dir", "perm", "link"]) assert.equal((await get(ids[kind])).status, 404, kind);
+    const ok = await get(ids.ok);
+    assert.equal(ok.status, 200);
+    assert.equal(await ok.text(), "PK-OK");
+  } finally { await host.close(); fs.chmodSync(join(ws, "exports", ids.perm, "s.zip"), 0o600); fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("plan52: user input rejected by the worker is 400; only server/worker failures are 500", () => {
+  for (const code of ["STATIC_OBSTACLE", "OUTSIDE_SURFACE", "DYNAMIC_LIMIT", "INVALID_TEMPLATE", "EVENT_NOT_ALLOWED", "EGO_COLLISION", "INVALID_INPUT"]) assert.equal(statusFor(code), 400, code);
+  for (const code of ["INTERNAL", "IO_ERROR", "ENGINE_FAILED", "TIMEOUT", undefined, "weird code"]) assert.equal(statusFor(code), 500, String(code));
+  assert.equal(statusFor("BUSY"), 409);
+  assert.equal(statusFor("UNAUTHENTICATED"), 401);
 });

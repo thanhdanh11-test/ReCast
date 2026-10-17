@@ -18,9 +18,9 @@ export const source = {
 } as unknown as Scenario;
 export const allKinds: Candidate = {
     actor_id: "tok-car", name: "car_154", category: "vehicle.car", max_decel_mps2: 8, windows: [[0, 7]], followers: ["ego"],
-    windows_by_event: { "stop:0:4": [[0, 7]], "half:0:4": [[0, 6]] },
+    windows_by_event: { "stop:0:4": [[0, 7]], "hold:0:4": [[0, 7]], "half:0:4": [[0, 6]] },
     kinds: {
-        brake: { windows_by_event: { "stop:0:4": [[0, 7]], "half:0:4": [[0, 6]], "stop:0:2": [[1, 5]] } },
+        brake: { windows_by_event: { "stop:0:4": [[0, 7]], "hold:0:4": [[0, 7]], "half:0:4": [[0, 6]], "stop:0:2": [[1, 5]], "hold:0:2": [[1, 5]] } },
         accelerate: { windows_by_accel: { "1": [[0, 8]], "2": [[0, 8]], "3": [[2, 6]] }, max_target_mps: 18 },
         stopline: { windows_by_dwell: { "0": [[0, 4]], "3": [[0, 4]], "10": [[0, 2]] }, stoplines: [{ id: "sl-1", x_m: 60, y_m: 0, type: "STOP_SIGN", t_reach_s: 5.6 }] },
         lane_change: { windows_by_change: { "left:4": [[1, 9]], "right:4": [], "left:3": [[1, 9]] } },
@@ -29,7 +29,7 @@ export const allKinds: Candidate = {
 /** A truck candidate on a worker that knows kinds but offers it no stop line / lane change. */
 export const brakeOnly: Candidate = {
     actor_id: "tok-truck", name: "truck_003", category: "vehicle.truck", max_decel_mps2: 5, windows: [[0, 7]], followers: ["car_154"],
-    kinds: { brake: { windows_by_event: { "stop:0:4": [[0, 7]] } }, accelerate: { windows_by_accel: { "2": [[0, 7]] }, max_target_mps: 12 } },
+    kinds: { brake: { windows_by_event: { "stop:0:4": [[0, 7]], "hold:0:4": [[0, 7]] } }, accelerate: { windows_by_accel: { "2": [[0, 7]] }, max_target_mps: 12 } },
 };
 export const candidates: ReactiveCandidates = { scene: "scene-0061", duration_s: 20, label_problems: [{ name: "car_154", t_from: 9, t_to: 10 }], candidates: [allKinds, brakeOnly] };
 

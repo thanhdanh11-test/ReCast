@@ -116,3 +116,9 @@
 .studio[data-theme=light] .scenario-workspace .ud-tech-table td{color:var(--ink);border-color:var(--line);}
 .studio[data-theme=light] .scenario-workspace .ud-tech-table tbody tr:hover{background:var(--surface-active);}
 .studio[data-theme=light] .scenario-workspace .ud-pair>section>header{background:var(--overlay);color:var(--ink);}
+/* plan52 */
+.ud-verdict { margin:8px 0; padding:8px 10px; font-size:12px; border:1px solid var(--border-strong); color:var(--text-2); }
+.ud-verdict.ok { border-color:var(--ok-line); color:var(--ok); }
+.ud-verdict.bad { border-color:var(--bad-line); color:var(--bad); }
+.ud-empty { border-left:3px solid var(--warn); }
+.ud-empty .ud-primary { margin-top:8px; }

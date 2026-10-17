@@ -24,7 +24,7 @@ describe("scene metric 2 per kind (plan47 C5)", () => {
     it("lists rare cases of both shapes", () => {
         expect(rareCases(accelMetrics, tr)).toEqual([{ actor: "car_154", actor_id: "tok-car", t0: 0, kind: "accelerate", params: { accel: 2, target_mps: 14 },
             label: "2 m/s² → 14,0 m/s", group: "close", ego_min_gap: 0.8, ego_min_ttc: 1.2 }]);
-        expect(rareCases(brake, tr)[0]).toMatchObject({ kind: "brake", params: { decel: 6, goal: "dwell" }, label: "6 m/s² · Dừng 3 s" });
+        expect(rareCases(brake, tr)[0]).toMatchObject({ kind: "brake", params: { decel: 6, goal: "dwell" }, label: "6 m/s² · Dừng 3 s rồi đi tiếp" });
     });
     it("places off-axis targets by their rank, one row per axis step", () => {
         const { times, rows } = kindSpace(accelMetrics, "tok-car", tr);

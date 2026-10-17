@@ -134,6 +134,7 @@ export function TemplateForm({ template, set, scenes }: { template: ScenarioTemp
                 <Num label={t("Lệch ngang toàn kịch bản")} unit="m" min={LIMITS.lateral_m[0]} max={LIMITS.lateral_m[1]} step={0.5} value={template.map.placement.lateral_m} onChange={v => set({ ...template, map: { ...template.map, placement: { ...template.map.placement, lateral_m: v } } })}/>
             </div>
             <label className="toggle"><input type="checkbox" checked={template.map.placement.auto} onChange={e => set({ ...template, map: { ...template.map, placement: { ...template.map.placement, auto: e.target.checked } } })}/>{t("Tự tìm vị trí phù hợp nếu điểm bắt đầu không đặt được")}</label>
+            <label className="toggle"><input type="checkbox" checked={template.map.ego_react !== false} onChange={e => set({ ...template, map: { ...template.map, ego_react: e.target.checked } })}/>{t("Ego tự phanh khi có xe/người chắn trong làn (tắt = ego chạy đúng lộ trình đã đặt)")}</label>
             <label className="toggle"><input type="checkbox" checked={template.map.placement.mirror} onChange={e => set({ ...template, map: { ...template.map, placement: { ...template.map.placement, mirror: e.target.checked } } })}/>{t("Lật trái ↔ phải (giao thông đi bên trái)")}</label>
             <p className="sensor-note">{t("Kịch bản được đặt dọc theo quỹ đạo thật của xe ego trong cảnh nguồn, nên bám theo đường cong của mặt đường. Toạ độ bên dưới: x = mét dọc quỹ đạo đó, y = mét sang trái.")}</p>
         </Section>

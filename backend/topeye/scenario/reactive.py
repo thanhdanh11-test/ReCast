@@ -87,11 +87,13 @@ AFTER_EVENT = 4.0  # s of scene left after the event ends
 FOLLOW_WINDOW = (-0.5, 3.0)  # s around t0 in which someone must be following the event vehicle
 ACTOR_DATA_AFTER = 4.0  # s of recorded data the event vehicle must still have after t0
 WINDOW_STEP = 0.5  # s between selectable start times
-TARGETS = ("stop", "half")
+# "hold" (plan51): brake to a stop and stand still until the scene ends ("Dừng hẳn"). "stop" keeps replay-forge
+# semantics (stand `dwell` s, then drive on) because the scene metrics are measured against replay-forge with it.
+TARGETS = ("stop", "half", "hold")
 DWELL_RANGE = (0.0, 10.0)  # s
 REACTION_RANGE = (0.3, 3.0)  # s
 WINDOW_DECELS = (2.0, 4.0, 6.0, 8.0)  # m/s^2, the braking levels whose start-time windows are listed (plan46 C1)
-WINDOW_EVENTS = (("stop", 0.0), ("stop", 3.0), ("half", 0.0))  # (target, dwell), as the replay-forge grid
+WINDOW_EVENTS = (("stop", 0.0), ("stop", 3.0), ("half", 0.0), ("hold", 0.0))  # (target, dwell): replay-forge grid + hold
 SENSITIVITY_REACTIONS = (0.7, 1.0, 1.5)  # s, replay-forge "Thử độ nhạy"
 
 # ---------------------------------------------------------------- validity
@@ -129,6 +131,7 @@ REASONS = {
     "collision": "[collision] Hai xe khác đâm nhau",
     "tailgating": "[tailgating] Bám đuôi < 0,5 m khi > 3 m/s quá 0,5 s",
     "physics": "[physics] Vượt giới hạn tốc độ/gia tốc/phanh",
+    "ego_collision": "[ego_collision] Xe của bạn (ego) va chạm vật thể khác",
 }
 
 NOMINAL, WAITING, DRIVING, LATE, EVENT = range(5)
@@ -589,7 +592,7 @@ class Event:
     actor: str  # agent name
     t0: float  # s, braking starts
     decel: float = 0.0  # m/s^2, brake only
-    target: str = "stop"  # "stop" | "half", brake only
+    target: str = "stop"  # "stop" | "half" | "hold", brake only
     dwell: float = 0.0  # s standing still, for target "stop"
     kind: str = "brake"
     target_mps: float = 0.0
@@ -864,7 +867,7 @@ def simulate(model, event, react=True, reaction=REACTION):
             mode[e], changed[e] = EVENT, True
             if kind == "brake":
                 phase = "brake"
-                v_target = 0.0 if event.target == "stop" else 0.5 * V[k, e]
+                v_target = 0.0 if event.target in ("stop", "hold") else 0.5 * V[k, e]
                 phases["brake_start"] = t
             else:
                 phase = kind
@@ -984,8 +987,10 @@ def simulate(model, event, react=True, reaction=REACTION):
                     s1, v1 = integrate(s, v, a_cmd)
                     if v1 <= v_target + 1e-9:
                         phases["target_reached"] = t + DT
-                        if event.target == "stop":
-                            v1, phase, dwell_until = 0.0, "dwell", t + DT + event.dwell
+                        if event.target in ("stop", "hold"):
+                            # "hold" never drives on: the dwell lasts past the scene's end.
+                            v1, phase = 0.0, "dwell"
+                            dwell_until = math.inf if event.target == "hold" else t + DT + event.dwell
                         else:
                             v1 = v_target
                             mode[i], phase = DRIVING, "done"
@@ -1291,6 +1296,8 @@ def fits(model, event):
     if event.kind == "lane_change":
         return bool(event.t0 + event.duration_s + AFTER_EVENT <= model.duration)
     v0 = model.V[round(event.t0 / DT), e]
+    if event.target == "hold":  # no drive-off to fit: standing still to the end is the event's end state
+        return bool(event.t0 + v0 / event.decel + AFTER_EVENT <= model.duration)
     ends = event.t0 + (v0 if event.target == "stop" else v0 / 2) / event.decel + event.dwell + v0 / IDM_A
     return bool(ends + AFTER_EVENT <= model.duration)
 
@@ -1432,8 +1439,10 @@ class Assessment:
     tailgate: dict = field(default_factory=dict)  # worst bumper gap of the tailgating check (_tailgate_measure)
 
 
-def assess(model, outcome):
-    """Validity (physics, overlaps, tailgating, unsupported cases) and the ego's rare-case group."""
+def assess(model, outcome, strict_ego=False):
+    """Validity (physics, overlaps, tailgating, unsupported cases) and the ego's rare-case group.
+    strict_ego (plan51): a scenario the user authors (the reacting pilot) is invalid when the ego touches anything.
+    Off for the baseline and the scene metrics, where an ego collision is the measured outcome (replay-forge)."""
     X, Y, H = centres(model, outcome)
     ego = model.index["ego"]
     changed = np.flatnonzero(outcome.changed)
@@ -1501,6 +1510,8 @@ def assess(model, outcome):
         reasons.append("unsupported_appearing")
     if "following" in kinds:
         reasons.append("collision")
+    if strict_ego and any("ego" in c[:2] for c in collisions):
+        reasons.append("ego_collision")
     tailgate = _tailgate_measure(model, outcome, X, Y, H, changed)
     if tailgate["found"]:
         reasons.append("tailgating")
@@ -1922,7 +1933,7 @@ def parse_event(model, event):
         return parsed, react, reaction
     decel, dwell = (_number(event, k) for k in ("decel_mps2", "dwell_s"))
     target = event.get("target")
-    require(target in TARGETS, "event.target phải là stop hoặc half", "INVALID_INPUT")
+    require(target in TARGETS, "event.target phải là stop, half hoặc hold", "INVALID_INPUT")
     e = model.by_actor.get(actor_id)
     candidate = e is not None and model.movers[e] and not model.agents[e].is_ego and _candidate_times(model, e)
     if not candidate:
@@ -2078,12 +2089,15 @@ def checks(model, outcome, result):
             if depth > deepest[0] and not _excused(model, X, Y, H, k, i, j, depth):
                 deepest = (depth, float(model.t[k]), f"{a} – {b}")
     notes = [deepest[2]] if deepest[2] else ["Không có xe nào đâm nhau"]
-    ego_hit = _first(result.collisions, "ego")
+    ego_hit = next((c for c in result.collisions if "ego" in c[:2]), None)
     if ego_hit:
-        notes.append(f"xe của bạn chạm {ego_hit[1] if ego_hit[0] == 'ego' else ego_hit[0]} (không tính)")
+        other = ego_hit[1] if ego_hit[0] == "ego" else ego_hit[0]
+        counted = "ego_collision" in reasons
+        notes.append(f"xe của bạn chạm {other} lúc {_vn(ego_hit[2], 2)} s" + ("" if counted else " (không tính)"))
     if result.excused:
         notes.append(f"{len(result.excused)} chồng hộp có sẵn trong bản ghi được miễn")
-    out.append(_check("collision", "collision" not in reasons, deepest[0], 0.0, "m", deepest[1], "; ".join(notes)))
+    out.append(_check("collision", not reasons & {"collision", "ego_collision"}, deepest[0], 0.0, "m",
+                      deepest[1] if deepest[1] is not None or not ego_hit else ego_hit[2], "; ".join(notes)))
 
     # 5. tailgating: the smallest counted bumper gap while moving faster than TAILGATE_SPEED
     tg = result.tailgate or {}
@@ -2128,7 +2142,7 @@ def sensitivity(model, event):
     parsed, _, _ = parse_event(model, event)
     runs = []
     for reaction in SENSITIVITY_REACTIONS:
-        v = variant_outcome(assess(model, simulate(model, parsed, react=True, reaction=reaction)))
+        v = variant_outcome(assess(model, simulate(model, parsed, react=True, reaction=reaction), strict_ego=True))
         runs.append({"reaction_s": reaction, "valid": v["valid"], "group": v["group"], "reasons": v["reasons"],
                      "ego": v["ego"]})
     return {"runs": runs, "stable": len({(r["valid"], r["group"]) for r in runs}) == 1}
@@ -2143,7 +2157,7 @@ def run_event(model, event):
     variants = {}
     for variant, flag in (("baseline", False), ("pilot", True)):
         outcome = simulate(model, parsed, react=flag, reaction=reaction)
-        variants[variant] = (outcome, assess(model, outcome))
+        variants[variant] = (outcome, assess(model, outcome, strict_ego=flag))
     outcome, result = variants["pilot" if react else "baseline"]
     files = build_package(model, outcome, result, {k: r for k, (_, r) in variants.items()})
     return {"files": files, "valid": result.valid, "group": result.group,

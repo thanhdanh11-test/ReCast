@@ -56,3 +56,37 @@ def contact_events(actors, observed):
             }
         )
     return events
+
+
+EGO_CONTACT_STEP = 0.05  # s, sampling of the ego-contact gate (the XOSC import grid)
+
+
+def first_ego_contact(actors, step=EGO_CONTACT_STEP):
+    """(other id, t) of the earliest sampled moment the ego's box touches another actor's box, or None (plan51).
+    Boxes are the actors' displayed geometric centres; sampled, not continuous — like contact_events."""
+    from topeye.scenario.models import interpolate, matrix
+
+    ego = next((a for a in actors if a.get("role") == "ego"), None)
+    if ego is None or len(ego["samples"]) < 2:
+        return None
+    path = matrix(ego)
+    first = None
+    for other in actors:
+        if other is ego or len(other["samples"]) < 2:
+            continue
+        track = matrix(other)
+        lo, hi = max(path[0, 0], track[0, 0]), min(path[-1, 0], track[-1, 0])
+        if first is not None:
+            hi = min(hi, first[1])
+        if hi < lo:
+            continue
+        times = np.arange(lo, hi + 1e-9, step)
+        a, b = interpolate(path, times), interpolate(track, times)
+        for k, t in enumerate(times):
+            pa = {"x_m": a[k, 1], "y_m": a[k, 2], "yaw_rad": a[k, 4]}
+            pb = {"x_m": b[k, 1], "y_m": b[k, 2], "yaw_rad": b[k, 4]}
+            if clearance(corners(ego, pa), corners(other, pb)) <= 1e-8:
+                if first is None or t < first[1]:
+                    first = (other["id"], round(float(t), 2))
+                break
+    return first

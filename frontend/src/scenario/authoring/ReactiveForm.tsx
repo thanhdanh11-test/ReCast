@@ -10,21 +10,22 @@ const DEFAULT_DECEL = 4;
 const REACTION_LEVELS = [0.7, 1.0, 1.5] as const;
 /** UI goals → contract C1 `target` + `dwell_s`. */
 const GOALS = {
-    stop: { label: "dừng hẳn", target: "stop", dwell_s: 0 },
-    dwell: { label: "dừng 3 s", target: "stop", dwell_s: 3 },
+    stop: { label: "dừng hẳn (đứng yên đến hết)", target: "hold", dwell_s: 0 },
+    dwell: { label: "dừng 3 s rồi đi tiếp", target: "stop", dwell_s: 3 },
+    go: { label: "dừng rồi đi ngay", target: "stop", dwell_s: 0 },
     half: { label: "chậm lại 50%", target: "half", dwell_s: 0 },
 } as const;
 type Goal = keyof typeof GOALS;
 /** Form choice → its goal (grid cells and rare cases carry `target` + `dwell`). */
-export const goalOf = (target: "stop" | "half", dwell: number): Goal => target === "half" ? "half" : dwell > 0 ? "dwell" : "stop";
+export const goalOf = (target: "stop" | "half" | "hold", dwell: number): Goal => target === "half" ? "half" : target === "hold" ? "stop" : dwell > 0 ? "dwell" : "go";
 /** A choice set from outside the form (scene metrics: grid cell or rare case); `seq` re-applies the same choice. */
-export interface ReactivePreset { actor_id: string; t0_s: number; decel_mps2: number; target: "stop" | "half"; dwell_s: number; seq: number }
+export interface ReactivePreset { actor_id: string; t0_s: number; decel_mps2: number; target: "stop" | "half" | "hold"; dwell_s: number; seq: number }
 
 /**
  * Allowed t0 windows of `c` for one event (plan46 C1 `windows_by_event`, key "<target>:<dwell>:<decel>" in Python
  * `g` format, i.e. `String(number)` here). Older workers without the map fall back to the event-independent windows.
  */
-export function windowsFor(c: Candidate, target: "stop" | "half", dwell: number, decel: number | null): [number, number][] {
+export function windowsFor(c: Candidate, target: "stop" | "half" | "hold", dwell: number, decel: number | null): [number, number][] {
     if (!c.windows_by_event) return c.windows;
     if (decel === null) return [];
     return c.windows_by_event[`${target}:${dwell}:${decel}` as const] ?? [];

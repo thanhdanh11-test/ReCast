@@ -54,7 +54,8 @@ export interface ScenarioTemplate {
     scenario_type: string; params: Record<string, number | string>;
     /** True once parts 4–6 were edited by hand; changing key params then regenerates (and overwrites) them. */
     customized: boolean;
-    map: { scene: string; placement: Placement; duration_s: number; sample_hz: number };
+    /** ego_react (plan52, default true): the ego brakes for whatever blocks its lane instead of driving through it. */
+    map: { scene: string; placement: Placement; duration_s: number; sample_hz: number; ego_react?: boolean };
     /** Presentation only: the XOSC profile carries no weather. */
     environment: { weather_preset: WeatherPresetId };
     actors: TemplateActor[];

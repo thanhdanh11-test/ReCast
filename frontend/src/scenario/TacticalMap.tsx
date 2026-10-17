@@ -11,6 +11,8 @@ export function TacticalMap({
   onPickActor,
   selectedActorId,
   eligibleActorIds,
+  overlay,
+  span: baseSpan = 130,
 }: {
   scenario: Scenario | null;
   time: number;
@@ -18,6 +20,10 @@ export function TacticalMap({
   onPickActor?: (actorId: string) => void;
   selectedActorId?: string;
   eligibleActorIds?: string[];
+  /** plan50: a second variant on the same map (baseline), drawn as dashed outlines over `scenario` (pilot). */
+  overlay?: Scenario | null;
+  /** Initial frame width (m) around the ego; the Studio narrows it to the event (plan52). */
+  span?: number;
 }) {
   const t = useT();
   const environment =
@@ -35,9 +41,10 @@ export function TacticalMap({
         })) ?? [],
     [environment],
   );
+  const ghosts = overlay ? visibleActors(overlay, null, time) : [];
   const actors = scenario ? visibleActors(scenario, replay, time) : [],
     ego = actors.find((a) => a.actor.role === "ego");
-  const controls = useViewTransform<SVGSVGElement>(scenario?.id, !!ego && !!paths.length, 130);
+  const controls = useViewTransform<SVGSVGElement>(scenario?.id, !!ego && !!paths.length, baseSpan);
   const span = controls.span;
   // Frame centre follows the ego; dragging offsets it (screen y down = world −y).
   const centre = ego ? { x: ego.pose.x_m + controls.pan.x, y: ego.pose.y_m - controls.pan.y } : null;
@@ -117,6 +124,15 @@ export function TacticalMap({
           </path>
           );
         })}
+        {ghosts.map(({ actor, pose }) => (
+          <path
+            key={`overlay-${actor.id}`}
+            d={polygonPath([footprint(actor, pose)])}
+            className={`map-overlay ${actor.role === "ego" ? "map-overlay-ego" : ""}`}
+            data-overlay-actor={actor.id}
+            strokeDasharray="0.9 0.6"
+          />
+        ))}
         <path
           d={`M${ego.pose.x_m} ${-ego.pose.y_m}l${Math.cos(ego.pose.yaw_rad) * 6} ${-Math.sin(ego.pose.yaw_rad) * 6}`}
           className="map-heading"
@@ -143,6 +159,10 @@ export function TacticalMap({
           <i className="map-swatch map-swatch-ego" />
           {t("Xe ego")}
         </li>
+        {overlay && <>
+          <li><i className="map-swatch map-swatch-pilot" />{t("Nét liền = pilot")}</li>
+          <li><i className="map-swatch map-swatch-baseline" />{t("Nét đứt = baseline")}</li>
+        </>}
         {VEHICLE_CLASS_LABELS.filter(([c]) => present.has(c)).map(
           ([c, label]) => (
             <li key={c}>

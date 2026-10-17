@@ -79,6 +79,10 @@ def check_template(t):
     auto, mirror = placement.get("auto", False), placement.get("mirror", False)
     if not isinstance(auto, bool) or not isinstance(mirror, bool):
         bad("Tự tìm vị trí / lật trái-phải phải là true/false")
+    # plan52: the ego brakes for whatever blocks its lane (IDM) instead of driving through it; false = scripted path.
+    ego_react = m.get("ego_react", True)
+    if not isinstance(ego_react, bool):
+        bad("Ego tự phanh phải là true/false")
     actors = t.get("actors")
     if not isinstance(actors, list) or not 1 <= len(actors) <= LIMITS["max_actors"]:
         bad(f"Số đối tượng phải trong 1–{LIMITS['max_actors']}")
@@ -156,6 +160,7 @@ def check_template(t):
         "lateral_m": lateral_m,
         "auto": auto,
         "mirror": mirror,
+        "ego_react": ego_react,
         "actors": out,
     }
 
@@ -373,13 +378,92 @@ class Precheck:
 
 
 def build(t, frame, mirror=False):
-    return [
+    actors = [
         {
             **{k: a[k] for k in ("id", "role", "category", "length_m", "width_m", "height_m")},
             "samples": compile_actor(a, t["duration_s"], t["sample_hz"], frame, mirror),
         }
         for a in t["actors"]
     ]
+    if t.get("ego_react", True):
+        ego = next(a for a in actors if a["role"] == "ego")
+        ego["samples"] = react_ego(ego, [a for a in actors if a is not ego], t["duration_s"], t["sample_hz"])
+    return actors
+
+
+# plan52 ego reaction: IDM on the ego's own planned path (same model family as the reactive engine).
+REACT_DT = 0.05  # s
+IDM_ACCEL, IDM_COMFORT, IDM_MAX_BRAKE = 2.0, 3.0, 8.0  # m/s²
+IDM_S0, IDM_T = 2.0, 1.2  # m standstill gap, s headway
+LANE_MARGIN_M = 0.3  # lateral clearance that still counts as "in my lane"
+
+
+def _path_projection(path, cum, points):
+    """(s along path, |lateral|) of each point on the polyline `path` (N×2) with cumulative length `cum`."""
+    a, b = path[:-1], path[1:]
+    seg = b - a
+    seg_len2 = np.maximum((seg ** 2).sum(axis=1), 1e-12)
+    rel = points[:, None, :] - a[None, :, :]
+    f = np.clip((rel * seg[None]).sum(axis=2) / seg_len2[None], 0.0, 1.0)
+    closest = a[None] + f[..., None] * seg[None]
+    dist = np.linalg.norm(points[:, None, :] - closest, axis=2)
+    k = dist.argmin(axis=1)
+    rows = np.arange(len(points))
+    return cum[k] + f[rows, k] * np.sqrt(seg_len2[k]), dist[rows, k]
+
+
+def react_ego(ego, others, duration, hz):
+    """Ego samples re-timed along the same path so it keeps an IDM gap to anything inside its lane ahead.
+    Unchanged when nothing blocks it; never leaves its path, never reverses."""
+    rows = ego["samples"]
+    xy = np.array([[r["x_m"], r["y_m"]] for r in rows])
+    t_rows = np.array([r["t_s"] for r in rows])
+    step = np.linalg.norm(np.diff(xy, axis=0), axis=1)
+    planned_s = np.concatenate([[0.0], np.cumsum(step)])
+    keep = np.concatenate([[True], step > 1e-6])
+    path, cum = xy[keep], planned_s[keep]
+    if len(path) < 2 or not others:
+        return rows
+    grid = np.arange(0.0, duration + 1e-9, REACT_DT)
+    planned = np.interp(grid, t_rows, planned_s)
+    v_plan = np.gradient(planned, REACT_DT)
+    blockers = []
+    for o in others:
+        ot = np.array([r["t_s"] for r in o["samples"]])
+        ox = np.interp(grid, ot, [r["x_m"] for r in o["samples"]], left=np.nan, right=np.nan)
+        oy = np.interp(grid, ot, [r["y_m"] for r in o["samples"]], left=np.nan, right=np.nan)
+        pts = np.column_stack([np.nan_to_num(ox, nan=1e9), np.nan_to_num(oy, nan=1e9)])
+        s_o, d_o = _path_projection(path, cum, pts)
+        inside = np.isfinite(ox) & (d_o <= (ego["width_m"] + o["width_m"]) / 2 + LANE_MARGIN_M)
+        blockers.append((s_o, inside, (ego["length_m"] + o["length_m"]) / 2, np.gradient(s_o, REACT_DT)))
+    s, v = 0.0, float(v_plan[0])
+    out = np.empty_like(grid)
+    for k in range(len(grid)):
+        out[k] = s
+        nxt = float(planned[min(k + 1, len(grid) - 1)])
+        plan_v, lag = max(float(v_plan[k]), 0.0), max(float(planned[k]) - s, 0.0)
+        # Free: track the planned position (its own brakes and ramps), closing any lag at ≤ IDM_ACCEL and a
+        # comfortable braking curve, never ahead of the plan, never braking harder than IDM_MAX_BRAKE.
+        v_free = max(min(v + IDM_ACCEL * REACT_DT, plan_v + math.sqrt(2 * IDM_COMFORT * lag)), v - IDM_MAX_BRAKE * REACT_DT)
+        s_next = min(nxt, s + max(v_free, 0.0) * REACT_DT)
+        for s_o, inside, half, v_o in blockers:
+            if not inside[k] or s_o[k] <= s:
+                continue
+            gap = max(s_o[k] - s - half, 0.01)
+            dv = v - max(float(v_o[k]), 0.0)
+            star = IDM_S0 + max(0.0, v * IDM_T + v * dv / (2 * math.sqrt(IDM_ACCEL * IDM_COMFORT)))
+            a = max(-IDM_MAX_BRAKE, IDM_ACCEL * (1 - (v / max(plan_v, 0.1)) ** 4 - (star / gap) ** 2))
+            s_next = min(s_next, s + max(0.0, v + a * REACT_DT) * REACT_DT)
+        s_next = min(max(s_next, s), float(cum[-1]))
+        v = (s_next - s) / REACT_DT
+        s = s_next
+    if np.allclose(out, planned, atol=1e-3):
+        return rows
+    new_s = np.interp(t_rows, grid, out)
+    x = np.interp(new_s, cum, path[:, 0])
+    y = np.interp(new_s, cum, path[:, 1])
+    yaw = np.interp(new_s, planned_s, np.unwrap([r["yaw_rad"] for r in rows]))
+    return [{**r, "x_m": float(x[i]), "y_m": float(y[i]), "yaw_rad": float(yaw[i])} for i, r in enumerate(rows)]
 
 
 def compile_template(template, source, context):
