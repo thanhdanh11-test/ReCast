@@ -277,3 +277,8 @@ Owner screenshot shows distant pavement breakup. Pilot camera now adapts near pl
 - `listImported` chạy trên worker LiDAR với `readonly` (bỏ recovery); KHÔNG đưa thao tác ghi sang worker phụ.
 - Ego mẫu tự phanh phải bám VỊ TRÍ kế hoạch (không chỉ tốc độ) — bám tốc độ gây vượt giới hạn gia tốc khi kế hoạch dừng.
 - Tên lịch sử hiển thị là tên dễ đọc; tên kỹ thuật ở `title` — E2E tìm dòng theo `strong[title=…]`.
+
+## 2026-10-17 — Màn ẩn vẫn tốn CPU; worker một hàng đợi (plan55)
+- Pane có `hidden` vẫn mount ⇒ TrackView vẫn dựng 3D khi prop `scenario` đổi (đo ~3,3 s khoá luồng chính/lần đổi cảnh). Pane ẩn phải giữ input cũ (ScenarioApp `paneSource`) hoặc không mount.
+- Worker Python chính xử lý tuần tự: một lệnh đọc nặng tự gửi nền (vd `reactive_candidates` 2,8 s) làm lệnh người dùng kế tiếp (`source_scene`) chờ. Chỉ gửi việc nền khi màn đó thật sự cần.
+- shapely `LineString.interpolate(mảng)` đi từ đầu đường cho mỗi điểm (O(n·m)); dùng nội suy theo độ dài tích luỹ (`structures._along`).

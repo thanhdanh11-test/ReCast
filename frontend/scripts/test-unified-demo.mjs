@@ -125,8 +125,10 @@ try {
 
   await rows().filter({ has: page.locator(`strong[title="${pilotName}"]`) }).first().getByRole("button", { name: /^Phân tích / }).click();
   const tabs = await page.getByRole("tablist", { name: "Mục phân tích" }).getByRole("tab").allTextContents();
-  assert.deepEqual(tabs, ["Tổng quan", "Khoảng cách & tốc độ", "Baseline vs Pilot", "Phanh / gia tốc từng xe", "Báo cáo đầy đủ", "esmini"]);
-  for (const tab of tabs.slice(0, 4)) { await page.getByRole("tab", { name: tab, exact: true }).click(); await page.screenshot({ path: join(out, `04-analysis-${tabs.indexOf(tab)}.png`) }); }
+  assert.deepEqual(tabs, ["1 · Kết luận", "2 · Diễn biến", "3 · Kiểm định", "4 · Từng xe", "Báo cáo chi tiết", "esmini"]);
+  assert.ok(await page.getByRole("region", { name: "Chỉ số an toàn" }).getByText(/Ngưỡng|Trong ngưỡng|Sát ngưỡng|Vượt ngưỡng/).count() > 0);
+  for (const tab of tabs.slice(0, 5)) { await page.getByRole("tab", { name: tab, exact: true }).click(); await page.screenshot({ path: join(out, `04-analysis-${tabs.indexOf(tab)}.png`) }); }
+  assert.ok(await page.getByRole("region", { name: "Ghi chú map của app" }).getByText(/đối tượng không liên quan/).count() > 0); // plan54
   await page.getByRole("button", { name: "Quay lại Studio" }).click();
   report.steps.push(`analysis of a reaction offers ${tabs.join(" · ")}`);
 

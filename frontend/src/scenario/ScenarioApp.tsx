@@ -27,6 +27,11 @@ export default function ScenarioApp({onLibrary,onLogout,initialGuided=false}:{on
  const [message,setMessage]=useState("Sẵn sàng"),[error,setError]=useState(""),[time,setTime]=useState(0),[playing,setPlaying]=useState(false);
  const [preferences,setPreferences]=useState<Preferences>(loadPreferences);
  const [view,setView]=useState<"scene"|"scenario"|"exports">(()=>initialGuided||new URLSearchParams(window.location.search).get("unified-demo")==="1"?"scenario":"scene");
+ // plan55: the hidden “Cảnh nguồn” pane (3D + LiDAR + map) only follows the source while it is on screen; building a
+ // hidden 3D scene on every scene change in the Studio blocked the page for ~3 s. It catches up when shown.
+ const lastPaneSource=useRef<typeof source>(null);
+ if(view==="scene")lastPaneSource.current=source;
+ const paneSource=view==="scene"?source:lastPaneSource.current;
  const [settingsOpen,setSettingsOpen]=useState(false),[drawer,setDrawer]=useState(false),[railWide,setRailWide]=useState(false);
  const [expanded,setExpanded]=useState<"track"|"lidar"|"map"|null>(null);
  const generation=useRef(0),busyRef=useRef(false),dirty=useRef(false),loaded=useRef<Scenario|null>(null);
@@ -71,9 +76,9 @@ export default function ScenarioApp({onLibrary,onLogout,initialGuided=false}:{on
     </div>
     <div className="view-pane" hidden={view!=="exports"}>{!demo&&api.listExports&&<Suspense fallback={null}><ExportsPage api={api} shown={view==="exports"&&!settingsOpen} onActiveChange={setExporting}/></Suspense>}</div>
     <div className="view-pane" hidden={view!=="scene"}><main className={`view-workspace ${expanded?`expanded expanded-${expanded}`:""}`}>
-     <section className="viewport-panel primary-view" aria-label={t("Mô phỏng 3D")} data-view-state={!source?"empty":"source"}><ExpandButton panel="track" label="khung 3D" expanded={expanded} onChange={setExpanded}/><div className="panel-content"><TrackView scenario={source} time={time} replay={null} environmentSettings={environmentSettings} warnings={source?.environment?.warnings??[]} display={preferences} active={view==="scene"&&!settingsOpen} onReady={view==="scene"?sceneReady:undefined}/></div></section>
-     <section className="viewport-panel lidar-panel" aria-label="LiDAR"><ExpandButton panel="lidar" label="khung LiDAR" expanded={expanded} onChange={setExpanded}/><div className="panel-content"><LidarView scenario={source} time={time} replay={null} loadLidar={api.lidarFrame} display={preferences}/></div></section>
-     <section className="viewport-panel map-panel" aria-label={t("Map tích hợp")}><ExpandButton panel="map" label="khung map" expanded={expanded} onChange={setExpanded}/><div className="panel-content"><TacticalMap scenario={source} time={time} replay={null}/></div></section>
+     <section className="viewport-panel primary-view" aria-label={t("Mô phỏng 3D")} data-view-state={!source?"empty":"source"}><ExpandButton panel="track" label="khung 3D" expanded={expanded} onChange={setExpanded}/><div className="panel-content"><TrackView scenario={paneSource} time={time} replay={null} environmentSettings={environmentSettings} warnings={source?.environment?.warnings??[]} display={preferences} active={view==="scene"&&!settingsOpen} onReady={view==="scene"?sceneReady:undefined}/></div></section>
+     <section className="viewport-panel lidar-panel" aria-label="LiDAR"><ExpandButton panel="lidar" label="khung LiDAR" expanded={expanded} onChange={setExpanded}/><div className="panel-content"><LidarView scenario={paneSource} time={time} replay={null} loadLidar={api.lidarFrame} display={preferences}/></div></section>
+     <section className="viewport-panel map-panel" aria-label={t("Map tích hợp")}><ExpandButton panel="map" label="khung map" expanded={expanded} onChange={setExpanded}/><div className="panel-content"><TacticalMap scenario={paneSource} time={time} replay={null}/></div></section>
      {view==="scene"&&sceneLoading&&<LoadingOverlay/>}
     </main></div>
    </div>

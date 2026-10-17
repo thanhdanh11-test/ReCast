@@ -44,3 +44,13 @@ Owner: bỏ timeline ở cảnh gốc, timeline chỉ xe liên quan; ego va ch�
 ## 2026-10-17T19:36:25+07:00 — Plan52 (v0.40.0)
 Owner: sửa hết đánh giá, chỉ nuScenes, giảm chờ. Sửa toàn bộ đánh giá tạo kịch bản: ego mẫu tự phanh IDM (dùng được 18→48/160, va chạm 28→5); lỗi hiện trong hộp thoại, khoá tạo khi map ✗, thẻ mẫu ✓/✗, ẩn tab AI giả, nút phụ vào Thêm; HTTP 400 cho lỗi người dùng; Tự tạo 3 bước, kiểm hợp lệ trước + chọn preset hợp lệ, mặc định phanh Vừa ≥2 s, hướng dẫn khi trống; tên dễ đọc; 2D tự khung. Chỉ nuScenes (AV2 ẩn, tệp chưa xoá). Nhanh hơn: mở 9,3→5,3 s, bật lại 3D 2,5→0,03 s, mở lại kịch bản 4,6→0,04 s, tạo xong→3D 9,9→6,7 s. BE836/FE558/server60 0 skip; typecheck/ruff/build 0; E2E local-web/workspace/unified/access PASS. AV2 files (31 GB intake incl. unused 20 GB nuScenes copy) NOT deleted — awaiting owner. Server5180 restarted. No commit/push.
 Chủ xác nhận “xoá cả thư mục intake” 2026-10-17T19:43:46+07:00: đã xoá `backend/data/dataset-intake-20261013/` (31 GB: AV2 11 GB + bản sao nuScenes không dùng 20 GB + script tải). App vẫn đọc nuScenes ở ~/cvat-day2/…; gỡ test dùng dữ liệu AV2 thật (test_structures 8→7); BE835 (836−1) 0 skip; E2E access PASS; app 200.
+
+## 2026-10-17T22:37:24+07:00 — Plan53 (v0.41.0) Phân tích dạng báo cáo
+- Chủ hỏi trình bày Phân tích dễ hiểu/khoa học hơn ⇒ tab đánh số Kết luận/Diễn biến/Kiểm định/Từng xe; thang 5 bậc B/P; bảng chỉ số + ngưỡng từ report; giả định. FE564, E2E unified PASS.
+- Commit trước: c073512 (v0.38–0.40). Script rotate_memory ở hub xoay ngược (archive phiên mới) — đã sửa tay, chưa sửa hub.
+
+## 2026-10-17T22:54:05+07:00 — Plan54 (v0.41.1) báo cáo chỉ xe liên quan
+- Chủ: báo cáo đầy đủ rối ⇒ lọc theo ego + xe liên quan, đếm phần ẩn + “Hiện tất cả”, bỏ khối trùng tab. 70 ghi chú map không liên quan ẩn, còn 1. FE568, E2E PASS. Chưa commit (v0.41.0 + v0.41.1).
+
+## 2026-10-17T23:45:48+07:00 — Plan55 (v0.41.2) tăng tốc mở cảnh
+- Đo bằng CPU profile + trace worker: màn ẩn dựng 3D (3,3 s), reactive_candidates chặn hàng đợi (2,8 s), shapely interpolate. Sửa ⇒ bấm cảnh 1–2 s, mở lại 0,1 s. Chủ duyệt “xoá 1 2 3” ⇒ đã xoá ~1,3 GB (tmp test, expansion.zip, dist/preview plan40/42); dự án 2,8 GB.

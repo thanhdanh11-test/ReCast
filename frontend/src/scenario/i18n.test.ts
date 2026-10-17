@@ -15,6 +15,10 @@ const INDIRECT = ["Chưa chạy", "Đang chạy", "Đã huỷ", "Đạt", "Khôn
     "Phát / tạm dừng", "Lùi / tiến 1 giây", "Về đầu / về cuối", "Đóng ngăn, thu khung phóng to, rời trang cài đặt",
     "Đã xoá bộ nhớ đệm chỉ số ({n} kịch bản).", "Đã dọn thùng rác ({n} mục).", "khung 3D", "khung LiDAR", "khung map",
     "Rơ-moóc / công trình", "Vật cản", "Khác",
+    // plan53 analysis: KPI labels, verdicts and tab labels rendered through t(variable).
+    "biến thể có phản ứng (pilot)", "biến thể không phản ứng (baseline)", "Khoảng cách gần nhất", "Thời gian tới va chạm nhỏ nhất (TTC)",
+    "Mức phanh cần để tránh", "Mức phanh xe bạn đã dùng", "Số lần xe bạn va chạm", "Trong ngưỡng", "Sát ngưỡng", "Vượt ngưỡng",
+    "Báo cáo chi tiết", "1 · Kết luận", "2 · Diễn biến", "3 · Kiểm định", "4 · Từng xe",
     "Đã tạo {name} · {n} đối tượng · đặt tại {at} m trên quỹ đạo xe nguồn", "Đã tạo {name} · {n} đối tượng · đặt tại {at} m trên quỹ đạo xe nguồn, lật trái ↔ phải"];
 
 /** Source files of the UI, including feature subfolders such as authoring/. */

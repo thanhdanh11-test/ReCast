@@ -147,3 +147,29 @@ describe("Real2simReport of a team package (no topeye block)", () => {
         await waitFor(() => expect(screen.getByText("ra ngoài mặt đường")).toBeTruthy());
     });
 });
+
+describe("plan54 related vehicles only", () => {
+    const notes = [{ code: "MAP_NOTE_SURFACE", message: "ego ra ngoài mặt đường", actor_id: "ego" },
+        { code: "MAP_NOTE_SURFACE", message: "pedestrian_001 ra ngoài mặt đường", actor_id: "pedestrian_001" },
+        { code: "MAP_NOTE_OBSTACLE", message: "truck_010 chạm vật cản", actor_id: "truck_010" }];
+    it("lists notes of the ego and related vehicles, counts the rest and shows them on request", () => {
+        render(<Real2simReport report={withDetail()} diagnostics={notes} focus={new Set(["ego", "car_154"])} brief/>);
+        expect(screen.getByText("ego ra ngoài mặt đường")).toBeTruthy();
+        expect(screen.queryByText("pedestrian_001 ra ngoài mặt đường")).toBeNull();
+        expect(screen.getByText(/Ẩn 2 mục về 2 đối tượng không liên quan/)).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: "Hiện tất cả" }));
+        expect(screen.getByText("pedestrian_001 ra ngoài mặt đường")).toBeTruthy();
+    });
+    it("brief leaves out what the Analysis tabs already show", () => {
+        render(<Real2simReport report={withDetail()} diagnostics={[]} focus={new Set(["ego"])} brief/>);
+        expect(screen.queryByRole("region", { name: "Baseline và pilot" })).toBeNull();
+        expect(screen.queryByRole("region", { name: "Kiểm tra hợp lệ" })).toBeNull();
+        expect(screen.getByRole("region", { name: "Phạm vi báo cáo" })).toBeTruthy();
+    });
+    it("a team report keeps only related vehicles in the per-vehicle tables", () => {
+        const many = { ...team, physics: { ego: { max_speed: 9 }, car_154: { max_speed: 8 }, car_999: { max_speed: 7 } } };
+        render(<Real2simReport report={many} diagnostics={[]} focus={new Set(["ego", "car_154"])}/>);
+        expect(screen.queryByText("car_999")).toBeNull();
+        expect(screen.getByText(/Ẩn 1 mục về 1 đối tượng/)).toBeTruthy();
+    });
+});

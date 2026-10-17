@@ -108,6 +108,9 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [x] ~~Bowl view / adaptive bowl~~: đã loại (REVIEW.md).
 
 ## Đã hoàn thành (Done)
+- ✅ 2026-10-17T23:45:48+07:00 v0.41.2 — Plan55: tăng tốc mở cảnh/map (bấm cảnh 4–5 s → 1–2 s, mở lại 0,1 s).
+- ✅ 2026-10-17T22:54:05+07:00 v0.41.1 — Plan54: báo cáo chi tiết chỉ ego + xe liên quan.
+- ✅ 2026-10-17T22:37:24+07:00 v0.41.0 — Plan53: trang Phân tích dạng báo cáo (kết luận, thang nguy hiểm, chỉ số có ngưỡng, giả định).
 - ✅ 2026-10-17T19:36:25+07:00 v0.40.0 — Plan52: sửa 14 mục đánh giá, chỉ nuScenes, giảm thời gian chờ.
 - ✅ 2026-10-17T17:38:15+07:00 v0.39.0 — Plan51: Dừng hẳn đứng yên đến hết; ego va chạm = không hợp lệ + cách sửa; timeline gọn.
 - ✅ 2026-10-17T16:19:03+07:00 v0.38.0 — Plan50 Scenario Studio: bố cục 3 cột, Phân tích chia mục, xuất CARLA/.xosc, trang Đã xuất.

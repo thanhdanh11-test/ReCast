@@ -331,10 +331,12 @@ describe('Scenario Studio (plan50)',()=>{
   expect(screen.getByText('Tình huống')).toBeTruthy(); // event mark on the timeline (t0 from the report)
   fireEvent.click(history().getByRole('button',{name:'Phân tích car_013.xosc'}));
   const tabs = within(await screen.findByRole('tablist',{name:'Mục phân tích'}));
-  expect(tabs.getAllByRole('tab').map(t=>t.textContent)).toEqual(['Báo cáo đầy đủ','esmini']);
+  expect(tabs.getAllByRole('tab').map(t=>t.textContent)).toEqual(['Báo cáo chi tiết','esmini']);
   const panel = screen.getByLabelText('Báo cáo kịch bản real2sim');
   expect(within(panel).getByText('car_013 dừng rồi đi tiếp · giảm tốc 8,0 m/s² lúc 1,0 s · đứng 3,0 s')).toBeTruthy();
   expect(within(panel).getByRole('cell',{name:'1,75 m'})).toBeTruthy();
+  expect(within(panel).queryByText('car-new ra ngoài mặt đường lúc t=3.96s')).toBeNull(); // plan54: not a related vehicle
+  fireEvent.click(within(panel).getByRole('button',{name:'Hiện tất cả'}));
   expect(within(panel).getByText('car-new ra ngoài mặt đường lúc t=3.96s')).toBeTruthy();
   expect(mock.scenarioMetrics).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button',{name:'Quay lại Studio'}));
@@ -534,6 +536,34 @@ describe('Scenario Studio (plan50)',()=>{
   }
   expect(builds()).toBe(settled);
   expect(mock.openImported).toHaveBeenCalledTimes(1);
+ });
+ it('changing scene inside the Studio does not rebuild the hidden “Cảnh nguồn” 3D view; it catches up when shown (plan55)',async()=>{
+  const picked = await mock.chooseDataset();
+  mock.chooseDataset.mockResolvedValue({...picked,scenes:[picked.scenes[0],{...picked.scenes[0],scene:'scene-0061'}]});
+  mock.sourceScene.mockImplementation(async()=>({...importedScenario,id:'source',mode:'source',import:undefined,actors:[importedScenario.actors[0]]}));
+  render(<ScenarioApp/>);
+  mock.settings.mockResolvedValue({dataset:'nuscenes',datasetVersion:'v1.0-mini',engineAvailable:true,version:'0.18.0',workspace:'/ws'});
+  openDatasetPicker();
+  await screen.findByText('Đã đọc 2 cảnh');
+  fireEvent.click(screen.getByRole('button', {name:'Kịch bản'}));
+  await screen.findByTestId('scenario-studio');
+  const builds = () => (globalThis as {trackBuilds?: number}).trackBuilds ?? 0;
+  const before = builds();
+  fireEvent.click(studio().getByRole('button',{name:/^scene-0061/}));
+  await waitFor(()=>expect(mock.sourceScene).toHaveBeenCalledWith(expect.objectContaining({scene:'scene-0061'})));
+  await waitFor(()=>expect(document.querySelector('.studio-scenes [aria-current="true"] strong')?.textContent).toBe('scene-0061'));
+  await act(async()=>{await new Promise(r=>setTimeout(r,20));});
+  expect(builds()).toBe(before);
+  fireEvent.click(within(screen.getByRole('navigation',{name:'Công cụ'})).getByRole('button',{name:'Cảnh nguồn'}));
+  await waitFor(()=>expect(builds()).toBe(before+1));
+ });
+ it('opening a scene in the Studio does not compute reaction candidates; “Tự tạo” loads them when opened (plan55)',async()=>{
+  await openStudio();
+  await waitFor(()=>expect(mock.mapContext).toHaveBeenCalled());
+  expect(mock.reactiveCandidates).not.toHaveBeenCalled(); // they queue on the worker in front of the next scene
+  await openMenu();
+  fireEvent.click(studio().getByRole('menuitem',{name:/Tự tạo/}));
+  await waitFor(()=>expect(mock.reactiveCandidates).toHaveBeenCalledTimes(1));
  });
  it('plays the source scene itself when no scenario is opened yet',async()=>{
   await openStudio();

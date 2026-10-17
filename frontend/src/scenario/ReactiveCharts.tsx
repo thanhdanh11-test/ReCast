@@ -27,7 +27,7 @@ function Chart({ label, t, lines, unit, thresholds = [], markers, top: fixedTop,
     onSeek?: (t: number) => void;
 }) {
     const tr = useT();
-    const w = wide ? 960 : 320, h = wide ? 170 : 130, pad = { l: 36, r: 6, t: 14, b: 18 };
+    const w = wide ? 960 : 320, h = wide ? 170 : 130, pad = { l: wide ? 58 : 36, r: 6, t: 14, b: 18 };
     const t0 = t[0] ?? 0, t1 = t[t.length - 1] ?? 1;
     const finite = lines.flatMap(l => l.values.filter((v): v is number => v !== null && Number.isFinite(v)));
     const top = fixedTop ?? Math.max(0.1, ...finite, ...thresholds);

@@ -12,7 +12,9 @@ export function createGroundSupport(
   data: { cell_m: number; samples: number[][] } | undefined,
   fallback: number,
 ): GroundSupport {
-  const cells = new Map<string, number[][]>();
+  // plan55: numeric cell keys; template-string keys made every height lookup allocate 49 strings.
+  const cellKey = (ix: number, iy: number) => (ix + 0x8000) * 0x10000 + (iy + 0x8000);
+  const cells = new Map<number, number[][]>();
   for (const row of data?.samples ?? []) {
     if (
       row.length < 5 ||
@@ -22,7 +24,7 @@ export function createGroundSupport(
       row[4] > 0.15
     )
       continue;
-    const key = `${Math.floor(row[0] / 3)}:${Math.floor(row[1] / 3)}`;
+    const key = cellKey(Math.floor(row[0] / 3), Math.floor(row[1] / 3));
     const list = cells.get(key) ?? [];
     list.push(row);
     cells.set(key, list);
@@ -34,7 +36,7 @@ export function createGroundSupport(
       near: { z: number; distance: number }[] = [];
     for (let dx = -3; dx <= 3; dx++)
       for (let dy = -3; dy <= 3; dy++)
-        for (const r of cells.get(`${ix + dx}:${iy + dy}`) ?? []) {
+        for (const r of cells.get(cellKey(ix + dx, iy + dy)) ?? []) {
           const distance = Math.hypot(r[0] - x, r[1] - y);
           if (distance <= 8) near.push({ z: r[2], distance });
         }
@@ -53,7 +55,7 @@ export function createGroundSupport(
       const points: [number, number][] = [];
       for (let dx = -3; dx <= 3; dx++)
         for (let dy = -3; dy <= 3; dy++)
-          for (const r of cells.get(`${ix + dx}:${iy + dy}`) ?? []) {
+          for (const r of cells.get(cellKey(ix + dx, iy + dy)) ?? []) {
             if (Math.hypot(r[0] - x, r[1] - y) <= 8) points.push([r[0], r[1]]);
           }
       points.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -91,7 +93,7 @@ export function createGroundSupport(
       height = 0;
     for (let dx = -3; dx <= 3; dx++)
       for (let dy = -3; dy <= 3; dy++)
-        for (const r of cells.get(`${ix + dx}:${iy + dy}`) ?? []) {
+        for (const r of cells.get(cellKey(ix + dx, iy + dy)) ?? []) {
           const d2 = (r[0] - x) ** 2 + (r[1] - y) ** 2;
           if (d2 >= 64) continue;
           const w = (1 - d2 / 64) ** 3 * (r[5] === 1 ? 0.3 : 1);

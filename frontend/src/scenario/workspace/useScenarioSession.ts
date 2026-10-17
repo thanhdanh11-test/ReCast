@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { DesktopAPI, ImportedEntry, ReactiveCandidates, Scenario, ScenarioGroup } from "../types";
 export type Resource = "source" | "map" | "candidates" | "library" | "groups";
 export const errorMessage = (e: unknown) => e instanceof Error ? e.message : String(e);
-/** Shared, independently recoverable resources. Parent source is reused instead of reloaded on navigation. */
-export function useScenarioSession(api: DesktopAPI, scene: string, provided?: Scenario | null) {
+/**
+ * Shared, independently recoverable resources. Parent source is reused instead of reloaded on navigation.
+ * `candidates: false` (plan55, the Studio): reaction candidates take seconds on the main worker and would make the
+ * next scene wait behind them; only “Tự tạo” needs them and loads its own.
+ */
+export function useScenarioSession(api: DesktopAPI, scene: string, provided?: Scenario | null, { candidates = true }: { candidates?: boolean } = {}) {
   const [source, setSource] = useState<Scenario | null>(provided ?? null);
   const [offers, setOffers] = useState<ReactiveCandidates | null>(null);
   const [entries, setEntries] = useState<ImportedEntry[]>([]);
@@ -28,7 +32,7 @@ export function useScenarioSession(api: DesktopAPI, scene: string, provided?: Sc
     if (!api.mapContext) throw new Error("Không có bộ kiểm tra map.");
     return api.mapContext({source_id:src.id});
   }, context => setMapId(context.map_id));
-  const loadCandidates = (src: Scenario) => resource("candidates", () => api.reactiveCandidates({source_id:src.id}), setOffers);
+  const loadCandidates = (src: Scenario) => candidates ? resource("candidates", () => api.reactiveCandidates({source_id:src.id}), setOffers) : Promise.resolve(null);
   const loadSource = () => resource("source", () => api.sourceScene({scene}), src => { sourceRef.current=src;setSource(src); });
   async function load() {
     const started=epoch.current;

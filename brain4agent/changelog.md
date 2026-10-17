@@ -2,6 +2,17 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.41.2 — 2026-10-17T23:45:48+07:00 (plan55)
+- Tăng tốc mở cảnh: màn Cảnh nguồn ẩn không dựng 3D khi đổi cảnh trong Studio; Studio không tính trước reactive_candidates (chặn hàng đợi worker); `_along` numpy thay shapely interpolate trong rào chắn; khoá ô số trong groundSupport. Bấm cảnh mới 4–5 s → 1,2–2,2 s; mở lại 3,7 → 0,1 s; 3D đầu 3,7 → ~3 s. BE836/FE570/server60.
+- Dọn (chủ duyệt): xoá thư mục tạm test `topeye-*` 856 MB, `expansion.zip` 380 MB (app chỉ đọc 4 JSON), `dist/`+`preview/` plan40/42 95 MB. Dự án 3,3 → 2,8 GB.
+
+## v0.41.1 — 2026-10-17T22:54:05+07:00 (plan54)
+- Báo cáo chi tiết chỉ đo ego và xe liên quan (relevantIds); phần còn lại đếm + “Hiện tất cả”; bỏ khối trùng tab 1–4 và khối esmini trùng tab esmini. Ví dụ E2E: 70 ghi chú map về 61 đối tượng không liên quan được ẩn, còn 1 ghi chú của ego. FE 568, E2E unified PASS.
+
+## v0.41.0 — 2026-10-17T22:37:24+07:00 (plan53)
+- Trang Phân tích dạng báo cáo khoa học: Kết luận → Diễn biến → Kiểm định → Từng xe → Phụ lục. Thang nguy hiểm 5 bậc với baseline/pilot; bảng chỉ số an toàn có chiều tốt/kém, ngưỡng lấy từ report (không chép hằng số backend); giả định & giới hạn; bảng mốc thời gian. Bỏ cặp nút Cơ bản/Kỹ thuật khỏi Studio (ScenarioMetricsView giữ cho workspace cũ). Tiêu đề dùng tên dễ đọc; trục Y biểu đồ rộng không còn bị cắt.
+- Đo: FE 564 (+6), tsc/build 0, E2E unified-demo PASS; ảnh `planning/53_2026-10-17_analysis-report/evidence/browser/04-analysis-*.png`.
+
 ## v0.40.0 — 2026-10-17T19:36:25+07:00 (plan52)
 - Sửa toàn bộ đánh giá tạo kịch bản: ego mẫu tự phanh IDM (dùng được 18→48/160, va chạm 28→5); lỗi hiện trong hộp thoại, khoá tạo khi map ✗, thẻ mẫu ✓/✗, ẩn tab AI giả, nút phụ vào Thêm; HTTP 400 cho lỗi người dùng; Tự tạo 3 bước, kiểm hợp lệ trước + chọn preset hợp lệ, mặc định phanh Vừa ≥2 s, hướng dẫn khi trống; tên dễ đọc; 2D tự khung. Chỉ nuScenes (AV2 ẩn, tệp chưa xoá). Nhanh hơn: mở 9,3→5,3 s, bật lại 3D 2,5→0,03 s, mở lại kịch bản 4,6→0,04 s, tạo xong→3D 9,9→6,7 s.
 - BE836/FE558/server60 0 skip; typecheck/ruff/build 0; E2E local-web/workspace/unified/access PASS.

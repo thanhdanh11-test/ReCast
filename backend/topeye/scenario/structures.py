@@ -60,6 +60,18 @@ def _edge_lines(road):
         yield from poly.interiors
 
 
+def _along(line, distances):
+    """Points at these distances along the line, clamped to its ends (= shapely interpolate).
+
+    shapely walks the line from its start for every point, O(points x vertices); long road
+    edges made that the slowest step of opening a scene (plan55).
+    """
+    coords = shapely.get_coordinates(line)
+    cum = np.r_[0.0, np.cumsum(np.hypot(*np.diff(coords, axis=0).T))]
+    d = np.clip(np.asarray(distances, dtype=float), 0.0, cum[-1])
+    return np.c_[np.interp(d, cum, coords[:, 0]), np.interp(d, cum, coords[:, 1])]
+
+
 def roadside_barriers(xyz, road, road_z):
     """Continuous structures along the drivable edge: [{points, heights, length_m}] (world xy)."""
     xyz = np.asarray(xyz, dtype=float).reshape(-1, 3)
@@ -76,9 +88,9 @@ def roadside_barriers(xyz, road, road_z):
         if line.length < MIN_RUN_M:
             continue
         stations = np.arange(0, line.length, STATION_M)
-        xy = shapely.get_coordinates(line.interpolate(stations))
-        ahead = shapely.get_coordinates(line.interpolate(np.minimum(stations + 0.5, line.length)))
-        behind = shapely.get_coordinates(line.interpolate(np.maximum(stations - 0.5, 0)))
+        xy = _along(line, stations)
+        ahead = _along(line, stations + 0.5)
+        behind = _along(line, stations - 0.5)
         tangent = ahead - behind
         tangent /= np.maximum(np.linalg.norm(tangent, axis=1, keepdims=True), 1e-9)
         normal = np.c_[-tangent[:, 1], tangent[:, 0]]

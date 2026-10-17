@@ -8,6 +8,7 @@ import { SaveDialog } from "./SaveDialog";
 import { ExportsPage } from "./ExportsPage";
 import { SceneList } from "./SceneList";
 import { sectionsOf } from "./AnalysisPage";
+import { AnalysisSummary } from "./AnalysisSummary";
 import { carlaBlocked } from "./ScenarioStudio";
 import { chosenActorIds, invalidityOf } from "./validity";
 import type { DesktopAPI, ExportJob, ImportedEntry, ImportedScenario, Scenario, ScenarioGroup } from "../types";
@@ -160,7 +161,7 @@ describe("AnalysisPage sections", () => {
         expect(sectionsOf(base, false)).toEqual([]);
         expect(sectionsOf({ ...base, kind: "real2sim", report: {} } as unknown as ImportedScenario, true)).toEqual(["report", "esmini"]);
         expect(sectionsOf({ ...base, kind: "real2sim", report: { topeye: {} } } as unknown as ImportedScenario, true))
-            .toEqual(["overview", "charts", "checks", "vehicles", "report", "esmini"]);
+            .toEqual(["summary", "timeline", "checks", "vehicles", "report", "esmini"]);
     });
 });
 
@@ -193,5 +194,27 @@ describe("plan52 readable names", () => {
         expect(describeName("car_9_t3.5_lane_change_left_d4")?.vars).toEqual({ actor: "car_9", side: "trái", d: "4", t0: "3,5" });
         expect(describeName("car_1_t2.0_accelerate_v9_a2")?.key).toContain("tăng tốc lên");
         expect(describeName("Dừng_khẩn_cấp.xosc")).toBeNull();
+    });
+});
+
+describe("plan53 analysis summary", () => {
+    const ego = (min_gap: number, min_ttc: number) => ({ min_gap, min_ttc, a_min: 1, a_used: 1, conflict_with: "car_1" });
+    const detail = { summary: "Dùng được · phanh nhẹ là đủ.", checks: [{ id: "physics", passed: true }, { id: "collision", passed: false }], markers: [],
+        comparison: { baseline: { valid: true, group: "collision", reasons: [], ego: ego(0, 0.4), collisions: [["ego", "car_1", 3, "ego"]], reacted: [] },
+            pilot: { valid: true, group: "mild", reasons: [], ego: ego(4.2, 2.8), collisions: [], reacted: ["ego"] } } } as never;
+    const report = (thresholds: Record<string, number>) => ({ drivers: { react: true, reaction_s: 1, thresholds, per_vehicle: {} }, run: { dt: 0.05 } }) as never;
+    it("states the verdict, places baseline and pilot on the danger scale and grades metrics on the report's thresholds", () => {
+        wrap(<AnalysisSummary report={report({ close_gap_m: 1, close_ttc_s: 1.5, comfort_decel: 3.4 })} detail={detail}/>);
+        expect(screen.getByText("Kịch bản hợp lệ")).toBeTruthy();
+        expect(screen.getByText("Kiểm định: 1/2 điều kiện đạt")).toBeTruthy();
+        const steps = [...document.querySelectorAll(".an-step")].map(s => s.querySelector(".an-pins")!.textContent);
+        expect(steps).toEqual(["", "P", "", "", "B"]);
+        const gap = screen.getByText("Khoảng cách gần nhất").closest("tr")!;
+        expect([...gap.querySelectorAll("td")].map(td => td.textContent)).toEqual(["Khoảng cách gần nhất ?", "0,00 m", "4,20 m", "+4,20 m tốt hơn", "≥ 1,00 m", "Trong ngưỡng"]);
+    });
+    it("shows a dash instead of guessing when the report has no thresholds", () => {
+        wrap(<AnalysisSummary report={report({})} detail={detail}/>);
+        const ttc = screen.getByText("Thời gian tới va chạm nhỏ nhất (TTC)").closest("tr")!;
+        expect([...ttc.querySelectorAll("td")].slice(4).map(td => td.textContent)).toEqual(["—", "—"]);
     });
 });

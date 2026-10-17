@@ -46,7 +46,7 @@ export function ScenarioStudio({ api, scene, scenes, source, mapErrors, onSelect
     externalBusy?: boolean; onExported?: () => void;
 }) {
     const t = useT();
-    const session = useScenarioSession(api, scene, source);
+    const session = useScenarioSession(api, scene, source, { candidates: false });
     const rows = historyRows(session.entries, session.groups);
     const [opened, setOpened] = useState<Opened | null>(null);
     const [overlay, setOverlay] = useState<Overlay>(null);

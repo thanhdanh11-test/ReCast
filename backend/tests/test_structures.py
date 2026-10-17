@@ -98,3 +98,19 @@ def test_real_city_street_without_bridge_gets_no_structures():
     adapter = create_adapter(NUSCENES, "v1.0-mini")
     env = source_scene(adapter, "scene-0103")["environment"]
     assert env["barriers"] == [] and env["overheads"] == []
+
+
+def test_stations_along_matches_shapely_interpolate():
+    """plan55: numpy interpolation along a ring gives the same points as shapely, without its O(n) walk per point."""
+    import shapely
+    from shapely.geometry import LineString
+
+    from topeye.scenario.structures import _along
+
+    rng = np.random.default_rng(3)
+    coords = np.cumsum(rng.normal(size=(400, 2)), axis=0)
+    coords = np.vstack([coords, coords[:1], coords[-1:]])  # repeated vertex + closing back
+    line = LineString(coords)
+    d = np.r_[-1.0, np.linspace(0, line.length, 997), line.length + 2]
+    expected = shapely.get_coordinates(line.interpolate(np.clip(d, 0, line.length)))
+    np.testing.assert_allclose(_along(line, d), expected, atol=1e-9)

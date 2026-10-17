@@ -6,6 +6,7 @@ import { GROUP_LABEL, GROUP_TERM, TERMS, type TermKey } from "./help/terms";
 import { ReactiveCharts } from "./ReactiveCharts";
 import type { CheckId, CheckResult, EsminiCheck, ReactiveDetail, ReactiveGroup, ReactiveKindDetail, ReactiveSensitivity, VariantOutcome } from "./reactiveTypes";
 import { KIND_LABEL } from "./reactive/model";
+import { mentions } from "./studio/analysis";
 import type { Diagnostic, Real2simReport as Report } from "./types";
 
 /** Number with unit, Vietnamese decimal comma; "—" when the tool did not report it (never invented). */
@@ -33,25 +34,40 @@ const mark = (passed: boolean | null) => passed === true ? "✓" : passed === fa
  * Scenario report of a team real2sim package (plan43 SPEC-P02): the tool's own numbers from report.json,
  * plus the app's map/dynamics notes. Replaces the metrics block for this kind; nothing is recomputed here.
  */
-export function Real2simReport({ report, diagnostics, onSensitivity, esmini, onEsminiCheck }: {
+export function Real2simReport({ report, diagnostics, onSensitivity, esmini, onEsminiCheck, focus, brief = false }: {
     report: Report | null; diagnostics: Diagnostic[];
+    /** plan54: only these vehicles are listed (ego + related); the rest is counted and can be shown on request. */
+    focus?: Set<string>;
+    /** plan54: leave out blocks the Analysis page already shows in its own tabs (verdict, comparison, checks, charts, vehicles). */
+    brief?: boolean;
     /** plan46: re-run the package's event at 0.7 / 1.0 / 1.5 s reaction (reactive packages only). */
     onSensitivity?: () => Promise<ReactiveSensitivity>;
     /** plan46: esmini check of this package (validity condition 1), run on the metrics worker. */
     esmini?: EsminiState; onEsminiCheck?: () => void;
 }) {
     const t = useT();
-    const notes = diagnostics.filter(d => /^(MAP_NOTE_|DYNAMIC_NOTE|REPORT_FIELD)/.test(d.code));
+    const [showAll, setShowAll] = useState(false);
+    const keep = (id: string) => !focus || showAll || focus.has(id);
+    const allNotes = diagnostics.filter(d => /^(MAP_NOTE_|DYNAMIC_NOTE|REPORT_FIELD)/.test(d.code));
+    const notes = allNotes.filter(d => !d.actor_id || keep(d.actor_id));
+    /** "N mục về M đối tượng khác đang ẩn" + toggle; nothing when everything is shown. */
+    const hidden = (rows: number, objects: number) => focus && (showAll || rows > 0) ? <p className="r2s-hidden">
+        {!showAll && t("Ẩn {n} mục về {m} đối tượng không liên quan.", { n: rows, m: objects })}
+        <button type="button" className="r2s-toggle" onClick={() => setShowAll(!showAll)}>{showAll ? t("Chỉ xe liên quan") : t("Hiện tất cả")}</button>
+    </p> : null;
+    const hiddenNotes = allNotes.filter(d => d.actor_id && !keep(d.actor_id));
     const notesBlock = <section className="r2s-block" aria-label={t("Ghi chú map của app")}>
         <h3>{t("Ghi chú map của app")}</h3>
         {notes.length ? <ul className="r2s-notes">{notes.map((d, i) => <li key={i}><TriangleAlert size={12} aria-hidden/>{d.message}</li>)}</ul>
             : <p className="runner-muted">{t("Không có ghi chú.")}</p>}
+        {hidden(hiddenNotes.length, new Set(hiddenNotes.map(d => d.actor_id)).size)}
         <p className="sensor-note">{t("Dữ liệu ghi thật có xe đỗ lề, rào chắn ngoài làn: các ghi chú này không chặn việc nạp.")}</p>
     </section>;
     if (!report) return <div className="r2s-report"><p className="runner-muted">{t("Gói không có report.json.")}</p>{notesBlock}</div>;
     const { event, ego, drivers, esmini: tool, run } = report;
-    const physics = Object.entries(report.physics);
-    const errors = Object.entries(tool?.replay_error_m ?? {});
+    const allPhysics = Object.entries(report.physics), physics = allPhysics.filter(([id]) => keep(id));
+    const allErrors = Object.entries(tool?.replay_error_m ?? {}), errors = allErrors.filter(([id]) => keep(id));
+    const collisions = report.collisions.filter(c => !focus || showAll || mentions(c, focus));
     const reacted = report.reacted.filter(id => id);
     // plan47: a non-brake event has no braking fields; its kind and the report's summary describe it.
     const kind = (report.topeye as (ReactiveDetail & Partial<ReactiveKindDetail>) | null | undefined)?.kind;
@@ -75,13 +91,19 @@ export function Real2simReport({ report, diagnostics, onSensitivity, esmini, onE
             <dt>{t("Đường")}</dt><dd>{run.road ?? "—"}</dd>
         </dl>
     </section>;
+    const scopeBlock = focus && <section className="r2s-block" aria-label={t("Phạm vi báo cáo")}>
+        <h3>{t("Phạm vi báo cáo")}</h3>
+        <p>{t("Chỉ số đo trên xe của bạn và các xe liên quan:")} {[...focus].map(id => <span key={id} className="chip">{id === "ego" ? t("xe của bạn") : id}</span>)}</p>
+    </section>;
     if (report.topeye) return <div className="r2s-report" aria-label={t("Báo cáo kịch bản real2sim")}>
+        {scopeBlock}
         <ReactiveSections detail={report.topeye} react={drivers?.react !== false} onSensitivity={onSensitivity} esmini={esmini} onEsminiCheck={onEsminiCheck}
-            eventBlock={eventBlock}/>
+            eventBlock={eventBlock} brief={brief}/>
         {notesBlock}
         {runBlock}
     </div>;
     return <div className="r2s-report" aria-label={t("Báo cáo kịch bản real2sim")}>
+        {scopeBlock}
         <section className="r2s-block">
             <h3>{t("Kết luận")} <HelpTip term="valid"/> <small className="runner-muted">{t("theo real2sim")}</small></h3>
             <p className={`r2s-verdict ${report.valid === true ? "pass" : report.valid === false ? "fail" : ""}`}>
@@ -121,16 +143,19 @@ export function Real2simReport({ report, diagnostics, onSensitivity, esmini, onE
                     <td className={p.max_decel !== undefined && p.limit_decel !== undefined && p.max_decel > p.limit_decel ? "fail" : ""} title={t("ngưỡng {v}", { v: fmt(p.limit_decel, 1, " m/s²") })}>{fmt(p.max_decel, 2, " m/s²")}{p.t_decel !== undefined && <small> @{fmt(p.t_decel, 2, " s")}</small>}</td>
                 </tr>)}
             </tbody></table>
+            {hidden(allPhysics.length - physics.length, allPhysics.length - physics.length)}
         </section>}
         <section className="r2s-block">
             <h3>{t("Va chạm")} <HelpTip term="c_collision"/></h3>
-            {report.collisions.length ? <ul className="r2s-notes">{report.collisions.map((c, i) => <li key={i}>{c}</li>)}</ul> : <p>{t("Không có")}</p>}
+            {collisions.length ? <ul className="r2s-notes">{collisions.map((c, i) => <li key={i}>{c}</li>)}</ul> : <p>{t("Không có")}</p>}
+            {report.collisions.length > collisions.length && <p className="r2s-hidden">{t("{n} va chạm giữa các đối tượng không liên quan: xem mục Kiểm định.", { n: report.collisions.length - collisions.length })}</p>}
         </section>
         {tool && <section className="r2s-block">
             <h3>esmini <small className="runner-muted">{tool.version ?? ""} · exit {tool.exit ?? "—"}</small></h3>
             {errors.length > 0 && <table className="r2s-table"><thead><tr><th>ID</th><th>{t("Sai số TB")} <HelpTip term="esmini_err"/></th><th>{t("Sai số max")}</th></tr></thead><tbody>
                 {errors.map(([id, e]) => <tr key={id}><td>{id}</td><td>{fmt(e.mean, 4, " m")}</td><td>{fmt(e.max, 4, " m")}</td></tr>)}
             </tbody></table>}
+            {hidden(allErrors.length - errors.length, allErrors.length - errors.length)}
             {tool.problems.map((p, i) => <p className="runner-diag" key={i}><TriangleAlert size={13} aria-hidden/>{p}</p>)}
         </section>}
         {notesBlock}
@@ -143,13 +168,22 @@ const groupText = (g: ReactiveGroup | null, t: Translate) => g ? t(GROUP_LABEL[g
 const span = ([a, b]: [number, number, ...unknown[]]) => `${fmt(a, 1)}–${fmt(b, 1, " s")}`;
 
 /** Reactive package detail (plan46 SPEC-WP4 §1/3): the 8 blocks over report.json["topeye"]. */
-function ReactiveSections({ detail, react, onSensitivity, esmini, onEsminiCheck, eventBlock }: {
+function ReactiveSections({ detail, react, onSensitivity, esmini, onEsminiCheck, eventBlock, brief }: {
     detail: ReactiveDetail; react: boolean; onSensitivity?: () => Promise<ReactiveSensitivity>;
-    esmini?: EsminiState; onEsminiCheck?: () => void; eventBlock: ReactNode;
+    esmini?: EsminiState; onEsminiCheck?: () => void; eventBlock: ReactNode; brief: boolean;
 }) {
     const t = useT();
     const own: VariantOutcome | undefined = react ? detail.comparison?.pilot : detail.comparison?.baseline;
     const group = own?.valid ? own.group : null;
+    if (brief) return <>
+        {eventBlock}
+        {onSensitivity && <SensitivityBlock key={detail.summary} run={onSensitivity}/>}
+        {onEsminiCheck && <EsminiBlock esmini={esmini} onEsminiCheck={onEsminiCheck}/>}
+        <section className="r2s-block" aria-label={t("Kích hoạt theo thời gian")}>
+            <h3>{t("Kích hoạt theo thời gian")} <HelpTip term="trigger"/></h3>
+            <p>{detail.trigger_note}</p>
+        </section>
+    </>;
     return <>
         <section className="r2s-block" aria-label={t("Kết luận")}>
             <h3>{t("Kết luận")} <HelpTip term="valid"/></h3>
