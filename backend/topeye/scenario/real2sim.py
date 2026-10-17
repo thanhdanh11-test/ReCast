@@ -497,6 +497,8 @@ def read_report(data, notes):
         }
         if run
         else None,
+        # plan46 C2: the reactive detail block of a topeye package, forwarded as is (shallow type check only)
+        "topeye": raw["topeye"] if isinstance(raw.get("topeye"), dict) else None,
     }
 
 

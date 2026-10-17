@@ -2,6 +2,105 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.37.1 — 2026-10-17T14:25:05+07:00
+v0.37.1 PATCH: ô Cảnh nguồn đầu trang Kịch bản và bộ chọn Map trong Tạo kịch bản làm mờ (option disabled + lý do ở tooltip) các cảnh có map bị cổng `build_map_context` từ chối (mini: 0103, 0655). Worker chỉ số `map_status` = `validate_source_polygons` dùng chung với cổng thật trên vector map, không dựng LiDAR (~1 s/10 cảnh, cache theo dataset). Probe lỗi ⇒ không làm mờ; cổng thật vẫn chặn. FE541/server51/BE820 0skip; typecheck/build0; E2E chính PASS; E2E workspace (Chrome) khẳng định option mờ = đúng cảnh cổng thật từ chối: nuScenes [0103,0655], AV2 [].
+
+## v0.37.0 — 2026-10-17T00:58:44+07:00 (local release verified)
+- One Scenario workspace combines guided/detailed reaction,20templates/MapFit, strict XOSC and real2sim import, library/edit/export/trash/history and advanced metrics. Shared source, preferences and guarded jobs; old query is an alias.
+- Durable authenticated group sidecar with raw event/hash validation, partial-pilot and link-only retries; no package/hash/parser/physics relaxation.
+- Independent resource errors/retry, geometry preflight, boot/empty states, stale/cancel guards, readonly queue and same-dataset reload repair. Report actual ego collisions/reaction and missing values.
+- FE538/server51/BE819 pass, no skips; browser13packages/5groups/reload,20scene classification18supported/2invalid,EN/light/mobile and mainweb5180 verified in Plan49. Owner visual acceptance remains separate.
+
+## Audit / repair plan — 2026-10-17T00:06:42+07:00 (no product release)
+- Plan49 audit: 11 findings +5 risks; FE524/525 (missing EN), server43/43, BE819/819;20scene map preflight18pass/0103+0655invalid; build/typecheck0. One Scenario tab spec ready; no production code changed.
+- Findings reproduced on isolated browser account/workspace; auth/logout and measured source LiDAR work. Navigation consolidation is specified, not deployed.
+
+## v0.36.1 — 2026-10-16T21:40:31+07:00
+- v0.36.1: chọn dataset trên web chính mở thẳng cùng component/bộ nút demo (Có hướng dẫn/Chuyên sâu/thanh5bước). AccessApp initialGuided=true, chờ source load trước khi gọi API. Back trả công cụ cũ.72tests/typecheck/build pass;Chrome12bước12gói0lỗi.
+- Owner correction: toolbar link alone was insufficient; use actual shared demo screen as default catalog entry. Same engine/API and source workspace return path.
+
+## v0.36.0 — 2026-10-16T20:50:23+07:00 (mainweb local)
+- v0.36.0 mainweb: Có hướng dẫn trên thanh công cụ, dùng cảnh đang chọn; quay về không gian làm việc. 71/71 focused tests, typecheck/build exit0; Chrome từ root URL 11 bước/12 gói/0 lỗi. Engine/API không đổi. Toàn bộ tương tác ego cùng làn chưa triển khai.
+- Chủ dự án yêu cầu tích hợp web chính; preview query vẫn tương thích. Ba config frontend/package.json, package-lock và backend/pyproject đồng bộ phiên bản; không thay đổi dữ liệu người dùng.
+
+## Preview Có hướng dẫn — 2026-10-16T20:37:00+07:00
+- Có hướng dẫn mặc định: chọn ý định → gợi ý xe có ego theo sau → preset hợp lệ và thời điểm → hai kết quả thật → xuất. Chuyên sâu giữ 20 mẫu/tham số; engine/API không đổi. 70/70 tests, typecheck/build exit0, Chrome 9 bước/12 gói/0 lỗi, HTTP200. Chờ duyệt trải nghiệm; preview trên0.35.0.
+- P03 replaces default vehicle-first P02; expert retains that flow. No release/version bump or backend changes.
+
+## Preview chưa phát hành — Guided demo — 2026-10-16T20:23:50+07:00
+- Luồng 5 bước: chọn xe → tình huống → tham số → so sánh → lưu/xuất; click ego mở 20 template, xe giao thông có 4 kind. Hai API cùng event sinh hai gói baseline/pilot thật, phát cạnh nhau cùng đồng hồ; tự lưu được nói rõ. Chọn sẵn hướng/thời lượng khả thi theo xe; khóa chuyển bước khi đang chạy. 66/66 test, typecheck/build exit0; Chrome 8 bước/10 gói/0 lỗi, quỹ đạo ego khác nhau. Chưa phát hành, chờ duyệt hình thức.
+- Thay quyết định preview 2026-10-15 chỉ phát pilot: hiện phát hai gói thật. Template không có baseline/pilot phản ứng. Cặp chỉ liên kết trong phiên; mở gói lẻ sau reload ghi rõ giới hạn.
+
+## Preview chưa phát hành — Unified scenario demo — 2026-10-15
+- Theo yêu cầu người dùng, thêm demo một cảnh `scene-0061` tại `?unified-demo=1`: “tạo phản ứng” dùng `importReactive` thật để sinh gói `.xosc` + report; “nạp .xosc” dùng `importXosc` thật; hai nhánh gặp nhau ở thư viện, map/3D, báo cáo và xuất. Parser/cổng kiểm dữ liệu và giao diện mặc định không đổi.
+- Chrome workspace/tài khoản tạm: phản ứng `truck_138_t0.0_stop_a4` 228 đối tượng, mở lại được, xuất `.xosc` có OpenSCENARIO root; `.xosc` thường sinh từ đúng map đã nạp qua cổng nghiêm ngặt và hiện cùng thư viện; 0 page/console error. Build/typecheck/47 test liên quan đạt. Chờ người dùng duyệt demo trước khi thiết kế bản hợp nhất chính thức; phiên bản giữ 0.35.0.
+- Sau góp ý của người dùng, preview có click ego và xe giao thông trên map; bốn kind phanh/tăng tốc/dừng vạch/chuyển làn dùng contract Plan47. Baseline/pilot hiển thị trên map ngay khi phát lại, lấy số đo thật từ `report.topeye.comparison`; map phát lại pilot. Chrome scene-0061 tạo đủ bốn kind từ `truck_138`, thêm `.xosc` thường thành 5 gói chung thư viện, 0 lỗi; 55/55 test liên quan và build đạt. Ego chỉ là xe phản ứng theo engine hiện hành.
+
+## v0.35.0 — Reactive kinds and workspace — 2026-10-15 (local technical gates)
+- Thêm sự kiện `accelerate`, `stopline`, `lane_change` vào engine, API/gói real2sim và chỉ số 2 theo kind; giữ nguyên phép đo brake 10 cảnh 777/225/591/18 (DIFF0).
+- Cửa sổ t0 riêng theo kind; từ chối dừng ở vạch nếu không thể giảm tốc hợp lệ. Mỗi ô lưới kind mới điền được cùng contract vào UI.
+- Workspace Phản ứng theo ảnh chủ dự án chốt: chọn xe trên bản đồ, timeline, inspector, hai chế độ hiển thị và dock báo cáo/chỉ số. Đổi cảnh tải lại source và loại bỏ lựa chọn cũ.
+- Đo local: backend 819, frontend 505, server 43 bài đều đạt; typecheck, build, Ruff đạt. Bảng 10 cảnh: tăng tốc 696/677/532/1, dừng vạch 53/16/36/0, chuyển làn 221/130/132/2 (thử/baseline/pilot/hiếm). Chủ dự án còn duyệt ảnh từng kind/hình thức trước khi đóng Plan47.
+
+## v0.34.0 — Full replay-forge measurement, baselines and glossary — 2026-10-15T19:09:48+07:00
+- Nhập nốt phần đo đạc của replay-forge (thành viên nhóm, @ d36205b).
+- **Mỗi kịch bản phản ứng** — `report.json["topeye"]`:
+  - baseline (không ai phản ứng) và pilot (phản ứng) trên cùng sự kiện;
+  - 7 điều kiện hợp lệ có số đo;
+  - biểu đồ tốc độ/gia tốc/gap/TTC có bản ghi;
+  - mốc sự kiện, trạng thái từng xe;
+  - câu kết luận;
+  - thử độ nhạy 0,7/1,0/1,5 s.
+- **Theo cảnh** (worker chỉ số):
+  - **chỉ số 2** `reactive_metrics`: lưới cố định, baseline vs pilot, lần phanh, ca hiếm tìm sẵn, không gian tham số, độ nhạy;
+  - **chỉ số 1** `replay_error_metrics`: ADE/FDE/max/yaw/vRMSE exact/baseline/pilot qua esmini + kiểm chéo mốc giấu + dữ liệu gốc từng vật thể.
+- **Kiểm bằng esmini** từng gói (`esmini_check`, cache cạnh gói ngoài hash):
+  - gói team không kèm `.xodr` ⇒ "không kiểm được", không phải ✗.
+- **48 thuật ngữ** có dấu ?: 43 của replay-forge + 5 tên nhóm; một nguồn `help/terms.ts`.
+- **Nghiệm thu bằng số đã công bố của replay-forge, 10 cảnh mini:**
+  - chỉ số 2: 777/225/591, hiếm 18;
+  - độ nhạy: 607/0, 493/41;
+  - **0 khác biệt trên 4×777 biến thể**;
+  - chỉ số 1: ADE moving 1,771/0,098; holdout 0,091/1,983/0,133.
+- **Quyết định:** engine (phản ứng + chỉ số) dùng ego ở mốc nhãn 2 Hz như replay-forge; màn xem nguồn giữ ego dày.
+- **Thẩm định đối kháng (Codex)** tìm 3 lỗi chặn, đã sửa:
+  - cache esmini trước kiểm hash;
+  - vắng mặt theo từng mốc;
+  - physics.passed khi vượt ngưỡng.
+- **Sửa phụ:**
+  - local-server sập khi request tới lúc đóng (`server.address()` null) ⇒ trả 503;
+  - server đọc hết thân POST > 8 MiB trước khi trả 400 (tránh treo fetch);
+  - xoá gói giữa lúc tính chỉ số ⇒ `NOT_FOUND`.
+- **Đo:**
+  - backend 792, vitest 471, server 43, tsc/build 0;
+  - E2E Chrome scene-0061 (chỉ số 2 → chỉ số 1 → Xem ca hiếm → báo cáo 8 khối → esmini → độ nhạy → dấu ?) PASS;
+  - hồi quy PASS.
+- **Điều phối Orca:**
+  - Claude: WP1/3/4/5/7;
+  - Codex: WP2/6/8;
+  - WP4 Codex lỗi khởi động ⇒ Claude.
+- [Plan46](../planning/46_2026-10-15_reactive-metrics/plan.md).
+
+## v0.33.0 — Reactive scenarios + human-like template motion — 2026-10-15T14:36:09+07:00
+- **Kịch bản phản ứng** (học từ repo `replay-forge` của thành viên nhóm, tác giả cho phép, @ d36205b). Tab "Phản ứng" trong Tạo kịch bản:
+  - chọn một xe thật đang có xe bám theo, cho nó phanh/dừng/chậm 50%;
+  - các xe phía sau (kể cả ego) phản ứng như người lái: IDM cải tiến, phản xạ 1 s, giới hạn độ giật, xe nặng phanh tối đa 5 m/s²;
+  - vật thể khác phát lại `pilot`;
+  - kiểm hợp lệ (chồng hộp, bám đuôi, nhãn lỗi, chưa hỗ trợ) + nhóm hiếm (collision/hard/close/mild/far).
+- **Đầu ra:** gói real2sim, nạp qua đường plan43 (`parse_package`), KHÔNG qua `validate_xosc`. Lý do: cảnh thật > 32 actor; tab Số liệu đọc được ngay.
+- **Mã nguồn mới:**
+  - `backend/topeye/scenario/reactive.py`, `reactive_package.py`;
+  - worker `reactive_candidates`/`import_reactive`;
+  - server `reactiveCandidates`/`importReactive`;
+  - `authoring/ReactiveForm.tsx`.
+- **Template:** gia tốc giới hạn độ giật (phanh 10 / thường 3 m/s³), nhả ga trước khi phanh, bus/truck phanh ≤ 5 m/s². Fit 5 cảnh × 20 loại 44 → 45/100.
+- **Đo:**
+  - quét 100 sự kiện / 3 cảnh: 39/100 hợp lệ, trùng replay-forge (thẩm định độc lập R04 tìm ra lỗi tâm hộp ego lệch 1,39 m, đã sửa);
+  - backend 763, vitest 445, server 42, tsc/build 0;
+  - E2E Chrome thật scene-0061: car_154 chậm 50% a=4 ⇒ 228 actor, hợp lệ, `mild`, tạo 4,9 s; hồi quy E2E PASS.
+- **Sửa phụ:** nhãn sự kiện `half` hiện "chậm lại 50%" ở báo cáo real2sim.
+- **Điều phối:** Orca, Claude P01/P03, Codex P02/P04; agy dừng vì lỗi xác thực 401, Claude tiếp quản. [Plan45](../planning/45_2026-10-15_reactive-events/plan.md).
+
 ## v0.32.1 — Instant view switching, red active tab — 2026-10-15T09:38:53+07:00
 - Đổi Cảnh nguồn ⇄ OpenSCENARIO không còn dựng lại cảnh 3D: hai màn luôn mount, màn ẩn giữ props cũ và `TrackView active=false` bỏ qua vẽ. Đo Chrome thật: long task 2,5–2,7 s mỗi lần đổi ⇒ không còn; phát vẫn 60 fps. Icon rail tô đỏ theo màn đang hiện. vitest 436, server 41, E2E hồi quy PASS. [Plan44](../planning/44_2026-10-15_tab-switch/plan.md).
 

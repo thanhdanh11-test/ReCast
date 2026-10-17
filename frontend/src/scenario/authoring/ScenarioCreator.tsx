@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Download, FileUp, FolderOpen, LayoutGrid, MapPin, Sparkles, TriangleAlert, Upload, X } from "lucide-react";
 import { useT } from "../i18n";
 import { TYPE_BY_ID, newTemplate, type ScenarioType } from "./catalog";
@@ -13,9 +13,12 @@ import "./authoring.css";
 /**
  * “Tạo kịch bản” screen (plan38 P01): pick a type → edit the template, or describe it to AI → same template.
  * “Tạo từ template” compiles it in the worker (P02) and imports it like a .xosc file; the existing .xosc import and
- * map-context export stay available in the footer.
+ * map-context export stay available in the footer. Reactive events (plan45–47) have their own workspace ("Phản ứng").
  */
-export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportMap, onImportXosc, onImportPackage, onCreateTemplate, fitTemplate, editing }: {
+export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportMap, onImportXosc, onImportPackage, onCreateTemplate, fitTemplate, editing, onSceneChange, creationBlocked, mapStatus }: {
+    onSceneChange?:(scene:string)=>void; creationBlocked?:string;
+    /** Map admission per scene (null = usable); rejected scenes are greyed out in the picker. Absent/failed = no greying. */
+    mapStatus?: () => Promise<Record<string, string | null>>;
     scenes: string[]; currentScene: string; busy: boolean; onClose: () => void;
     onExportMap: (scene: string) => Promise<unknown>; onImportXosc: (scene: string) => Promise<boolean | undefined>;
     /** real2sim package folder (plan43); its report.json picks the scene, else the selected map. */
@@ -34,10 +37,16 @@ export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportM
     const [issues, setIssues] = useState<Issue[] | null>(null);
     const [loadError, setLoadError] = useState("");
     const file = useRef<HTMLInputElement>(null);
+    const [mapErrors, setMapErrors] = useState<Record<string, string | null>>({});
+    useEffect(() => {
+        let live = true;
+        mapStatus?.().then(status => { if (live) setMapErrors(status); }, () => {});
+        return () => { live = false; };
+    }, [mapStatus]);
     const type: ScenarioType | undefined = template ? TYPE_BY_ID.get(template.scenario_type) : undefined;
 
     const edit = (next: ScenarioTemplate | null) => { setTemplate(next); setIssues(null); };
-    const pickScene = (value: string) => { setScene(value); if (template) edit({ ...template, map: { ...template.map, scene: value } }); };
+    const pickScene = (value: string) => { setScene(value);onSceneChange?.(value); if (template) edit({ ...template, map: { ...template.map, scene: value } }); };
     const pick = (picked: ScenarioType) => { edit(newTemplate(picked, scene, t(picked.name))); setMode("template"); };
     const download = () => {
         if (!template) return;
@@ -66,13 +75,14 @@ export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportM
 
     return <div className="runner-dialog-backdrop">
         <div className="runner-dialog authoring" role="dialog" aria-modal="true" aria-label={editing ? t("Sửa {name}", { name: editing.name }) : t("Tạo kịch bản")}>
+            {creationBlocked&&<p className="sensor-error" role="alert">{creationBlocked}</p>}
             <header className="authoring-head">
                 <div className="authoring-modes" role="tablist" aria-label={t("Cách tạo kịch bản")}>
                     <button role="tab" aria-selected={mode === "template"} onClick={() => setMode("template")}><LayoutGrid size={14} aria-hidden/>{t("Từ template")}</button>
                     <button role="tab" aria-selected={mode === "ai"} onClick={() => setMode("ai")}><Sparkles size={14} aria-hidden/>{t("Bằng AI")}</button>
                 </div>
                 <label className="authoring-map">{t("Map")}<select aria-label={t("Map cho kịch bản")} value={scene} disabled={busy} onChange={e => pickScene(e.target.value)}>
-                    {scenes.map(s => <option key={s} value={s}>{s}</option>)}
+                    {scenes.map(s => { const error = mapErrors[s]; return <option key={s} value={s} disabled={!!error} title={error ?? undefined}>{error ? `${s} · ${t("map lỗi, không tạo được kịch bản")}` : s}</option>; })}
                 </select></label>
                 <button className="icon-button" aria-label={t("Đóng")} onClick={onClose}><X size={14} aria-hidden/></button>
             </header>
@@ -119,9 +129,9 @@ export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportM
 
             <footer className="authoring-foot">
                 <div className="authoring-foot-group">
-                    <button disabled={busy || !scene} onClick={() => void onExportMap(scene)}><MapPin size={14} aria-hidden/> {t("Tải thông tin map")}</button>
-                    <button disabled={busy || !scene} onClick={() => void onImportXosc(scene).then(ok => { if (ok) onClose(); })}><Upload size={14} aria-hidden/> {t("Chọn file .xosc")}</button>
-                    {onImportPackage && <button disabled={busy || !scene} title={t("Chọn thư mục gói real2sim (.xosc + report.json + trajectories.csv)")} onClick={() => void onImportPackage(scene).then(ok => { if (ok) onClose(); })}><FolderOpen size={14} aria-hidden/> {t("Nạp gói real2sim")}</button>}
+                    <button disabled={busy || !scene || !!creationBlocked} onClick={() => void onExportMap(scene)}><MapPin size={14} aria-hidden/> {t("Tải thông tin map")}</button>
+                    <button disabled={busy || !scene || !!creationBlocked} onClick={() => void onImportXosc(scene).then(ok => { if (ok) onClose(); })}><Upload size={14} aria-hidden/> {t("Chọn file .xosc")}</button>
+                    {onImportPackage && <button disabled={busy || !scene || !!creationBlocked} title={t("Chọn thư mục gói real2sim (.xosc + report.json + trajectories.csv)")} onClick={() => void onImportPackage(scene).then(ok => { if (ok) onClose(); })}><FolderOpen size={14} aria-hidden/> {t("Nạp gói real2sim")}</button>}
                     <button onClick={() => file.current?.click()}><FileUp size={14} aria-hidden/> {t("Nạp template")}</button>
                     <input ref={file} type="file" accept=".json,application/json" hidden aria-label={t("File template")} onChange={e => void load(e.target.files?.[0])}/>
                 </div>
@@ -130,7 +140,7 @@ export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportM
                     {mode === "template" && template && <>
                         <button onClick={download}><Download size={14} aria-hidden/> {t("Tải template")}</button>
                         <button onClick={() => setIssues(validateTemplate(template))}><Check size={14} aria-hidden/> {t("Kiểm tra")}</button>
-                        <button className="primary" disabled={busy || !mapsMatch} title={mapsMatch ? undefined : t("Map của template khác map đang chọn ở trên.")} onClick={create}>{editing ? t("Lưu thay đổi") : t("Tạo từ template")}</button>
+                        <button className="primary" disabled={busy || !mapsMatch || !!creationBlocked} title={mapsMatch ? undefined : t("Map của template khác map đang chọn ở trên.")} onClick={create}>{editing ? t("Lưu thay đổi") : t("Tạo từ template")}</button>
                     </>}
                 </div>
             </footer>

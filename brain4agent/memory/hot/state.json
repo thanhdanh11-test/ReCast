@@ -1,24 +1,82 @@
 {
-  "current_version": "0.32.1",
+  "current_version": "0.37.1",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
-    "timestamp": "2026-10-15T09:38:53+07:00",
-    "scope": "0.32.1 plan44 view switching",
+    "timestamp": "2026-10-16T10:18:20+07:00",
+    "scope": "Plan48 guided demo P02 + ScenarioMetricsView simple/technical modes verified",
     "backend_tests": {
-      "total": 731,
-      "pass": 731
+      "total": 819,
+      "pass": 819,
+      "fail": 0,
+      "skip": 0
     },
     "frontend_tests": {
-      "total": 436,
-      "pass": 436
+      "total": 518,
+      "pass": 518,
+      "fail": 0,
+      "skip": 0
     },
     "server_tests": {
-      "total": 41,
-      "pass": 41
+      "total": 43,
+      "pass": 43,
+      "fail": 0,
+      "skip": 0
     },
-    "e2e_local_web": "regression PASS; tab switch 2.8s→<0.3s",
-    "evidence": "planning/44_2026-10-15_tab-switch/evidence"
+    "typecheck": "exit 0",
+    "build": "exit 0",
+    "ruff": "exit 0",
+    "brake_metric2": {
+      "variants": 777,
+      "baseline_valid": 225,
+      "pilot_valid": 591,
+      "pilot_rare": 18,
+      "per_variant_diffs": 0
+    },
+    "new_kind_metric2": {
+      "accelerate": [
+        696,
+        677,
+        532,
+        1
+      ],
+      "stopline": [
+        53,
+        16,
+        36,
+        0
+      ],
+      "lane_change": [
+        221,
+        130,
+        132,
+        2
+      ]
+    },
+    "evidence": "planning/48_2026-10-15_unified-scenario-demo/evidence/guided",
+    "e2e_local_web": "Plan48 guided demo 8 steps PASS, 4 kinds + template + ordinary XOSC PASS, 10 saved packages verified; 0 page/HTTP errors",
+    "mainweb_guided": {
+      "timestamp": "2026-10-16T21:40:31+07:00",
+      "tests": 72,
+      "browser_steps": 12,
+      "browser_errors": 0,
+      "version": "0.36.1"
+    },
+    "plan49_audit": {
+      "status": "audit_complete_repair_spec_ready",
+      "product_version": "0.36.1",
+      "implementation_started": false,
+      "findings": 11,
+      "unverified_risks": 5,
+      "frontend_pass": 524,
+      "frontend_fail": 1,
+      "server_pass": 43,
+      "backend_pass": 819,
+      "scene_preflight_pass": 18,
+      "scene_preflight_total": 20,
+      "evidence": "planning/49_2026-10-16_scenario-unify/evidence/audit/summary.json",
+      "completed_at": "2026-10-17T00:06:42+07:00"
+    }
   },
   "active_plans_completed": 1,
   "engine_sha": "1e68b141926025230d15ac986b2022c3d70a1e33",
@@ -115,9 +173,9 @@
     }
   },
   "active_plan": {
-    "id": "38_2026-10-13_scenario-authoring",
-    "status": "map_fit_completed_local_p03_pending",
-    "updated_at": "2026-10-13T15:46:53+07:00"
+    "id": "49_2026-10-16_scenario-unify",
+    "status": "local_technical_complete_owner_visual_pending",
+    "updated_at": "2026-10-17T01:04:51+07:00"
   },
   "nurec_static": {
     "scene": "scene-0061",
@@ -1229,5 +1287,63 @@
     "gpu_visual": "not measured; user browser",
     "completed_at": "2026-10-13T21:33:11+07:00",
     "http_verified": true
+  },
+  "plan46": {
+    "status": "complete_local",
+    "version": "0.34.0",
+    "completed_at": "2026-10-15T18:38:22+07:00",
+    "acceptance_gates": "9/9 local; server n/a",
+    "report": "planning/46_2026-10-15_reactive-metrics/reports/R07_review-fixes.md",
+    "commit": "pending_owner_approval"
+  },
+  "plan47": {
+    "status": "local_technical_complete_owner_visual_pending",
+    "version": "0.35.0",
+    "commit": "pending_owner_approval",
+    "owner_visual_approved": false,
+    "evidence": "planning/47_2026-10-15_reactive-kinds-ui/evidence/local",
+    "acceptance_gates": "6/9 local; visual comparison and owner approval plus Claude-family backend review pending"
+  },
+  "plan48": {
+    "status": "mainweb_default_demo_interface_verified",
+    "version": "0.36.1",
+    "scene": "scene-0061",
+    "url": "http://127.0.0.1:5180/",
+    "typecheck": "exit 0",
+    "focused_tests": "72/72 pass, 0 skip",
+    "build": "exit 0",
+    "browser": "pass:true; root catalog automatically opens actual demo layout;12steps,12packages,0errors",
+    "evidence": "planning/48_2026-10-15_unified-scenario-demo/evidence/main-default",
+    "owner_visual_approved": false,
+    "verified_at": "2026-10-16T21:40:31+07:00",
+    "default_mode": "guided",
+    "full_same_lane_interaction": "not implemented; scope clarification pending"
+  },
+  "plan49": {
+    "status": "local_technical_complete_owner_visual_pending",
+    "product_version": "0.37.0",
+    "implementation_started": true,
+    "findings": 11,
+    "unverified_risks": 5,
+    "frontend_pass": 538,
+    "frontend_fail": 0,
+    "server_pass": 51,
+    "backend_pass": 819,
+    "scene_preflight_pass": 18,
+    "scene_preflight_total": 20,
+    "evidence": "planning/49_2026-10-16_scenario-unify/evidence/audit/summary.json",
+    "completed_at": "2026-10-17T00:06:42+07:00",
+    "independent_review": "approved; 4MiB regression fixed, readonly queue/auth probes passed",
+    "implementation_evidence": "planning/49_2026-10-16_scenario-unify/evidence/acceptance/summary.json",
+    "owner_visual_approved": false,
+    "local_verified_at": "2026-10-17T01:04:51+07:00",
+    "browser_pass": true,
+    "browser_packages": 13,
+    "durable_groups": 5,
+    "mainweb_url": "http://127.0.0.1:5180/",
+    "mainweb_version": "0.37.0",
+    "production_state_hashes_unchanged": true,
+    "full_same_lane_two_way_ego": false,
+    "remote_deployment": false
   }
 }

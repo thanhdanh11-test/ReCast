@@ -7,6 +7,7 @@ import "./access.css";
 import { LanguageProvider, useT } from "./i18n";
 import { loadPreferences, PREFERENCES_EVENT } from "./preferences";
 
+
 function Brand() {
   return <div className="access-brand"><img src={logo} alt=""/><span>Topeye<small>SCENARIO STUDIO</small></span></div>;
 }
@@ -123,7 +124,7 @@ function AccessScreens() {
   }
   if (!session) return <main className="access-screen access-pending"><Brand/>{loading ? <p role="status"><LoaderCircle className="access-spin"/>{t("Đang mở Topeye…")}</p> : <><p role="alert">{error}</p><button className="access-primary" onClick={() => window.location.reload()}>{t("Thử lại")}</button></>}</main>;
   if (!session.authenticated) return <Login key={String(session.configured)} configured={session.configured} onSession={s => { setError(""); setStudio(false); setSession(s); }}/>;
-  if (studio) return <ScenarioApp onLibrary={() => { setStudio(false); void refresh().catch(e => setError(e.message)); }} onLogout={() => void logout()}/>;
+  if (studio) return <ScenarioApp initialGuided onLibrary={() => { setStudio(false); void refresh().catch(e => setError(e.message)); }} onLogout={() => void logout()}/>;
   const count = entries.filter(e => e.status === "ready").reduce((sum, e) => sum + e.sceneCount, 0);
   return <main className="access-screen catalog-screen">
     <header className="catalog-header"><Brand/><div className="catalog-account"><span><i/>{session.username}</span><button type="button" className="access-quiet" onClick={() => void logout()} disabled={!!opening}><LogOut size={16}/>{t("Đăng xuất")}</button></div></header>

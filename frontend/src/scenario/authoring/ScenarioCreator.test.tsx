@@ -13,6 +13,21 @@ const setup = (busy = false, language: "vi" | "en" = "vi") => {
 };
 
 describe("ScenarioCreator", () => {
+    it("greys out scenes whose map the backend rejects, and keeps the others selectable", async () => {
+        const mapStatus = vi.fn(async () => ({ "scene-0061": null, "scene-0103": "Source polygon 8 (road_segment): Invalid map polygon" }));
+        render(<LanguageProvider value="vi"><div className="studio"><ScenarioCreator scenes={["scene-0061", "scene-0103"]} currentScene="scene-0061" busy={false} mapStatus={mapStatus} onClose={vi.fn()} onExportMap={vi.fn(async () => ({}))} onImportXosc={vi.fn(async () => true)} onCreateTemplate={vi.fn(async () => true)}/></div></LanguageProvider>);
+        const bad = await screen.findByRole("option", { name: "scene-0103 · map lỗi, không tạo được kịch bản" }) as HTMLOptionElement;
+        expect(bad.disabled).toBe(true);
+        expect(bad.title).toContain("Invalid map polygon");
+        expect((screen.getByRole("option", { name: "scene-0061" }) as HTMLOptionElement).disabled).toBe(false);
+        expect(mapStatus).toHaveBeenCalledTimes(1);
+    });
+    it("keeps every scene selectable when the map probe is unavailable or fails", async () => {
+        const mapStatus = vi.fn(async () => { throw new Error("worker down"); });
+        render(<LanguageProvider value="vi"><ScenarioCreator scenes={["scene-0061", "scene-0103"]} currentScene="scene-0061" busy={false} mapStatus={mapStatus} onClose={vi.fn()} onExportMap={vi.fn(async () => ({}))} onImportXosc={vi.fn(async () => true)} onCreateTemplate={vi.fn(async () => true)}/></LanguageProvider>);
+        await act(async () => {});
+        expect(screen.getAllByRole("option").every(o => !(o as HTMLOptionElement).disabled)).toBe(true);
+    });
     it("opens on the type gallery for the current map and filters by group and search", () => {
         const { dialog } = setup();
         expect((dialog.getByRole("combobox", { name: "Map cho kịch bản" }) as HTMLSelectElement).value).toBe("scene-0103");

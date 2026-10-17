@@ -221,3 +221,29 @@ def test_scenario_deleted_while_measuring_is_not_found_and_not_recreated(service
         )
     assert error.value.code == "NOT_FOUND"
     assert not (Path(params["workspace"]) / imported["id"]).exists()
+
+
+@pytest.mark.skipif(not ENGINE.is_file(), reason="esmini engine not built")
+def test_scenario_deleted_before_package_load_is_not_found(service, monkeypatch):  # noqa: F811
+    """The package can move to trash after scenario.json is read but before load_imported checks its directory."""
+    import base64
+
+    from topeye.scenario import imported_replay
+    from topeye.scenario.library import delete_imported
+    from topeye.scenario.models import ScenarioError
+
+    api, params = service
+    source = api.call("source_scene", params)
+    context = api.call("map_context", {**params, "source_id": source["id"]})
+    imported = api.call("import_xosc", {
+        **params, "source_id": source["id"], "xml_base64": base64.b64encode(fixture_xml(context)).decode(),
+    })
+
+    def delete_before_load(*_args):
+        delete_imported(params["workspace"], imported["id"])
+        raise ScenarioError("IO_ERROR", "Import package missing")
+
+    monkeypatch.setattr(imported_replay, "load_imported", delete_before_load)
+    with pytest.raises(ScenarioError) as error:
+        Service().call("scenario_metrics", {**params, "scenario_id": imported["id"], "engine": str(ENGINE)})
+    assert error.value.code == "NOT_FOUND"

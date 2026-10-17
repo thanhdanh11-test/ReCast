@@ -1,5 +1,6 @@
 import copy
 import math
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -75,7 +76,7 @@ def test_emergency_stop_follows_source_path_and_brakes():
     assert len(lead) == 121 and lead[-1]["t_s"] == 12
     # Brakes to a stop after 4 s + 13.9/6 s, then stands still.
     tail = lead[-30:]
-    assert max(math.hypot(b["x_m"] - a["x_m"], b["y_m"] - a["y_m"]) for a, b in zip(tail, tail[1:])) < 1e-6
+    assert max(math.hypot(b["x_m"] - a["x_m"], b["y_m"] - a["y_m"]) for a, b in pairwise(tail)) < 1e-6
     ego = next(a for a in imported["actors"] if a["id"] == "ego")["reference_samples"]
     # Ego follows the curved source path: heading grows like the source (0.02 rad/s at ~10 m/s on R=300 m).
     assert ego[0]["x_m"] == pytest.approx(0, abs=1e-6) and ego[-1]["yaw_rad"] > 0.3
@@ -263,9 +264,112 @@ def test_ego_hard_brake_in_pedestrian_crossing_stops_ego_and_pedestrian_cannot_h
                  [{"id": "e", "type": "hard_brake", "actor": "ego", "at_s": 2, "params": {"decel_mps2": 6}}], duration=7)
     imported, _, _ = compiled(t)
     ego = next(a for a in imported["actors"] if a["id"] == "ego")["reference_samples"]
-    speed = [math.hypot(b["x_m"] - a["x_m"], b["y_m"] - a["y_m"]) * 10 for a, b in zip(ego, ego[1:])]
+    speed = [math.hypot(b["x_m"] - a["x_m"], b["y_m"] - a["y_m"]) * 10 for a, b in pairwise(ego)]
     assert speed[5] == pytest.approx(13.9, abs=0.05)  # before the brake
     assert max(speed[50:]) < 1e-6  # stopped: 13.9 / 6 ≈ 2.3 s after t = 2 s
     t["events"][0]["actor"] = "ped"
     with pytest.raises(ScenarioError, match="người đi bộ không “phanh gấp”"):
         compiled(t)
+
+
+def motion(kind="car", speed=(10, 10, 0), event_type="hard_brake", decel=6, at=0, duration=10):
+    import numpy as np
+
+    from topeye.scenario.template import STEP_S, simulate
+
+    t = template([actor("ego", "ego", kind=kind, route=[(300, 0)], speed=speed)],
+                 [{"id": "brake", "type": event_type, "actor": "ego", "at_s": at,
+                   "params": {"decel_mps2": decel}}], duration=duration)
+    states = np.asarray(simulate(check_template(t)["actors"][0], duration))
+    return states, np.diff(states[:, 3]) / STEP_S
+
+
+def test_braking_builds_gradually_and_stops_without_reversing():
+    import numpy as np
+
+    from topeye.scenario.template import STEP_S
+
+    states, acceleration = motion()
+    full_brake = np.flatnonzero(acceleration <= -6 + 1e-9)
+    assert len(full_brake) and (full_brake[0] + 1) * STEP_S >= 0.6
+    # The final integration step is clamped at zero; its measured mean acceleration
+    # differs from the controller state. Count that one stop, test jerk before it.
+    stop_steps = np.flatnonzero((states[:-1, 3] > 0) & (states[1:, 3] == 0))
+    assert len(stop_steps) == 1
+    jerk = np.diff(np.r_[0, acceleration[:stop_steps[0]]]) / STEP_S
+    assert np.max(np.abs(jerk)) <= 10 + 1e-8
+    assert np.all(acceleration[stop_steps[0] + 1:] == 0)
+    assert np.min(states[:, 3]) >= 0
+    assert states[-1, 3] == 0
+    assert states[-1, 1] == states[-2, 1]
+
+
+def test_brake_releases_positive_throttle_in_one_step():
+    from topeye.scenario.template import STEP_S
+
+    _, acceleration = motion(speed=(10, 30, 3), at=2, duration=10)
+    event_step = round(2 / STEP_S)
+    assert acceleration[event_step - 1] == pytest.approx(3)
+    assert -10 * STEP_S - 1e-9 <= acceleration[event_step] <= 0
+    assert max(acceleration[event_step:]) <= 1e-9
+
+
+@pytest.mark.parametrize("kind", ["bus", "truck"])
+@pytest.mark.parametrize("event_type", ["hard_brake", "stop"])
+def test_heavy_vehicle_braking_is_capped(kind, event_type):
+    _, acceleration = motion(kind=kind, speed=(20, 20, 0), decel=8, event_type=event_type)
+    assert min(acceleration) >= -5 - 1e-9
+    assert min(acceleration) == pytest.approx(-5)
+
+
+def test_acceleration_ramps_and_restart_clears_braking_target():
+    import numpy as np
+
+    from topeye.scenario.template import STEP_S, simulate
+
+    t = template([actor("ego", "ego", route=[(300, 0)], speed=(0, 20, 3))], [
+        {"id": "stop", "type": "stop", "actor": "ego", "at_s": 3, "params": {"decel_mps2": 6}},
+        {"id": "restart", "type": "accelerate", "actor": "ego", "at_s": 6, "params": {"target_mps": 2, "accel_mps2": 3}},
+    ], duration=15)
+    states = np.asarray(simulate(check_template(t)["actors"][0], 15))
+    acceleration = np.diff(states[:, 3]) / STEP_S
+    assert acceleration[0] == pytest.approx(3 * STEP_S)
+    assert max(np.diff(acceleration[:100]) / STEP_S) <= 3 + 1e-8
+    assert states[600, 3] == 0
+    assert 1.99 < states[-1, 3] <= 2
+    assert np.max(states[600:, 3]) <= 2
+
+
+def test_map_status_matches_map_context_gate(tmp_path, monkeypatch):
+    """The scene picker greys out exactly the scenes build_map_context rejects, without loading LiDAR."""
+    from types import SimpleNamespace
+
+    from topeye.scenario import source_scene as src
+    from topeye.scenario import worker
+
+    good = curved_source()
+    bad = curved_source()
+    bad["environment"]["polygons"] = [{"kind": "road_segment", "outer": [[0, 0], [10, 10], [10, 0], [0, 10]], "holes": []}]
+    empty = curved_source()
+    empty["environment"]["polygons"] = []
+    sources = {"scene-good": good, "scene-bad": bad, "scene-empty": empty}
+    calls = []
+    monkeypatch.setattr(src, "raw_scene", lambda adapter, scene: (0, scene, {}))
+    monkeypatch.setattr(src, "scene_origin", lambda ego: None)
+    monkeypatch.setattr(src, "scene_vector_map", lambda adapter, scene, ego, origin: calls.append(scene)
+                        or (None, copy.deepcopy(sources[scene]["environment"]["polygons"]), [], None))
+    adapter = SimpleNamespace(root=tmp_path / "dataset", version="v1.0-mini", scenes=lambda: list(sources))
+    monkeypatch.setattr(worker, "create_adapter", lambda root, version: adapter)
+    monkeypatch.setattr(worker, "source_scene", lambda *a, **k: pytest.fail("map_status must not build the full source"))
+    api = worker.Service()
+    status = api.call("map_status", {"dataset": str(adapter.root)})
+    for scene, source in sources.items():
+        try:
+            build_map_context(source)
+            expected = None
+        except ScenarioError as exc:
+            expected = str(exc)
+        assert status[scene] == expected
+    assert status["scene-good"] is None and "road_segment" in status["scene-bad"] and status["scene-empty"]
+    assert api.call("map_status", {"dataset": str(adapter.root)}) == status
+    assert calls == list(sources)  # cached per dataset

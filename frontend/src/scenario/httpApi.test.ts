@@ -19,6 +19,22 @@ describe("createHttpApi", () => {
     const api = createHttpApi({ token: "x", fetchImpl: async () => response(409, { code: "BUSY", message: "Một tác vụ đang chạy" }), doc });
     await expect(api.replay({ scenario_id: "a" })).rejects.toThrow("BUSY: Một tác vụ đang chạy");
   });
+  it("calls the reactive endpoints by name", async () => {
+    const fetchImpl = vi.fn(async () => response(200, { value: { ok: true } }));
+    const api = createHttpApi({ token: "x", fetchImpl, doc });
+    const event = { actor_id: "a1", t0_s: 2, decel_mps2: 4, target: "stop" as const, dwell_s: 0, react: true, reaction_s: 1 };
+    await api.reactiveCandidates({ source_id: "a".repeat(32) });
+    await api.importReactive({ source_id: "a".repeat(32), event });
+    const sent = (fetchImpl.mock.calls as unknown as [string, RequestInit][]).map(([url, init]) => [url, JSON.parse(init.body as string)]);
+    expect(sent).toEqual([["/api/reactiveCandidates", { source_id: "a".repeat(32) }], ["/api/importReactive", { source_id: "a".repeat(32), event }]]);
+  });
+  it("passes the event kinds of scene metric 2 (plan47 C5)", async () => {
+    const fetchImpl = vi.fn(async () => response(200, { value: {} }));
+    const api = createHttpApi({ token: "x", fetchImpl, doc });
+    await api.reactiveMetrics({ scene: "scene-0061", kinds: ["brake", "lane_change"] });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect([url, JSON.parse(init.body as string)]).toEqual(["/api/reactiveMetrics", { scene: "scene-0061", kinds: ["brake", "lane_change"] }]);
+  });
   it("reports a stopped server as NETWORK", async () => {
     const api = createHttpApi({ token: "x", fetchImpl: async () => { throw new TypeError("fetch failed"); }, doc });
     await expect(api.settings()).rejects.toThrow(/^NETWORK/);

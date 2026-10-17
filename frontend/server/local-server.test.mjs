@@ -19,7 +19,7 @@ function fixture(t, calls = []) {
       get busy() { return role === "main" && calls.mainBusy === true; },
       stop: async () => {},
       request: async (method, params) => {
-        if (role === "main" && calls.mainBusy) throw Object.assign(new Error("BUSY: Một tác vụ đang chạy"), { code: "BUSY" });
+        if (role === "main" && calls.mainBusy && !calls.queueReadonly) throw Object.assign(new Error("BUSY: Một tác vụ đang chạy"), { code: "BUSY" });
         calls.push({ method, params, role });
         return method === "inspect_dataset" ? { root: params.dataset, version: "v1.0-mini", scenes: [] } : { ok: method };
       },
@@ -194,6 +194,65 @@ test("importPackage forwards a bounded real2sim package to the main worker", asy
   assert.equal((await post("importPackage", { source_id: id, files: [{ name: "a.xosc", data_base64: "A".repeat(8 * 1024 * 1024) }] })).status, 400);
 });
 
+test("reactiveCandidates and importReactive route to the main worker with a bounded event object", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  const id = "a".repeat(32);
+  const event = { actor_id: "a1", t0_s: 2, decel_mps2: 4, target: "stop", dwell_s: 0, react: true, reaction_s: 1 };
+  for (const bad of [{ source_id: id }, { source_id: id, event: [] }, { source_id: id, event: "e" }, { source_id: id, event: null },
+    { source_id: "x", event }, { source_id: id, event, path: "/" }])
+    assert.equal((await post("importReactive", bad)).status, 400, JSON.stringify(bad));
+  // Over the 64 KiB argument budget: refused like every other bounded call (INVALID_INPUT "Request too large").
+  assert.equal((await post("importReactive", { source_id: id, event: { actor_id: "x".repeat(65 * 1024) } })).status, 400);
+  assert.equal((await post("reactiveCandidates", { source_id: "x" })).status, 400);
+  assert.equal((await post("reactiveCandidates", { source_id: id, event })).status, 400);
+  assert.equal((await post("reactiveCandidates", { source_id: id })).status, 200);
+  assert.deepEqual([calls.at(-1).method, calls.at(-1).role, calls.at(-1).params.source_id], ["reactive_candidates", "main", id]);
+  assert.equal((await post("importReactive", { source_id: id, event })).status, 200);
+  assert.deepEqual([calls.at(-1).method, calls.at(-1).params.source_id, calls.at(-1).params.event], ["import_reactive", id, event]);
+  calls.mainBusy = true;
+  calls.queueReadonly=true;
+  assert.equal((await post("reactiveCandidates",{source_id:id})).status,200);
+  assert.equal((await post("mapContext",{source_id:id})).status,200);
+  assert.equal((await post("importReactive",{source_id:id,event})).status,409);
+
+});
+
+test("plan46: reactiveSensitivity on the main worker; scene metrics and esminiCheck on the metrics worker", async (t) => {
+  const calls = [];
+  const { post, dataset } = await start(t, calls);
+  await post("chooseDataset", { path: dataset });
+  const id = "a".repeat(32);
+  const event = { actor_id: "a1", t0_s: 2, decel_mps2: 4, target: "stop", dwell_s: 0, react: true, reaction_s: 1 };
+  for (const [name, bad] of [
+    ["reactiveSensitivity", { source_id: id }], ["reactiveSensitivity", { source_id: id, event: [] }], ["reactiveSensitivity", { source_id: "x", event }],
+    ["reactiveSensitivity", { source_id: id, event: { actor_id: "x".repeat(65 * 1024) } }],
+    ["reactiveMetrics", {}], ["reactiveMetrics", { scene: "../x" }], ["reactiveMetrics", { scene: "scene-0061", reactions: [] }],
+    ["reactiveMetrics", { scene: "scene-0061", reactions: [0.7, 1, 1.5, 2] }], ["reactiveMetrics", { scene: "scene-0061", reactions: [0.2] }],
+    ["reactiveMetrics", { scene: "scene-0061", reactions: [3.5] }], ["reactiveMetrics", { scene: "scene-0061", reactions: ["1"] }],
+    ["reactiveMetrics", { scene: "scene-0061", reactions: 1 }], ["reactiveMetrics", { scene: "scene-0061", source_id: id }],
+    ["reactiveMetrics", { scene: "scene-0061", kinds: [] }], ["reactiveMetrics", { scene: "scene-0061", kinds: ["brake", "brake"] }],
+    ["reactiveMetrics", { scene: "scene-0061", kinds: ["swerve"] }], ["reactiveMetrics", { scene: "scene-0061", kinds: "brake" }],
+    ["replayErrorMetrics", { scene: "x".repeat(65) }], ["replayErrorMetrics", { scene: "scene-0061", reactions: [1] }],
+    ["esminiCheck", { scenario_id: "../x" }], ["esminiCheck", { scenario_id: "A".repeat(32) }], ["esminiCheck", { scenario_id: id, scene: "scene-0061" }]])
+    assert.equal((await post(name, bad)).status, 400, `${name} ${JSON.stringify(bad).slice(0, 80)}`);
+  assert.equal(calls.filter((c) => c.method !== "inspect_dataset").length, 0);
+  assert.equal((await post("reactiveSensitivity", { source_id: id, event })).status, 200);
+  assert.deepEqual([calls.at(-1).method, calls.at(-1).role, calls.at(-1).params.event], ["reactive_sensitivity", "main", event]);
+  calls.mainBusy = true;
+  assert.equal((await post("reactiveSensitivity", { source_id: id, event })).status, 409);
+  // The metrics worker stays available while the main worker is busy.
+  for (const [name, body, method] of [["reactiveMetrics", { scene: "scene-0061", reactions: [0.7, 1, 1.5] }, "reactive_metrics"],
+    ["reactiveMetrics", { scene: "scene-0061" }, "reactive_metrics"],
+    ["reactiveMetrics", { scene: "scene-0061", kinds: ["brake", "accelerate", "stopline", "lane_change"] }, "reactive_metrics"], ["replayErrorMetrics", { scene: "scene-0061" }, "replay_error_metrics"],
+    ["esminiCheck", { scenario_id: id }, "esmini_check"]]) {
+    assert.equal((await post(name, body)).status, 200, name);
+    assert.deepEqual([calls.at(-1).method, calls.at(-1).role], [method, "metrics"]);
+    for (const [k, v] of Object.entries(body)) assert.deepEqual(calls.at(-1).params[k], v);
+  }
+});
+
 test("templateFit probes a scene on the metrics worker", async (t) => {
   const calls = [];
   const { post, dataset } = await start(t, calls);
@@ -249,4 +308,13 @@ test("run deletion validates both scoped identities", () => {
   assert.throws(() => validateArgs("deleteImportedRun", { ...args, run_id: "../other" }), /Invalid run identity/);
   assert.throws(() => validateArgs("deleteImportedRun", { ...args, scenario_id: "../other" }), /Invalid scenario identity/);
   assert.throws(() => validateArgs("deleteImportedRun", { ...args, path: "/tmp" }), /Unknown field/);
+});
+test("reopens the same dataset read-only during a pending worker without allowing a dataset change",async t=>{
+ const calls=[];const {post,dataset,dir}=await start(t,calls);
+ assert.equal((await post("chooseDataset",{path:dataset})).status,200);
+ calls.mainBusy=true;calls.queueReadonly=true;
+ assert.equal((await post("chooseDataset",{path:dataset})).status,200);
+ assert.equal(calls.at(-1).method,"list_scenes");
+ const other=join(dir,"other-dataset");fs.mkdirSync(other);
+ assert.equal((await post("chooseDataset",{path:other})).status,409);
 });

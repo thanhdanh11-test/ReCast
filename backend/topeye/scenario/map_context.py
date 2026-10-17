@@ -142,10 +142,8 @@ def verify_context(context):
     return surfaces, obstacles
 
 
-def build_map_context(source):
-    require(source.get("mode") == "source", "Map context requires original source")
-    env = source.get("environment", {})
-    polygons = copy.deepcopy(env.get("polygons", []))
+def validate_source_polygons(polygons):
+    """Map admission shared by build_map_context and the scene picker; never repairs geometry."""
     require(polygons, "Source has no vector map", "MAP_UNAVAILABLE")
     for index, p in enumerate(polygons):
         try:
@@ -156,6 +154,14 @@ def build_map_context(source):
             raise ScenarioError(
                 "INVALID_MAP_GEOMETRY", f"Source polygon {index} ({p.get('kind')}): {exc}"
             ) from exc
+
+
+def build_map_context(source):
+    require(source.get("mode") == "source", "Map context requires original source")
+    env = source.get("environment", {})
+    polygons = copy.deepcopy(env.get("polygons", []))
+    validate_source_polygons(polygons)
+    for p in polygons:
         p["holes"] = sorted(p.get("holes", []), key=canonical)
     polygons.sort(key=canonical)
     obstacles = []

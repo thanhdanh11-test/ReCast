@@ -20,7 +20,7 @@ try {
  const context = await browser.newContext({viewport:{width:1360,height:900}});
  const page = await context.newPage();
  page.on("pageerror",e=>report.errors.push(String(e)));
- page.on("console",m=>{if(m.type()==="error" && !(m.location().url.endsWith("/api/catalog/add") && m.text().includes("400")))report.errors.push(m.text());});
+ page.on("console",m=>{if(m.type()==="error" && !(["/api/catalog/add","/api/mapContext"].some(path=>m.location().url.endsWith(path)) && m.text().includes("400")))report.errors.push(m.text());});
  await page.goto(url);
  await page.getByRole("button",{name:"Tạo tài khoản",exact:true}).waitFor();
  await page.screenshot({path:join(out,"account-setup.png")});
@@ -52,6 +52,7 @@ try {
  await dialog.getByRole("button",{name:"Đóng nhập dữ liệu"}).click();
  for (const name of ["nuScenes mini","Argoverse 2 Sensor"]) {
   await page.getByRole("button",{name:`Mở ${name}`,exact:true}).click();
+  await page.getByRole("button",{name:"Cảnh nguồn",exact:true}).click();
   await page.locator('[data-testid="lidar-view"][data-mode="measured"]').waitFor({timeout:180000});
   await page.waitForFunction(()=>Number(document.querySelector('[data-testid="lidar-view"]')?.getAttribute("data-points"))>0,null,{timeout:180000});
   await page.waitForFunction(()=>!document.querySelector('[data-testid="busy-indicator"]'),null,{timeout:180000});

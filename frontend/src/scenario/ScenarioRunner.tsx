@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Check, Download, Pencil, Trash2, TriangleAlert, X } from "lucide-react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Activity, Check, Download, Pencil, Trash2, TriangleAlert, X } from "lucide-react";
 import { ActorTimeline } from "./ActorTimeline";
 import { ScenarioCreator } from "./authoring/ScenarioCreator";
 import type { ScenarioTemplate } from "./authoring/template";
@@ -8,7 +8,8 @@ import { TrackView } from "./TrackView";
 import { MetricsPanel, type MetricsState } from "./MetricsPanel";
 import { Real2simReport } from "./Real2simReport";
 import { TacticalMap } from "./TacticalMap";
-import type { ImportedEntry, ImportedReport, ImportedRun, ImportedScenario, Replay, Scenario } from "./types";
+import type { EsminiCheck, ReactiveSensitivity } from "./reactiveTypes";
+import type { ImportedEntry, ImportedReport, ImportedRun, ImportedScenario, Replay, Scenario, ScenarioGroup } from "./types";
 import type { SceneEnvironmentSettings } from "./weather";
 import { useT } from "./i18n";
 
@@ -43,6 +44,7 @@ type XmlDoc = { name: string; file_name: string; xml: string; template?: Scenari
 export function ScenarioRunner(props: {
     /** false while the runner view is hidden (plan44): its 3D scene is kept but not drawn. */
     active?: boolean;
+    embedded?: boolean; onSceneChange?:(scene:string)=>void; groups?: ScenarioGroup[]; canCreate?: boolean;
     entries: ImportedEntry[]; activeId: string | null;
     busy: boolean; metrics: MetricsState | null;
     scenes: string[]; currentScene: string;
@@ -50,12 +52,18 @@ export function ScenarioRunner(props: {
     playback: ReactNode; duration: number; onSeek: (time: number) => void;
     loading: ReactNode; onSceneReady: () => void;
     onSelect: (entry: ImportedEntry) => void;
-    onCreate: (scene: string) => Promise<boolean | undefined>; onImportPackage: (scene: string) => Promise<boolean | undefined>; onCreateTemplate: (template: ScenarioTemplate) => Promise<boolean | undefined>; onFitTemplate?: FitProbe; onExportMap: (scene: string) => Promise<unknown>;
+    onCreate: (scene: string) => Promise<boolean | undefined>; onImportPackage: (scene: string) => Promise<boolean | undefined>; onCreateTemplate: (template: ScenarioTemplate) => Promise<boolean | undefined>; onFitTemplate?: FitProbe; onMapStatus?: () => Promise<Record<string, string | null>>; onExportMap: (scene: string) => Promise<unknown>;
     onExport: (entry: ImportedEntry) => void; onDelete: (entry: ImportedEntry) => void;
     onDeleteRun: (entry: ImportedEntry, runId: string) => void;
     onLoadXml: (entry: ImportedEntry) => Promise<XmlDoc | undefined>;
     onSaveEdit: (entry: ImportedEntry, name: string, xml: string) => Promise<boolean | undefined>;
     onSaveTemplateEdit: (entry: ImportedEntry, template: ScenarioTemplate) => Promise<boolean | undefined>;
+    /** plan47: opens the "Phản ứng" workspace (replaces the dialog tab of plan45/46); absent hides the button. */
+    onOpenReactive?: () => void;
+    /** plan46: the shown package's sensitivity run and esmini check. */
+    onSensitivity?: () => Promise<ReactiveSensitivity>;
+    esmini?: EsminiCheck | null | "loading" | { error: string };
+    onEsminiCheck?: () => void;
 }) {
     const t = useT();
     const { entries, activeId, scenario, replay, busy } = props;
@@ -85,8 +93,8 @@ export function ScenarioRunner(props: {
     const report = replay?.report.kind === "imported" ? replay.report as ImportedReport : null;
     const last: ImportedRun | undefined = active?.runs.find(r => r.status === "completed");
     const diagnostics = shown?.import?.diagnostics ?? [];
-    return <div className="runner" data-testid="scenario-runner">
-        <section className="runner-center" aria-label={t("Xem trước và kết quả")}>
+    return <div className={`runner ${props.embedded ? "runner-embedded" : ""}`} data-testid="scenario-runner">
+        {!props.embedded && <section className="runner-center" aria-label={t("Xem trước và kết quả")}>
             <div className="runner-title">
                 <div><strong>{active?.name ?? t("Chọn một kịch bản")}</strong><small>{shown ? `${shown.source.scene} · ${shown.profile ?? ""} · ${t("{n} đối tượng", { n: shown.actors.length })}` : active ? `${active.scene} · ${t("bấm để mở")}` : ""}</small></div>
                 {shown && (real2sim ? <div className="runner-chips">
@@ -104,23 +112,28 @@ export function ScenarioRunner(props: {
             </div>
             {props.playback}
             <ActorTimeline key={shown?.id ?? "empty"} scenario={shown} time={props.time} duration={props.duration} disabled={busy || !shown} onSeek={props.onSeek}/>
-        </section>
+        </section>}
         <aside className="runner-sidebar">
+          {props.embedded&&<ActorTimeline key={shown?.id??"empty"} scenario={shown} time={props.time} duration={props.duration} disabled={busy||!shown} onSeek={props.onSeek}/>}
+          {props.embedded&&<div className="runner-title"><div><strong>{active?.name??t("Chọn một kịch bản")}</strong>{shown&&<small>{shown.source.scene} · {shown.profile??""} · {t("{n} đối tượng",{n:shown.actors.length})}</small>}{shown?.import.diagnostics.length?<span className="chip warn">{t("{n} ghi chú map",{n:shown.import.diagnostics.length})}</span>:null}</div></div>}
             <div className="runner-tabs" role="tablist" aria-label={t("Nội dung kịch bản")}>
-                {([['library', 'Kịch bản'], ['metrics', 'Số liệu'], ['history', 'Lịch sử']] as const).map(([id, label], index, tabs) => <button key={id} id={`tab-${id}`} role="tab" aria-selected={tab === id} aria-controls={`runner-${id}`} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={e => {
+                {([['library', props.embedded?'Thư viện':'Kịch bản'], ['metrics', 'Số liệu'], ['history', 'Lịch sử']] as const).map(([id, label], index, tabs) => <button key={id} id={`tab-${id}`} role="tab" aria-selected={tab === id} aria-controls={`runner-${id}`} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={e => {
                     const next = e.key === 'ArrowRight' ? (index + 1) % tabs.length : e.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null;
                     if (next !== null) { e.preventDefault(); setTab(tabs[next][0]); document.getElementById(`tab-${tabs[next][0]}`)?.focus(); }
                 }}>{t(label)}</button>)}
             </div>
         <section id="runner-library" role="tabpanel" aria-labelledby="tab-library" hidden={tab !== "library"} className="runner-col runner-library" aria-label={t("Thư viện kịch bản")}>
-            <div className="runner-head"><h2>{t("Kịch bản")}</h2></div>
+            <div className="runner-head"><h2>{t(props.embedded?"Thư viện":"Kịch bản")}</h2></div>
             <ul className="runner-list">
                 {!entries.length && <li className="runner-empty">{t("Chưa có kịch bản. Bấm “Tạo kịch bản” để nạp file .xosc.")}</li>}
                 {entries.map(entry => {
                     const status = runStatus(entry);
-                    return <li key={entry.scenario_id} className={`runner-item${entry.scenario_id === activeId ? " active" : ""}`}>
+                    const group=props.groups?.find(g=>g.baseline_id===entry.scenario_id||g.pilot_id===entry.scenario_id);
+                    const first=group&&entries.find(e=>e.scenario_id===group.baseline_id||e.scenario_id===group.pilot_id)?.scenario_id===entry.scenario_id;
+                    const variant=group?(group.baseline_id===entry.scenario_id?'Baseline':'Pilot'):'';
+                    return <Fragment key={entry.scenario_id}>{first&&<li className="sw-group"><strong>{t("Nhóm phản ứng")} · {group.id.slice(0,8)}</strong><span>{group.baseline_id&&group.pilot_id&&entries.some(e=>e.scenario_id===group.baseline_id)&&entries.some(e=>e.scenario_id===group.pilot_id)?t("Hai biến thể"):t("Thiếu một biến thể")}</span></li>}<li className={`runner-item${entry.scenario_id === activeId ? " active" : ""}`}>
                         <button className="runner-item-main" disabled={busy} onClick={() => props.onSelect(entry)}>
-                            <strong title={entry.name}>{entry.name}{entry.kind === "real2sim" && <span className="chip r2s-badge">real2sim</span>}</strong>
+                            <strong title={entry.name}>{variant ? `${variant} · ` : ""}{entry.name}{entry.kind === "real2sim" && <span className="chip r2s-badge">real2sim</span>}</strong>
                             <small>{entry.scene} · {t("{n} đối tượng", { n: entry.actors })} · {fmt(entry.duration_s, 1, " s")}</small>
                         </button>
                         <span className={`run-status ${status.tone}`}>{t(status.label)}</span>
@@ -129,17 +142,20 @@ export function ScenarioRunner(props: {
                             <button className="icon-button" aria-label={t("Sửa {name}", { name: entry.name })} title={entry.kind === "real2sim" ? t("Gói real2sim chỉ xem; sửa trong tool real2sim") : t("Sửa kịch bản")} disabled={busy || entry.kind === "real2sim"} onClick={() => void openEdit(entry)}><Pencil size={14} aria-hidden/></button>
                             <button className="icon-button danger" aria-label={t("Xoá {name}", { name: entry.name })} title={t("Xoá kịch bản")} disabled={busy} onClick={() => props.onDelete(entry)}><Trash2 size={14} aria-hidden/></button>
                         </span>
-                    </li>;
+                    </li></Fragment>;
                 })}
             </ul>
-            <div className="runner-foot"><button className="primary full-width create-scenario" onClick={openCreate}>{t("Tạo kịch bản")}</button></div>
+            <div className="runner-foot">
+                <button className="primary full-width create-scenario" disabled={props.canCreate===false} onClick={openCreate}>{t("Tạo kịch bản")}</button>
+                {props.onOpenReactive && <button className="full-width" onClick={props.onOpenReactive}><Activity size={14} aria-hidden/> {t("Tạo tình huống phản ứng")}</button>}
+            </div>
         </section>
         <section id="runner-metrics" role="tabpanel" aria-labelledby="tab-metrics" hidden={tab !== "metrics"} className="runner-col runner-report" aria-label={t("Chạy và báo cáo")}>
-            <div className="runner-section runner-map" aria-label="Map 2D">
+            {!props.embedded && <div className="runner-section runner-map" aria-label="Map 2D">
                 {shown ? <TacticalMap scenario={shown} time={props.time} replay={replay}/> : <p className="runner-muted">{t("Chọn một kịch bản để xem map.")}</p>}
-            </div>
+            </div>}
             <div className="runner-section" aria-label={t("Chỉ số kịch bản")}>
-                {real2sim ? <Real2simReport report={shown.report ?? null} diagnostics={diagnostics}/> : <MetricsPanel state={props.metrics} time={shown ? props.time : null}/>}
+                {real2sim ? <Real2simReport report={shown.report ?? null} diagnostics={diagnostics} onSensitivity={props.onSensitivity} esmini={props.esmini} onEsminiCheck={props.onEsminiCheck}/> : <MetricsPanel state={props.metrics} time={shown ? props.time : null}/>}
             </div>
             {!real2sim && <div className="runner-section">
                 <h3>{t("Kết quả lần chạy gần nhất")}</h3>
@@ -177,11 +193,11 @@ export function ScenarioRunner(props: {
             </div>
         </section>}
         </aside>
-        {creating && <ScenarioCreator scenes={props.scenes} currentScene={props.currentScene} busy={busy} onClose={() => setCreating(false)} onExportMap={props.onExportMap} onImportXosc={props.onCreate} onImportPackage={props.onImportPackage} onCreateTemplate={props.onCreateTemplate} fitTemplate={props.onFitTemplate}/>}
-        {editingTemplate && <ScenarioCreator scenes={props.scenes} currentScene={editingTemplate.template?.map.scene ?? editingTemplate.entry.scene} busy={busy}
+        {creating && <ScenarioCreator onSceneChange={props.onSceneChange} creationBlocked={props.canCreate===false?t("Map chưa hỗ trợ tạo kịch bản"):undefined} scenes={props.scenes} currentScene={props.currentScene} busy={busy} onClose={() => setCreating(false)} onExportMap={props.onExportMap} onImportXosc={props.onCreate} onImportPackage={props.onImportPackage} onCreateTemplate={props.onCreateTemplate} fitTemplate={props.onFitTemplate} mapStatus={props.onMapStatus}/>}
+        {editingTemplate && <ScenarioCreator onSceneChange={props.onSceneChange} creationBlocked={props.canCreate===false?t("Map chưa hỗ trợ tạo kịch bản"):undefined} scenes={props.scenes} currentScene={editingTemplate.template?.map.scene ?? editingTemplate.entry.scene} busy={busy}
             editing={{ name: editingTemplate.entry.name, template: editingTemplate.template }}
             onClose={() => setEditingTemplate(null)} onExportMap={props.onExportMap} onImportXosc={props.onCreate}
-            onCreateTemplate={template => props.onSaveTemplateEdit(editingTemplate.entry, template)} fitTemplate={props.onFitTemplate}/>}
+            onCreateTemplate={template => props.onSaveTemplateEdit(editingTemplate.entry, template)} fitTemplate={props.onFitTemplate} mapStatus={props.onMapStatus}/>}
         {editing && <div className="runner-dialog-backdrop">
             <div className="runner-dialog wide" role="dialog" aria-modal="true" aria-label={t("Sửa {name}", { name: editing.entry.name })}>
                 <div className="runner-dialog-head"><h2>{t("Sửa kịch bản")}</h2><button className="icon-button" aria-label={t("Đóng")} onClick={() => setEditing(null)}><X size={14} aria-hidden/></button></div>

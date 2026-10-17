@@ -1,0 +1,10 @@
+/* "?" marks (plan46 SPEC-WP4 §0; plan47 WP2 §7: a 15 px circle on the text line, tooltip kept inside the viewport). */
+.help { position:relative; display:inline-flex; vertical-align:middle; flex:none; line-height:0; }
+.help-mark, .studio .help-mark { box-sizing:border-box; width:15px; height:15px; min-height:0; min-width:0; padding:0; border:1px solid var(--border-strong); border-radius:50%;
+  background:var(--panel); color:var(--muted); font:700 9.5px/13px system-ui, sans-serif; text-align:center; cursor:help; text-transform:none; letter-spacing:0; }
+.help-mark:hover, .help-mark:focus-visible, .help-mark[aria-expanded="true"],
+.studio .help-mark:hover:not(:disabled) { color:var(--ink); border-color:var(--accent); background:var(--panel); outline:none; }
+.help-tip { position:fixed; z-index:1000; top:0; left:0; width:min(320px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow:auto;
+  padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--text-2);
+  box-shadow:0 6px 20px rgba(0,0,0,.18); font-size:12px; font-weight:400; line-height:1.45; text-align:left; text-transform:none; letter-spacing:0; white-space:normal; }
+.help-tip b { display:block; margin-bottom:3px; color:var(--ink); }

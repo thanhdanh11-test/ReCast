@@ -7,6 +7,7 @@ import { join, resolve, basename, dirname, extname, sep } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { scenarioGroups, recordScenarioGroup } from "./scenario-groups.mjs";
 import { createAuth } from "./local-auth.mjs";
 import { createCatalog } from "./dataset-catalog.mjs";
 import { createFeedback } from "./local-feedback.mjs";
@@ -17,6 +18,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 
 export const allowed = {
+  scenarioGroups: ["scene"],
+  recordScenarioGroup: ["group"],
   sourceScene: ["scene"],
   extract: ["scene", "actor_tokens", "start_s", "end_s"],
   variant: ["scenario_id", "target_actor", "speed_factor", "gap_offset_m"],
@@ -27,7 +30,14 @@ export const allowed = {
   importXosc: ["source_id", "xml_base64", "file_name"],
   importTemplate: ["source_id", "template"],
   importPackage: ["source_id", "files"],
+  reactiveCandidates: ["source_id"],
+  importReactive: ["source_id", "event"],
+  reactiveSensitivity: ["source_id", "event"],
+  reactiveMetrics: ["scene", "reactions", "kinds"],
+  replayErrorMetrics: ["scene"],
+  esminiCheck: ["scenario_id"],
   templateFit: ["scene", "template"],
+  mapStatus: [],
   openImported: ["source_id", "path"],
   replayImported: ["scenario_id"],
   lidarFrame: ["scene", "time_s"],
@@ -57,7 +67,7 @@ export function validateArgs(name, args) {
   if (!allowed[name] || Object.keys(args).some((k) => !allowed[name].includes(k))) throw fail("INVALID_INPUT", "Unknown field");
   const limit = name === "importXosc" ? 3 * 1024 * 1024 : name === "importPackage" ? PACKAGE_BASE64_MAX + 65536 : ["importTemplate", "templateFit"].includes(name) ? 256 * 1024 : 65536;
   if (JSON.stringify(args).length > limit) throw fail("INVALID_INPUT", "Request too large");
-  if (["mapContext", "exportMapContext", "importXosc", "importTemplate", "importPackage", "openImported"].includes(name) &&
+  if (["mapContext", "exportMapContext", "importXosc", "importTemplate", "importPackage", "openImported", "reactiveCandidates", "importReactive", "reactiveSensitivity"].includes(name) &&
       (typeof args.source_id !== "string" || !ID.test(args.source_id)))
     throw fail("INVALID_INPUT", "Invalid source identity");
   if (["replayImported", "readImported", "deleteImported", "deleteImportedRun"].includes(name) && (typeof args.scenario_id !== "string" || !ID.test(args.scenario_id)))
@@ -69,13 +79,23 @@ export function validateArgs(name, args) {
   if (name === "lidarFrame" && (typeof args.scene !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(args.scene) ||
       typeof args.time_s !== "number" || !Number.isFinite(args.time_s)))
     throw fail("INVALID_INPUT", "Invalid LiDAR request");
-  if (name === "scenarioMetrics" && (typeof args.scenario_id !== "string" || !/^[a-f0-9]{32}$/.test(args.scenario_id)))
+  if (["scenarioMetrics", "esminiCheck"].includes(name) && (typeof args.scenario_id !== "string" || !/^[a-f0-9]{32}$/.test(args.scenario_id)))
     throw fail("INVALID_INPUT", "Invalid scenario");
   // Template content is checked field by field in the worker (topeye/scenario/template.py).
   if (["importTemplate", "templateFit"].includes(name) && (!args.template || typeof args.template !== "object" || Array.isArray(args.template)))
     throw fail("INVALID_INPUT", "Invalid template");
-  if (name === "templateFit" && (typeof args.scene !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(args.scene)))
+  if (["importReactive", "reactiveSensitivity"].includes(name) && (!args.event || typeof args.event !== "object" || Array.isArray(args.event)))
+    throw fail("INVALID_INPUT", "Invalid event");
+  if (["templateFit", "reactiveMetrics", "replayErrorMetrics"].includes(name) && (typeof args.scene !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(args.scene)))
     throw fail("INVALID_INPUT", "Invalid scene");
+  // plan46 C1: at most 3 reaction times in [0.3; 3] s (the worker defaults to [1.0]).
+  if (name === "reactiveMetrics" && args.reactions !== undefined && (!Array.isArray(args.reactions) || args.reactions.length < 1 || args.reactions.length > 3 ||
+      args.reactions.some((r) => typeof r !== "number" || !Number.isFinite(r) || r < 0.3 || r > 3)))
+    throw fail("INVALID_INPUT", "Invalid reactions");
+  // plan47 C5: 1–4 distinct event kinds (the worker defaults to ["brake"]).
+  if (name === "reactiveMetrics" && args.kinds !== undefined && (!Array.isArray(args.kinds) || args.kinds.length < 1 || args.kinds.length > 4 ||
+      new Set(args.kinds).size !== args.kinds.length || args.kinds.some((k) => !["brake", "accelerate", "stopline", "lane_change"].includes(k))))
+    throw fail("INVALID_INPUT", "Invalid kinds");
   if (name === "importXosc" && args.file_name !== undefined && (typeof args.file_name !== "string" || args.file_name.length > 240))
     throw fail("INVALID_INPUT", "Invalid file name");
   if (name === "importXosc" && (typeof args.xml_base64 !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(args.xml_base64)))
@@ -101,7 +121,7 @@ export function validateArgs(name, args) {
 
 const statusFor = (code) =>
   code === "UNAUTHENTICATED" || code === "INVALID_CREDENTIALS" ? 401 : code === "RATE_LIMITED" ? 429 : code === "ACCOUNT_EXISTS" ? 409 : code === "FORBIDDEN" ? 403 : ["BUSY", "CANCELLED"].includes(code) ? 409 :
-  ["INVALID_INPUT", "RESOURCE_LIMIT", "PATH_ESCAPE", "DATASET_INVALID", "NOT_FOUND"].includes(code) ? 400 : 500;
+  ["INVALID_INPUT", "RESOURCE_LIMIT", "PATH_ESCAPE", "DATASET_INVALID", "NOT_FOUND", "INVALID_MAP_GEOMETRY", "GROUP_METADATA_INVALID"].includes(code) ? 400 : 500;
 
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".woff2": "font/woff2", ".json": "application/json", ".svg": "image/svg+xml", ".glb": "model/gltf-binary" };
@@ -183,6 +203,8 @@ export function createLocalServer({
     authorize();
     const checked = validateArgs(name, args);
     if (name === "cancelJob") { await bridge.stop(); return true; }
+    if (name === "scenarioGroups") return scenarioGroups(settings.workspace).filter(g => g.scene === checked.scene);
+    if (name === "recordScenarioGroup") return recordScenarioGroup(settings.workspace, checked.group);
     if (name === "settings")
       return { dataset: settings.dataset ? basename(settings.dataset) : null, datasetVersion: settings.datasetVersion || null,
         workspace: settings.workspace, engineAvailable: fs.existsSync(engine), version, mode: "local-web" };
@@ -195,8 +217,13 @@ export function createLocalServer({
       return { name: basename(path) };
     }
     if (name === "chooseDataset") {
-      if (bridge.busy || lidarBridge.busy || metricsBridge.busy) throw fail("BUSY", "Dừng tác vụ trước khi đổi dữ liệu");
       const path = realDir(checked.path);
+      // Reopening the selected dataset after reload is read-only, even while its metrics finish.
+      if (settings.dataset && path === fs.realpathSync(settings.dataset)) {
+        const scenes = await call("list_scenes");authorize();
+        return {name:basename(path),version:settings.datasetVersion,scenes};
+      }
+      if (bridge.busy || lidarBridge.busy || metricsBridge.busy) throw fail("BUSY", "Dừng tác vụ trước khi đổi dữ liệu");
       const result = await bridge.request("inspect_dataset", { dataset: path, workspace: settings.workspace || "", engine });
       authorize();
       settings.dataset = result.root;
@@ -204,7 +231,7 @@ export function createLocalServer({
       saveSettings();
       return { name: basename(result.root), version: result.version, scenes: result.scenes };
     }
-    if (bridge.busy && ["mapContext", "exportMapContext", "importXosc", "importTemplate", "importPackage", "openImported", "replayImported", "readImported", "deleteImported", "deleteImportedRun"].includes(name))
+    if (bridge.busy && ["importXosc", "importTemplate", "importPackage", "replayImported", "deleteImported", "deleteImportedRun", "importReactive", "reactiveSensitivity"].includes(name))
       throw fail("BUSY", "Dừng tác vụ trước khi nạp kịch bản");
     if (name === "mapContext" || name === "exportMapContext") return call("map_context", { source_id: checked.source_id });
     if (name === "replayImported") return call("replay_imported", checked);
@@ -221,8 +248,16 @@ export function createLocalServer({
     }
     if (name === "importTemplate") return call("import_template", checked);
     if (name === "importPackage") return call("import_package", checked);
+    if (name === "reactiveCandidates") return call("reactive_candidates", checked);
+    if (name === "importReactive") return call("import_reactive", checked);
+    if (name === "reactiveSensitivity") return call("reactive_sensitivity", checked);
+    // plan46 scene metrics and esmini checks: read-only, on the metrics worker.
+    if (name === "reactiveMetrics") return call("reactive_metrics", checked, metricsBridge);
+    if (name === "replayErrorMetrics") return call("replay_error_metrics", checked, metricsBridge);
+    if (name === "esminiCheck") return call("esmini_check", checked, metricsBridge);
     // Read-only map suitability probe; queued on the metrics worker so the main worker stays free.
     if (name === "templateFit") return call("template_fit", checked, metricsBridge);
+    if (name === "mapStatus") return call("map_status", checked, metricsBridge);
     if (name === "lidarFrame") return call("lidar_frame", checked, lidarBridge);
     if (name === "scenarioMetrics") return call("scenario_metrics", checked, metricsBridge);
     if (name === "listImported") return call("list_imported");
@@ -259,7 +294,9 @@ export function createLocalServer({
   }
 
   const server = http.createServer(async (req, res) => {
-    const port = server.address().port;
+    // A keep-alive request can still arrive after close(); address() is null then and must not crash the process.
+    const port = server.address()?.port;
+    if (!port) { res.writeHead(503, { Connection: "close" }).end(); return; }
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
     const hostOk = [`127.0.0.1:${port}`, `localhost:${port}`].includes(req.headers.host || "");
     const origin = req.headers.origin;
@@ -316,14 +353,17 @@ export function createLocalServer({
     if (!authMethod && !catalogMethod && !accountMethod && !Object.hasOwn(allowed, name)) return send(404, { code: "NOT_FOUND", message: "Unknown method" });
     let raw = "";
     let size = 0;
+    let tooLarge = false;
+    const maxBody = name === "importPackage" ? PACKAGE_BASE64_MAX + 128 * 1024 : 4 * 1024 * 1024;
     try { for await (const chunk of req) {
       size += chunk.length;
-      if (size > (name === "importPackage" ? PACKAGE_BASE64_MAX + 128 * 1024 : 4 * 1024 * 1024)) return send(400, { code: "INVALID_INPUT", message: "Request too large" });
-      raw += chunk;
+      if (size > maxBody) tooLarge = true;
+      if (!tooLarge) raw += chunk;
     } } catch {
       if (!res.destroyed) send(400, { code: "INVALID_INPUT", message: "Incomplete request body" });
       return;
     }
+    if (tooLarge) return send(400, { code: "INVALID_INPUT", message: "Request too large" });
     let args;
     try { args = raw ? JSON.parse(raw) : {}; } catch { return send(400, { code: "INVALID_INPUT", message: "Invalid JSON" }); }
     try {

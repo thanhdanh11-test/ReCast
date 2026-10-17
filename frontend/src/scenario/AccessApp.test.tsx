@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AccessApp from "./AccessApp";
 import { accessCall } from "./accessApi";
 vi.mock("./accessApi", () => ({ accessCall: vi.fn() }));
-vi.mock("./ScenarioApp", () => ({ default: ({ onLibrary }: { onLibrary: () => void }) => <div>Studio đã mở<button onClick={onLibrary}>Thư viện map</button></div> }));
+vi.mock("./ScenarioApp", () => ({ default: ({ onLibrary, initialGuided }: { onLibrary: () => void; initialGuided?: boolean }) => <div data-testid="main-studio" data-guided-default={String(initialGuided)}>Studio đã mở<button onClick={onLibrary}>Thư viện map</button></div> }));
 const call = vi.mocked(accessCall);
 const dataset = { id: "a".repeat(24), name: "nuScenes mini", format: "nuscenes", root: "/fixture", sceneCount: 10, regions: ["boston-seaport"], status: "ready" };
 afterEach(cleanup);
@@ -44,6 +44,7 @@ describe("local access flow", () => {
     render(<AccessApp/>);
     fireEvent.click(await screen.findByRole("button", { name: "Mở nuScenes mini" }));
     await screen.findByText("Studio đã mở");
+    expect(screen.getByTestId("main-studio").getAttribute("data-guided-default")).toBe("true");
     expect(call).toHaveBeenCalledWith("catalog/select", { id: dataset.id });
     fireEvent.click(screen.getByRole("button", { name: "Thư viện map" }));
     await screen.findByRole("button", { name: "Mở nuScenes mini" });

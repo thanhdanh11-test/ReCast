@@ -74,6 +74,44 @@ def vector_map(path, origin, bounds):
     return out, strokes
 
 
+def scene_origin(ego):
+    """Source-local origin: ego position at the sample closest to t=0."""
+    return ego[np.argmin(np.abs(ego[:, 0])), 1:4].copy()
+
+
+def scene_vector_map(adapter, scene, ego, origin):
+    """(bounds, polygons, lines, provenance label or None) of the scene's vector map, source-local."""
+    map_info = adapter.scene_map(scene)
+    xy = ego[:, 1:3] - origin[:2]
+    bounds = [*(xy.min(axis=0) - 60), *(xy.max(axis=0) + 60)]
+    if map_info and hasattr(adapter, "vector_map"):
+        return (bounds, *adapter.vector_map(scene, origin, bounds),
+                "Argoverse 2 Sensor: per-log vector map")
+    if map_info:
+        candidates = [
+            adapter.root / "maps/expansion" / f"{map_info[0]}.json",
+            map_directory() / f"{map_info[0]}.json",
+        ]
+        path = next((p for p in candidates if p.is_file()), None)
+        if path:
+            return (bounds, *vector_map(path, origin, bounds), f"nuScenes expansion: {map_info[0]}")
+    return bounds, [], [], None
+
+
+def scene_map_error(adapter, scene):
+    """Why build_map_context would reject this scene's map (None = usable), without LiDAR work."""
+    from topeye.scenario.map_context import validate_source_polygons
+    from topeye.scenario.models import ScenarioError
+
+    _, ego, _ = raw_scene(adapter, scene)
+    _, polygons, _, _ = scene_vector_map(adapter, scene, ego, scene_origin(ego))
+    try:
+        validate_source_polygons(polygons)
+    except ScenarioError as exc:
+        return str(exc)
+    return None
+
+
 _KEY_BITS = 21  # per axis; 0.3 m voxels span ±314 km before overflow
 _KEY_OFFSET = 1 << (_KEY_BITS - 1)
 
@@ -221,7 +259,7 @@ def source_scene(adapter, scene, progress=lambda *args: None):
         max(s["timestamp"] for s in adapter._samples[adapter._scene(scene)[0]["token"]]) / 1e6
         - t0 / 1e6
     )
-    origin = ego[np.argmin(np.abs(ego[:, 0])), 1:4].copy()
+    origin = scene_origin(ego)
     attrs_path = adapter._path(f"{adapter.version}/attribute.json")
     attributes = (
         {r["token"]: r["name"] for r in json.loads(attrs_path.read_text())}
@@ -271,24 +309,15 @@ def source_scene(adapter, scene, progress=lambda *args: None):
             "Rear lights: red material only, no measured brake state",
         ],
     }
-    map_info = adapter.scene_map(scene)
-    xy = ego[:, 1:3] - origin[:2]
-    bounds = [*(xy.min(axis=0) - 60), *(xy.max(axis=0) + 60)]
-    if map_info and hasattr(adapter, "vector_map"):
-        environment["polygons"], environment["lines"] = adapter.vector_map(scene, origin, bounds)
-        environment["provenance"][0] = (
-            "Argoverse 2: annotations.feather and exact city_SE3_egovehicle poses"
-        )
-        environment["provenance"].append("Argoverse 2 Sensor: per-log vector map")
-    elif map_info:
-        candidates = [
-            adapter.root / "maps/expansion" / f"{map_info[0]}.json",
-            map_directory() / f"{map_info[0]}.json",
-        ]
-        path = next((p for p in candidates if p.is_file()), None)
-        if path:
-            environment["polygons"], environment["lines"] = vector_map(path, origin, bounds)
-            environment["provenance"].append(f"nuScenes expansion: {map_info[0]}")
+    bounds, environment["polygons"], environment["lines"], label = scene_vector_map(
+        adapter, scene, ego, origin
+    )
+    if label:
+        if hasattr(adapter, "vector_map"):
+            environment["provenance"][0] = (
+                "Argoverse 2: annotations.feather and exact city_SE3_egovehicle poses"
+            )
+        environment["provenance"].append(label)
     if not environment["polygons"]:
         environment["warnings"].append("Thiếu vector map: chưa dựng được đường/vạch chính xác.")
     drivable = [

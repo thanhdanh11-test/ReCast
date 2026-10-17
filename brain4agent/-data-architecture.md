@@ -52,3 +52,10 @@ Local userData stores local-account.json (schemaVersion1, username/salt/hash onl
 
 ### Saved-run deletion0.26.1
 New authenticated deleteImportedRun/worker delete_imported_run accepts scenario_id+run_id (32hex). Only selected `<workspace>/<scenario>/runs/<run>` moves by rename into `.trash/run-<scenario>-<run>-<timestamp>` after user confirmation. Import package, siblings and metrics cache remain. Running/missing/linked targets rejected. UI reloads saved history, clears current scenario replay to avoid displaying deleted results; no schema change.
+
+## v0.37.0 — comparison groups and shared session
+Immutable reaction packages now include validated `source.reactive_event` before scenario.json hashing. Exact actor/event binding is checked against raw hashed report.json when recording group metadata; UI report projections are not authoritative for this check. Legacy packages remain readable/standalone.
+
+`<workspace>/.scenario-groups.json` schema1 is separate, atomically replaced, max4MiB on reads AND writes, and never repaired by overwrite on parse/validation failure. Complete or partial group IDs reference existing package IDs; deletion moves only the explicit package to trash while metadata/surviving partner remain. Baseline-only retry reuses baseline; metadata-only retry never repeats either simulation.
+
+Parent source/dataset/preferences survive scene/scenario navigation. Resource epochs prevent stale asynchronous scene/map/candidate/library writes. Main-worker readonly calls queue; mutating jobs retain BUSY protection. Reopening the already selected real dataset after reload only queues list_scenes and rechecks authorization; changing dataset remains blocked while any data worker is busy.

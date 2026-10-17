@@ -124,15 +124,54 @@ Owner wants visible hood in driver view.24triangle camera-attached red bonnet, l
 
 GitHub destination correction: bonnet pushed/verified to P-056 main a451a1a, path source-tool/topeye (v0.15.1 backport).15focusedtests+build passed on target checkout. Prior95ae6fe push to thanh danh test repo remains; no history deletion. Pastel/uncommitted local changes not delivered.
 
-## 2026-10-14 — Đồng bộ P-056 v0.31.1 + danh tính commit
-- Commit local `d29392c` (v0.31.1, gộp plan38–42; backend 712, vitest 432, server 40, tsc 0). Đồng bộ lên P-056 `9fe8c8b` (`source-tool/topeye`, verify identical trừ README/config/.gitignore của team).
-- Viết lại tác giả 3 commit P-056 cũ (`macos@Wanlevenmacos.local` → `danhtongAI11` noreply, force-with-lease, cây code không đổi) để GitHub hiện avatar; đặt `git config --global` theo danh tính này.
+### 2026-10-15 — Plan47 v0.35.0, local technical gates
+Hoàn thiện orchestration Claude: ba kind accelerate/stopline/lane_change và workspace Phản ứng theo ảnh chốt. Review độc lập tìm t0 bị giới hạn theo brake và stopline snap vượt giảm tốc; đã tách window theo kind, kiểm tính khả thi 1D, thêm test. Sửa đổi cảnh mất map và aria kind. Backend 819/819, frontend 505/505, server 43/43, Ruff/typecheck/build exit 0; brake 777/225/591/18 DIFF0; kind mới 696/677/532/1, 53/16/36/0, 221/130/132/2. Chrome scene0061↔0103, ba kind tạo được, 0 page/HTTP lỗi. Evidence Plan47 local; chờ chủ dự án duyệt ảnh động/hình thức, chưa commit/push.
 
-## 2026-10-15 — Plan43 đợt 1: nạp gói real2sim (v0.32.0)
-- Chủ dự án: "okee làm đi" (kế hoạch 3 đợt theo gói `car_013_t01.0_stop_d3_a8`). Đợt 1 = nạp gói + báo cáo kịch bản.
-- Đo: toạ độ real2sim khớp hệ app tới mm (scene-1077); gói mẫu bị cổng cũ từ chối ở 4 chỗ (OSC 1.1, RoadNetwork, 73>32 actor, Add/DeleteEntity) ⇒ đường nạp riêng, không nới cổng cũ.
-- Gotcha: đạo hàm trên đỉnh real2sim cho gia tốc giả 2259 m/s² (đỉnh cách 1 ms, khớp nối keyframe 2 Hz) ⇒ ghi chú động học dùng lưới 0,1 s và cửa sổ gia tốc 0,5 s.
-- Cổng: backend 731, vitest 435, server 41, tsc/build 0; E2E Chrome thật với thư mục mẫu PASS (73 đối tượng, 31 ghi chú, báo cáo đúng 1,75 m/10,34 m/TTC 1,10 s).
+### 2026-10-15 — Plan48 unified scenario demo, preview local
+Theo yêu cầu người dùng, URL `?unified-demo=1` trong app đã login/dataset, cố định scene-0061. Hai đường `importReactive` (brake/stop thật) và `importXosc` vào một thư viện/mặt xem; xuất `.xosc` qua `readImported`. App mặc định và version 0.35.0 không đổi. Typecheck 0, Vitest 47/47 liên quan, build 0, HTTP 200; Chrome tài khoản/workspace tạm: phản ứng 228 actor tạo/mở lại/xuất `.xosc` có OpenSCENARIO root; file `.xosc` thường từ map nạp vào cùng thư viện; 0 lỗi. Ảnh và JSON Plan48 evidence/local. Chờ chủ dự án xem demo; chưa commit/push.
 
-## 2026-10-15 — Plan44 chuyển tab mượt (v0.32.1)
-- Chủ dự án: chuyển tab trễ ~2 s, icon tab chọn phải đỏ. Đo: long task 2,5–2,7 s do dựng lại 3D khi đổi màn; phát vẫn 60 fps. Sửa: giữ hai màn mount + TrackView active; rail đỏ theo màn. Sau: không còn long task; vitest 436, E2E hồi quy PASS.
+Người dùng phản hồi thiếu click xe, chuyển làn/tăng tốc và baseline/pilot dễ thấy. Đã bổ sung click ego/xe giao thông trên map, bốn loại sự kiện dùng `eventOf/windowsOf`, HUD baseline/pilot trong khung map/3D. Ego phản ứng trong pilot, không được chọn làm xe gây sự kiện theo engine. Build/typecheck 0, 55/55 test liên quan, HTTP 200; Chrome thật bấm map và tạo bốn kind trên scene-0061, 5 gói (4 real2sim + 1 `.xosc` thường), 0 page/console lỗi. Ảnh `result.png` cho thấy hai biến thể trong viewport 1440×900. Chờ chủ xem; chưa commit/push.
+
+### 2026-10-16 — Plan48 guided demo revision (P02)
+Hoàn thành luồng 5 bước theo SPEC-P02 (Chọn xe → Chọn tình huống → Chỉnh tham số → Xem kết quả / so sánh cặp → Lưu/Xuất). Ego mở 20 template kịch bản, xe giao thông chạy 4 kind phản ứng thật (`brake`, `lane_change`, `accelerate`, `stopline`). Đã khắc phục lỗi `lane_change` khi xe (`car_154`) chỉ có cửa sổ sang phải bằng cách tự động chọn hướng/thời lượng khả thi trong `reactionChoice` và đồng bộ UI; sửa cơ chế tương tác slider của template trong test E2E; đảm bảo thư viện đồng bộ trước khi hiện màn kết quả. Typecheck 0, Vitest 61/61 pass, Build 0; kịch bản E2E Playwright thật (`test-unified-demo.mjs`) pass 8/8 bước, tạo và tự lưu 10 gói kịch bản thật (8 reactive snapshots, 1 template, 1 ordinary XOSC), tải và kiểm chứng tệp `.xosc`, 0 lỗi page/console. Ảnh chứng cứ đầy đủ tại `planning/48_2026-10-15_unified-scenario-demo/evidence/guided/`.
+
+### 2026-10-16 — Tái thiết kế khối Số liệu Đo đạc & Đánh giá (2 Chế độ: Cơ bản & Kỹ thuật)
+Theo phản hồi người dùng ("trong giao diện cơ mà thử trình bày lại đơn giản dễ hiểu nhưng vẫn có 2 chế độ cơ bản và kỹ thuật"):
+- Tạo component mới `ScenarioMetricsView.tsx` thay thế hiển thị `Outcome` sơ sài cũ, hỗ trợ 2 chế độ chuyển đổi linh hoạt:
+  + **Cơ bản (Simple, mặc định):** Ngôn ngữ tự nhiên, trực quan, dễ hiểu cho người không chuyên. Banner kết luận tình huống với icon (ShieldCheck, CheckCircle2, AlertTriangle) giải thích rõ tình huống ("Tránh được va chạm an toàn! Nếu không phản ứng (Baseline), xe sẽ đâm va chạm (0,00 m). Khi có phản ứng (Pilot), xe kịp thời phanh và dừng lại cách xe trước 9,86 m."). Hai thẻ so sánh lớn (Baseline: cự ly 0,00 m - đâm va chạm; Pilot: cự ly an toàn 9,86 m, delta +9,86 m xanh ngọc).
+  + **Kỹ thuật (Technical):** Bảng đối chiếu 4 cột chi tiết (Thông số đo đạc, Baseline không phản ứng, Pilot có phản ứng, Đánh giá kỹ thuật) hiển thị Min Gap, Min TTC, Gia tốc phanh sử dụng `a_used`, Thời gian phản xạ Reaction (1,00 s IDM), Kiểm định hợp lệ kèm tags màu đạt chuẩn/lỗi.
+- Bộ nhớ lựa chọn chế độ độc lập (`topeye.scenario.metrics.mode`), ghi nhớ khi người dùng chuyển đổi.
+- Bổ sung CSS dark theme đồng bộ với hệ thống, thiết kế responsive trên màn hình điện thoại di động (không vỡ viền ngang, đạt `overflow <= 1`).
+- Viết 4 bài unit test toàn diện cho `ScenarioMetricsView.test.tsx` (kiểm tra render Cơ bản, chuyển Kỹ thuật, kiểm tra điều kiện an toàn / cảnh báo lỗi).
+- Kiểm tra Technical Quality Gates: `npm run typecheck` (exit 0), toàn bộ Vitest suite frontend (60 test files, 518/518 tests PASS), `npm run build` (exit 0, dist-local cập nhật), E2E Chrome Playwright (`test-unified-demo.mjs`, pass 8/8 bước).
+- Đã xuất và lưu 2 ảnh chụp thực tế từ browser: `metrics-simple.png` và `metrics-technical.png`.
+
+
+## 2026-10-16T20:23:50+07:00 — Plan48 kiểm chứng lại
+- Luồng 5 bước: chọn xe → tình huống → tham số → so sánh → lưu/xuất; click ego mở 20 template, xe giao thông có 4 kind. Hai API cùng event sinh hai gói baseline/pilot thật, phát cạnh nhau cùng đồng hồ; tự lưu được nói rõ. Chọn sẵn hướng/thời lượng khả thi theo xe; khóa chuyển bước khi đang chạy. 66/66 test, typecheck/build exit0; Chrome 8 bước/10 gói/0 lỗi, quỹ đạo ego khác nhau. Chưa phát hành, chờ duyệt hình thức.
+- Evidence: `planning/48_2026-10-15_unified-scenario-demo/evidence/guided/`. App localhost5180, phiên bản0.35.0; không commit/push.
+
+## 2026-10-16T20:37:00+07:00 — Plan48 P03
+- Có hướng dẫn mặc định: chọn ý định → gợi ý xe có ego theo sau → preset hợp lệ và thời điểm → hai kết quả thật → xuất. Chuyên sâu giữ 20 mẫu/tham số; engine/API không đổi. 70/70 tests, typecheck/build exit0, Chrome 9 bước/12 gói/0 lỗi, HTTP200. Chờ duyệt trải nghiệm; preview trên0.35.0.
+- Evidence: `planning/48_2026-10-15_unified-scenario-demo/evidence/beginner/`. Browser test waits for final library row; previous count11 was a UI refresh race in harness. No commit/push.
+
+## 2026-10-16T20:50:23+07:00 — Mainweb0.36.0
+- v0.36.0 mainweb: Có hướng dẫn trên thanh công cụ, dùng cảnh đang chọn; quay về không gian làm việc. 71/71 focused tests, typecheck/build exit0; Chrome từ root URL 11 bước/12 gói/0 lỗi. Engine/API không đổi. Toàn bộ tương tác ego cùng làn chưa triển khai.
+- Server5180 restarted preserving account/workspace settings; no push/commit/remote deploy. Evidence `planning/48_2026-10-15_unified-scenario-demo/evidence/mainweb/`.
+
+## 2026-10-16T21:40:31+07:00 — Main default demo buttons
+- v0.36.1: chọn dataset trên web chính mở thẳng cùng component/bộ nút demo (Có hướng dẫn/Chuyên sâu/thanh5bước). AccessApp initialGuided=true, chờ source load trước khi gọi API. Back trả công cụ cũ.72tests/typecheck/build pass;Chrome12bước12gói0lỗi.
+- Evidence `planning/48_2026-10-15_unified-scenario-demo/evidence/main-default/`. Server5180 restarted, auth/workspace persisted, no commit/push.
+
+## 2026-10-17T00:06:42+07:00 — Plan49 audit complete / repair spec ready
+- Plan49 audit: 11 findings +5 risks; FE524/525 (missing EN), server43/43, BE819/819;20scene map preflight18pass/0103+0655invalid; build/typecheck0. One Scenario tab spec ready; no production code changed.
+- Scope: audit+plan only; no commit/push/mainserver restart. Evidence summary: planning/49_2026-10-16_scenario-unify/evidence/audit/summary.json.
+
+## 2026-10-17T00:58:44+07:00 — Plan49 implementation
+Owner “oke sửa đi” authorized fixes. Implemented one workspace and durable group metadata, resource/boot/map gates, retry/cancel generation, advanced feature adapters and honest metrics. FE538/server51/BE819 pass; typecheck/build0. Independent H01 found aggregate metadata overflow; red6/7 then green7/7, byte-preservation review approved. Browser found readonly BUSY and reload same-dataset/metrics conflict; both fixed, no raw writes. Browser/local rollout acceptance in progress. No commit/push/remote deploy.
+
+2026-10-17T01:04:51+07:00 — Plan49 local technical sign-off: FE538/server51/BE819,0skip; typecheck/build/diff0. Browser11steps/13packages/5durablegroups/reload/4kinds/template+XOSC+directory import0errors;16-step source/library E2E,13raw metadata hashes unchanged/0workers;20scene18supported+2explicitinvalid. EN/light1440/1050/390 no overflow. Mainweb5180 v0.37.0 restarted,3production account/config/catalog hashes unchanged;rootlatestbuild200/unauth401. Ego implementation taskspace2 finished. R01 independent review✅. Owner UX remains pending; no commit/push/remote deploy. Summary Plan49/evidence/acceptance/summary.json.
+
+## 2026-10-17T14:25:05+07:00 — v0.37.1 map picker greying
+Owner: cảnh lỗi map phải mờ trong nút chọn scene. v0.37.1 PATCH: bộ chọn Map trong Tạo kịch bản làm mờ (option disabled + lý do ở tooltip) các cảnh có map bị cổng `build_map_context` từ chối (mini: 0103, 0655). Worker chỉ số `map_status` = `validate_source_polygons` dùng chung với cổng thật trên vector map, không dựng LiDAR (~1 s/10 cảnh, cache theo dataset). Probe lỗi ⇒ không làm mờ; cổng thật vẫn chặn. FE540/server51/BE820 0skip; typecheck/build0; E2E chính + workspace PASS. Server5180 restarted; no commit/push.
+Owner clarified (screenshot): grey out in the top Cảnh nguồn picker of Kịch bản. Done in ScenarioApp via same mapStatus probe; Chrome E2E asserts greyed == real gate rejects (nuScenes 0103/0655, AV2 none). FE541. Server5180 restarted.

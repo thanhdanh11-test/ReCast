@@ -337,6 +337,9 @@ Nút "Tạo kịch bản" mở `ScenarioCreator` (`frontend/src/scenario/authori
 ### v0.28.0 — Tạo kịch bản từ template (plan38 P02)
 "Tạo từ template" → `importTemplate({source_id, template})` → worker `import_template` → `topeye/scenario/template.py::compile_template` → `validate_xosc` (cùng cổng với file nạp tay) → lưu gói `<tên>.xosc`. Backend kiểm lại mọi trường (`INVALID_TEMPLATE`). Kịch bản đặt dọc quỹ đạo thật của ego nguồn: x = mét dọc quỹ đạo từ `map.placement.start_m`, y = mét sang trái (+`lateral_m`); `mirror` lật trái/phải. `placement.auto` (mặc định bật) thử điểm bắt đầu lưới 5 m gần nhất trước, cả hai phía, khi bị OUTSIDE_MAP/OUTSIDE_SURFACE/STATIC_OBSTACLE/DYNAMIC_LIMIT; kết quả trả `placement` đã dùng. Mô hình: tốc độ đổi tuyến tính (mặc định 3 m/s² xe, 1,5 m/s² người), `hard_brake`/`stop` về 0, `accelerate`, `lane_change` nửa cosin (+ = trái theo hướng đối tượng), lộ trình bo góc Chaikin, quá điểm cuối đi thẳng. Lỗi `check_map` kèm `at t=…s`. Đo 5 cảnh mini × 20 loại: 44/100 qua; loại giao lộ cần đường cắt ngang thật. Spec: planning/38_2026-10-13_scenario-authoring/specs/SPEC-P02-compiler.md.
 
+### v0.37.1 — Làm mờ cảnh có map lỗi
+Bộ chọn **Map** trong hộp Tạo kịch bản gọi `mapStatus()` (HTTP `mapStatus` → worker chỉ số `map_status`) một lần khi mở. Worker chạy `validate_source_polygons` — đúng hàm mà `build_map_context` dùng — trên vector map của từng cảnh (cùng gốc toạ độ/bounds như `source_scene`, không dựng LiDAR; ~1 s cho 10 cảnh mini, cache theo dataset). Cảnh bị từ chối (mini: `scene-0103`, `scene-0655`, đa giác road_segment tự cắt) hiện mờ, không chọn được, nhãn `· map lỗi, không tạo được kịch bản`, tooltip = lỗi đầy đủ. Probe không có/thất bại ⇒ không làm mờ; cổng thật khi tạo vẫn chặn. KHÔNG sửa/nới map gốc. Ô **Cảnh nguồn** đầu trang Kịch bản (`ScenarioApp`, `sw-scene-picker`) dùng cùng probe: cảnh lỗi map mờ, không chọn được.
+
 ### v0.29.0 — Gợi ý map khi chọn loại kịch bản
 Editor template có khối "Map phù hợp" (`authoring/MapFit.tsx`): với template hiện tại, gọi `templateFit({scene, template})` lần lượt cho mọi cảnh (map đang chọn trước) → worker `template_fit` biên dịch + `validate_xosc` như khi tạo thật nhưng không lưu gì; chạy trên worker chỉ số nên worker chính vẫn rảnh; nguồn và kết quả được cache. ✓ = map dùng được (kèm điểm đặt, "lật"), ✗ = lý do ngắn (tooltip lỗi đầy đủ); bấm ✓ để chọn map. Đổi tham số ⇒ kiểm lại sau 1 s; trong lúc kiểm luôn ghi "Đang kiểm". Lần đầu ~16 s cho 10 cảnh mini (nạp nguồn), sau đó vài giây.
 
@@ -373,3 +376,70 @@ Acceptance:428 frontend tests,31 scoped backend tests,20 fresh extraction finger
 
 ## v0.31.1 — Visible cabin bonnet
 `cabinCamera.createCabinHood()` creates a red24-triangle cosmetic bonnet attached to the perspective camera. TrackView shows it only in cabin with a valid visible ego pose; follow/overview/missing pose hide it. Camera eye1.2m,70° FOV and original actor models/poses remain unchanged. Scene disposal traverses the camera subtree. Projection tests across1:1,2:1,3:1 verify all vertices below NDC y=-0.5 and some inside the frustum.17 focused camera/vehicle/pastel tests pass; no GPU screenshot while owner controls browser.
+
+## v0.33.0 — Kịch bản phản ứng (plan45)
+OpenSCENARIO → Tạo kịch bản → tab **Phản ứng**.
+
+**Cách tạo:**
+- Chọn xe gây sự kiện. Danh sách chỉ gồm xe > 3 m/s có xe bám theo, còn ≥ 4 s dữ liệu sau t0.
+- Chọn thời điểm t0 (bước 0,5 s, chỉ trong khoảng hợp lệ; dải vàng = nhãn gốc lỗi).
+- Chọn mức phanh 2/4/6/8 m/s². Mức vượt giới hạn của xe bị ẩn; xe nặng tối đa 5 m/s².
+- Chọn đích: dừng hẳn / dừng 3 s / chậm lại 50%.
+- Nâng cao: bật/tắt phản ứng, phản xạ 0,7/1,0/1,5 s.
+
+**Luồng xử lý:** `reactiveCandidates` → `importReactive` → worker `import_reactive` (`topeye/scenario/reactive.py::run_event`) → gói real2sim (`.xosc` + `report.json` + `trajectories.csv`) → `parse_package`/`persist_package` như plan43. Tab Số liệu hiện:
+- kết luận và nhóm (`collision/hard/close/mild/far`);
+- ego mô phỏng so với bản ghi;
+- tài xế phản ứng;
+- động học.
+
+**Mô hình** (port replay-forge @ d36205b):
+- vật thể không bị ảnh hưởng phát lại `pilot`; sự kiện rỗng ⇒ trùng hoàn toàn;
+- xe bị ảnh hưởng chạy IDM cải tiến (a 1,5, b 2,0, T/s0 đo từ bản ghi), giới hạn độ giật 10/3 m/s³;
+- hình học ego dùng tâm hộp thật (ego_pose + 1,39 m).
+
+**Không làm:** đánh lái, chen làn, người đi bộ băng qua, giao lộ ⇒ `valid=false` với lý do "chưa hỗ trợ". Không chạy esmini khi tạo; runner không chạy lại gói real2sim.
+
+**Template (cùng bản):** `simulate` giới hạn độ giật, nhả ga trước khi phanh, bus/truck phanh ≤ 5 m/s².
+
+**Đo:**
+- quét 100 sự kiện / 3 cảnh: 39 hợp lệ = replay-forge;
+- fit template 45/100;
+- E2E Chrome scene-0061 tạo 4,9 s.
+
+Spec: [planning/45_2026-10-15_reactive-events/](../planning/45_2026-10-15_reactive-events/plan.md).
+
+## v0.34.0 — Số liệu và giải thích kịch bản phản ứng (plan46)
+
+Tab **Phản ứng** có hai phép đo theo cảnh trên worker chỉ số: `reactiveMetrics(scene, reactions?)` (chỉ số 2, mặc định phản xạ 1,0 s, tối đa ba giá trị 0,3–3 s) quét lưới sự kiện cố định; `replayErrorMetrics(scene)` (chỉ số 1 theo định nghĩa real2sim) so exact/baseline/pilot bằng esmini và mốc giấu. Kết quả có nhóm, nguyên nhân loại, ca hiếm, không gian tham số, ADE/FDE/max/yaw/vRMSE và độ êm. Chỉ số plan33 của kịch bản OpenSCENARIO thường vẫn giữ nguyên. Engine phản ứng và hai chỉ số dùng mốc ego 2 Hz như replay-forge; màn xem cảnh nguồn vẫn dùng mẫu ego dày. Hình học ego tiếp tục dời 1,39 m từ cầu sau đến tâm hộp.
+
+Mỗi gói phản ứng chứa thêm `report.json["topeye"]`: baseline và pilot cùng sự kiện, bảy điều kiện hợp lệ có giá trị/ngưỡng, chuỗi 0,1 s, mốc sự kiện, xe phản ứng, thử độ nhạy 0,7/1,0/1,5 s và kết luận. Tab Số liệu hiện tám khối báo cáo, bốn biểu đồ và dấu `?` tra từ một kho 48 khóa (43 thuật ngữ và 5 nhóm). Gói real2sim cũ không có khối `topeye` tiếp tục hiện báo cáo cũ.
+
+`esminiCheck(scenario_id)` chạy tự động trên worker chỉ số cho gói `kind: real2sim`; so log với `trajectories.csv` theo khoảng hiện diện ±0,1 s và trả mã thoát, vật thể vắng, sai số quỹ đạo, gia tốc lớn nhất. Kết quả lưu ở `<workspace>/<scenario_id>/metrics/esmini-check-v1.json`, ngoài manifest; trước khi trả cache luôn kiểm hash/kind gói, fingerprint engine và file road được XOSC tham chiếu. Thiếu `.xodr` khiến esmini không chạy được được ghi `passed: null`, `skipped_reason: "no_road"`, không đánh dấu thất bại. Gói hỏng hash hoặc tên payload ngoài danh sách bị từ chối.
+
+HTTP localhost: `reactiveSensitivity` và `importReactive` đi worker chính; `reactiveMetrics`, `replayErrorMetrics`, `esminiCheck` đi worker chỉ số. Body tối đa 64 KiB; `scene` gồm 1–64 ký tự chữ/số/gạch dưới/gạch nối, `scenario_id` là 32 hex chữ thường. Lỗi `INVALID_INPUT` giữ form; `ESMINI_MISSING` chỉ chặn phần cần esmini; `UNSUPPORTED_KIND` không hiện kiểm esmini; `NOT_FOUND` khi gói bị xóa giữa lúc tính chỉ số. Cổng nghiệm thu và số đo thực tế: [Plan46](../planning/46_2026-10-15_reactive-metrics/plan.md).
+
+Đo nghiệm thu 10 cảnh nuScenes mini: chỉ số 2 thử 777 biến thể, baseline 225, pilot 591, 18 ca hiếm; phản xạ 0,7/1,5 s cho 607/493 hợp lệ, 0/41 ca hiếm. So từng biến thể với replay-forge @ d36205b: 0 khác biệt trên bốn kiểu mô phỏng. Chỉ số 1 ADE vật thể đang chạy exact/baseline/pilot = 0,000417/1,771157/0,097810 m; holdout = 0,090987/1,982788/0,133152 m. Bằng chứng máy ở `planning/46_2026-10-15_reactive-metrics/evidence/local/h07-metric1.txt`, `h07-metric2.txt` và 20 JSON theo cảnh.
+
+## v0.35.0 — Workspace phản ứng và ba loại sự kiện (plan47)
+
+Mở **Phản ứng** từ thanh điều hướng để vào workspace riêng. Chọn cảnh rồi bấm xe viền hồng trên bản đồ; chọn **Phanh**, **Tăng tốc**, **Dừng ở vạch** hoặc **Chuyển làn**, chỉnh t0 trong các khoảng được cho phép và bấm **Tạo tình huống**. Chế độ **Đơn giản** tập trung vào bản đồ và kết luận; **Kỹ thuật** mở dock Biểu đồ, Không gian tham số, Các xe, Kiểm tra hợp lệ, Độ khớp esmini, Chỉ số cảnh và Dữ liệu gốc. Bấm ô lưới để điền form. Đổi cảnh tải lại bản đồ và xoá lựa chọn của cảnh cũ. Mục v0.33 ở trên mô tả giao diện cũ; workspace này thay tab Phản ứng trong hộp Tạo kịch bản.
+
+Backend giữ contract `reactiveCandidates` → `importReactive` → gói real2sim. Event là union theo `kind`; trường không thuộc kind trả `INVALID_INPUT`, t0 ngoài cửa sổ công bố trả `EVENT_NOT_ALLOWED`. `accelerate` đặt tốc độ đích và gia tốc; `stopline` dừng trước vạch trên map với dwell được chọn, từ chối khi không đủ quãng/giảm tốc; `lane_change` nhận hướng và thời lượng, MOBIL báo an toàn còn xe khác chỉ phản ứng dọc. Chỉ số 2 nhận `kinds`, trả lưới riêng cho mỗi kind mới; brake giữ shape và số đo cũ. Các điều kiện và schema cụ thể ở [SPEC plan47](../planning/47_2026-10-15_reactive-kinds-ui/specs/01-CONTRACTS.md).
+
+Đo 10 cảnh nuScenes mini (thử/baseline hợp lệ/pilot hợp lệ/ca hiếm): brake **777/225/591/18**, 0 khác biệt so plan46; tăng tốc **696/677/532/1**; dừng vạch **53/16/36/0**; chuyển làn **221/130/132/2**. Đây là phép đo nội bộ, không có mốc công bố ngoài cho ba kind mới. Backend 819, frontend 505, server 43 bài đạt; typecheck/build/Ruff đạt. Chrome tạo từng kind trên scene-0061 và đổi scene-0103 rồi trở lại. Xem [Plan47](../planning/47_2026-10-15_reactive-kinds-ui/plan.md) và `evidence/local/` để đối chiếu. Cổng duyệt hình thức bởi chủ dự án còn mở.
+
+## v0.36.0 — Guided authoring on mainweb
+Main toolbar **Có hướng dẫn** opens the unified authoring flow for the selected scene; **Về không gian làm việc** returns to source tools. Select intent, confirm an ego-followed vehicle, choose feasible parameters, compare two real packages and export. Expert mode retains 20 templates; see [unified.md](unified.md) for lifecycle and limitations. Engine/API unchanged; full same-lane ego interaction remains pending.
+
+### v0.36.1 default entry correction
+After choosing a dataset in the main catalog, guided authoring opens automatically with the same demo button layout. The toolbar remains a way to reopen it after returning to source tools. `ScenarioApp.initialGuided` defaults false for existing direct/static callers; AccessApp opts in.
+
+## Audit and planned consolidation — 2026-10-17T00:06:42+07:00
+Audit snapshot0.36.1 had three parallel entries and a standalone guided shell. This historical diagnosis is superseded by the v0.37.0 implementation documented below. Confirmed issues and parity contracts: [Plan49 audit](../planning/49_2026-10-16_scenario-unify/specs/AUDIT.md), [architecture](../planning/49_2026-10-16_scenario-unify/specs/00-ARCHITECTURE.md). Plan49 audit: 11 findings +5 risks; FE524/525 (missing EN), server43/43, BE819/819;20scene map preflight18pass/0103+0655invalid; build/typecheck0. One Scenario tab spec ready; no production code changed.
+
+
+### v0.37.0 — shared Scenario workspace (Plan49)
+Supersedes the v0.36.0/v0.36.1 navigation descriptions above. One primary **Kịch bản** tab combines guided reaction, detailed parameters, 20 templates/MapFit, strict XOSC and real2sim import, library/edit/export/trash/history and reports. Source and Settings remain separate primary rail entries. `ScenarioApp` owns source/preferences; `workspace/ScenarioWorkspace`, `useScenarioSession` and `ScenarioTools` share authoring/result/jobs without a second studio shell. Legacy query is an alias.
+
+Authenticated group APIs store `.scenario-groups.json` separately from immutable packages; `source.reactive_event` binds exact event inputs. Partial baseline/pilot and reload recovery use exact IDs. Read-only main-worker requests queue, mutation BUSY checks remain. Unsupported source geometry0103/0655 blocks creation with retry and preserves source/library. Metrics show actual data, not absolute safety claims. See [workspace contract](unified.md) and [Plan49 acceptance](../planning/49_2026-10-16_scenario-unify/specs/TESTING-ACCEPTANCE.md). Full same-lane two-way ego behavior remains outside this UI/refactor release.

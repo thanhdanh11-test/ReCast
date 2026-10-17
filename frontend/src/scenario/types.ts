@@ -1,4 +1,5 @@
 import type { Placement, ScenarioTemplate } from "./authoring/template";
+import type { CandidateKinds, CandidateWindows, EsminiCheck, ReactiveDetail, ReactiveKind, ReactiveKindFields, ReactiveMetrics, ReactiveMetricsByKind, ReactiveSensitivity, ReplayErrorMetrics } from "./reactiveTypes";
 export interface Pose {
   t_s: number;
   x_m: number;
@@ -123,10 +124,57 @@ export interface Real2simReport {
   collisions: string[];
   esmini: { exit: number | null; version: string | null; problems: string[]; replay_error_m: Record<string, { mean?: number; max?: number }> } | null;
   run: { created: string | null; commit: string | null; dirty: boolean | null; esmini_version: string | null; dt: number | null; road: string | null } | null;
+  /** Topeye reactive detail (plan46 C2); absent on team real2sim packages. */
+  topeye?: ReactiveDetail | null;
 }
 /** Files of a real2sim package folder as sent to importPackage (plan43). */
 export interface PackageFile { name: string; data_base64: string }
 export interface PackageSelection { files: PackageFile[]; /** report.json scene, if any. */ scene: string | null; skipped: string[] }
+/** Reactive scenario authoring candidate lead vehicle (plan45); `kinds` per event kind (plan47 C2). */
+export interface Candidate extends Partial<CandidateKinds> {
+  actor_id: string;
+  name: string;
+  category: string;
+  max_decel_mps2: number;
+  windows: [number, number][];
+  followers: string[];
+  /** Windows per event (plan46 C1), keyed "<target>:<dwell>:<decel>"; absent from older workers. */
+  windows_by_event?: CandidateWindows["windows_by_event"];
+}
+export interface ReactiveLabelProblem {
+  name: string;
+  t_from: number;
+  t_to: number;
+}
+export interface ReactiveCandidates {
+  scene: string;
+  duration_s: number;
+  candidates: Candidate[];
+  label_problems: ReactiveLabelProblem[];
+}
+/** Fields of every event kind (plan45 C1). */
+interface ReactiveEventBase {
+  actor_id: string;
+  t0_s: number;
+  react: boolean;
+  reaction_s: number;
+}
+/** plan45 braking event; without `kind` it is a brake (v0.34.0 packages). */
+export interface BrakeEvent extends ReactiveEventBase {
+  kind?: "brake";
+  decel_mps2: number;
+  target: "stop" | "half";
+  dwell_s: number;
+}
+/**
+ * plan47 C1: one event per kind, carrying only that kind's fields (the worker rejects fields of another kind with
+ * INVALID_INPUT). Field types come from ReactiveKindFields.
+ */
+export type ReactiveEvent = BrakeEvent
+  | (ReactiveEventBase & { kind: "accelerate" } & Required<Pick<ReactiveKindFields, "target_mps" | "accel_mps2">>)
+  | (ReactiveEventBase & { kind: "stopline"; dwell_s: number })
+  | (ReactiveEventBase & { kind: "lane_change" } & Required<Pick<ReactiveKindFields, "direction" | "duration_s">>);
+export type ScenarioApi = DesktopAPI;
 export type TemplateFit = { scene: string; ok: true; placement: Placement } | { scene: string; ok: false; code: string; message: string };
 export interface ImportedReport { kind: "imported"; execution: "pass" | "fail"; fidelity: {coverage: number; max_xy_m: number; max_yaw_rad: number}; map_conformance: "pass" | "fail"; contacts: {actors: string[]; [key: string]: unknown}[]; warnings: string[] }
 export interface ImportedReplay extends Replay { report: ImportedReport }
@@ -200,6 +248,8 @@ export interface StorageInfo { workspace: string; scenarios: number; scenarioByt
 export type FeedbackKind = "bug" | "idea" | "other";
 export interface FeedbackEntry { id: string; kind: FeedbackKind; message: string; contact: string; saved_at: string; context?: Record<string, string> }
 export interface DesktopAPI {
+    scenarioGroups?(args: {scene: string}): Promise<ScenarioGroup[]>;
+    recordScenarioGroup?(args: {group: ScenarioGroup}): Promise<ScenarioGroup>;
   chooseDataset(): Promise<{ name: string; version: string; scenes: Scene[] } | null>;
   chooseWorkspace(): Promise<{ name: string } | null>;
   settings(): Promise<Settings>;
@@ -228,8 +278,24 @@ export interface DesktopAPI {
   /** Picks a real2sim package folder (plan43); null when the picker is closed. */
   pickPackage(): Promise<PackageSelection | null>;
   importPackage(args: { source_id: string; files: PackageFile[] }): Promise<ImportedScenario>;
+  /** Finds candidate lead vehicles and valid windows for reactive braking (plan45). */
+  reactiveCandidates(args: { source_id: string }): Promise<ReactiveCandidates>;
+  /** Imports a reactive event variant as a real2sim package (plan45). */
+  importReactive(args: { source_id: string; event: ReactiveEvent }): Promise<ImportedScenario>;
+  /** The same reactive event re-run with reaction 0.7 / 1.0 / 1.5 s (plan46); nothing is saved. */
+  reactiveSensitivity(args: { source_id: string; event: ReactiveEvent }): Promise<ReactiveSensitivity>;
+  /** Scene metric 2 (plan46): fixed event grid, baseline vs pilot (metrics worker, cached). */
+  reactiveMetrics(args: { scene: string; reactions?: number[] }): Promise<ReactiveMetrics>;
+  /** plan47 C5: the same metric per event kind (`["brake"]` = v0.34.0). */
+  reactiveMetrics(args: { scene: string; reactions?: number[]; kinds: ReactiveKind[] }): Promise<ReactiveMetricsByKind>;
+  /** Scene metric 1 (plan46): esmini replay error of exact / baseline / pilot (metrics worker, cached). */
+  replayErrorMetrics(args: { scene: string }): Promise<ReplayErrorMetrics>;
+  /** esmini check of a real2sim package (plan46, validity condition 1); cached next to the package. */
+  esminiCheck(args: { scenario_id: string }): Promise<EsminiCheck>;
   /** Read-only: would this template pass the import gate on `scene`? (metrics worker, cached). */
   templateFit(args: { scene: string; template: ScenarioTemplate }): Promise<TemplateFit>;
+  /** Read-only: why each scene's map is rejected for scenario creation (null = usable). Metrics worker, cached. */
+  mapStatus?(): Promise<Record<string, string | null>>;
   openImported(args: { source_id: string; path?: string }): Promise<ImportedScenario | null>;
   listImported(): Promise<ImportedEntry[]>;
   /** `template` is set for scenarios made from a template (plan38): they are edited in the template form, not as XML. */
@@ -258,4 +324,10 @@ declare global {
   interface Window {
     scenarioApp?: DesktopAPI;
   }
+}
+
+export type WithoutReact<T> = T extends unknown ? Omit<T, "react"> : never;
+export interface ScenarioGroup {
+ schema_version: 1; id: string; scene: string; map_id: string; event: WithoutReact<ReactiveEvent>;
+ baseline_id: string | null; pilot_id: string | null; created_at: string;
 }

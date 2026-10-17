@@ -8,10 +8,16 @@ export function TacticalMap({
   scenario,
   time,
   replay,
+  onPickActor,
+  selectedActorId,
+  eligibleActorIds,
 }: {
   scenario: Scenario | null;
   time: number;
   replay: Replay | null;
+  onPickActor?: (actorId: string) => void;
+  selectedActorId?: string;
+  eligibleActorIds?: string[];
 }) {
   const t = useT();
   const environment =
@@ -97,6 +103,13 @@ export function TacticalMap({
                 : `map-actor map-class-${vehicleClass(actor.category)}`
             }
             data-actor={actor.id}
+            data-selected={selectedActorId === actor.id || undefined}
+            data-eligible={eligibleActorIds?.includes(actor.id) || undefined}
+            role={onPickActor ? "button" : undefined}
+            tabIndex={onPickActor ? 0 : undefined}
+            aria-label={onPickActor ? `Chọn ${actor.role === "ego" ? "xe của tôi" : actor.id}` : undefined}
+            onClick={onPickActor ? event => { event.stopPropagation(); onPickActor(actor.id); } : undefined}
+            onKeyDown={onPickActor ? event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPickActor(actor.id); } } : undefined}
           >
             <title>
               {actor.category} · {actor.id}
@@ -108,6 +121,18 @@ export function TacticalMap({
           d={`M${ego.pose.x_m} ${-ego.pose.y_m}l${Math.cos(ego.pose.yaw_rad) * 6} ${-Math.sin(ego.pose.yaw_rad) * 6}`}
           className="map-heading"
         />
+        {onPickActor && actors.map(({ actor, pose }) => <circle
+          key={`pick-${actor.id}`}
+          cx={pose.x_m} cy={-pose.y_m} r={2.8}
+          fill="transparent"
+          className="map-actor-hit"
+          data-pick-actor={actor.id}
+          role="button"
+          tabIndex={0}
+          aria-label={`Chọn ${actor.role === "ego" ? "xe của tôi" : actor.id}`}
+          onClick={event => { event.stopPropagation(); onPickActor(actor.id); }}
+          onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPickActor(actor.id); } }}
+        />)}
       </svg>
       <ul
         className="map-legend"

@@ -9,6 +9,7 @@
 .authoring-map { margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
 .studio .authoring-map select { width:auto; border:0; background:transparent; color:var(--ink); font-weight:600; padding:4px 2px; cursor:pointer; }
 .studio .authoring-map select:hover:not(:disabled) { color:var(--text-2); }
+.studio .authoring-map option:disabled { color:var(--muted); opacity:.5; }
 .authoring-body { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; }
 .authoring-foot { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 16px; border-top:1px solid var(--line); flex-shrink:0; background:var(--canvas); }
 .authoring-foot-group { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -135,3 +136,50 @@
 @keyframes map-fit-spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .map-fit-item.pending svg { animation:none; } }
 
+
+/* Reactive braking tab (plan45 P03) */
+.reactive-form { padding:16px; display:flex; flex-direction:column; gap:14px; max-width:640px; }
+.reactive-field { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); }
+.reactive-field strong { color:var(--ink); }
+.studio .runner-dialog.authoring .reactive-field select { background:var(--field); color:var(--ink); border:1px solid var(--border-strong); padding:6px 8px; }
+.reactive-slider { position:relative; }
+.reactive-slider input[type=range] { width:100%; }
+.reactive-problem { position:absolute; top:-3px; height:4px; background:var(--warn); opacity:.8; pointer-events:none; }
+.reactive-choices { display:flex; gap:6px; flex-wrap:wrap; }
+.studio .reactive-choices .chip { min-height:30px; padding:4px 10px; font-weight:500; text-transform:none; letter-spacing:0; border-color:var(--border-strong); }
+.studio .reactive-choices .chip[aria-pressed=true] { border-color:var(--accent); color:var(--ink); background:var(--surface-active); font-weight:700; }
+.studio .reactive-form .reactive-advanced { align-self:flex-start; border:0; background:transparent; padding:2px 0; color:var(--muted); display:inline-flex; align-items:center; gap:4px; text-transform:none; letter-spacing:0; font-size:12px; }
+.reactive-advanced-body { display:flex; flex-direction:column; gap:10px; padding-left:16px; border-left:1px solid var(--line); }
+.reactive-check { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink); }
+.reactive-form .authoring-issues { flex-direction:row; align-items:baseline; gap:6px; }
+.reactive-actions { display:flex; justify-content:flex-end; }
+
+/* Scene metrics of the reactive tab (plan46 WP5) */
+.reactive-tab { display:flex; flex-direction:column; overflow-y:auto; min-height:0; }
+.reactive-check-row { display:flex; align-items:center; gap:6px; }
+.scene-metrics { padding:0 16px 16px; display:flex; flex-direction:column; gap:12px; max-width:880px; border-top:1px solid var(--line); }
+.scene-metrics h3 { margin:14px 0 0; }
+.scene-metrics h4 { margin:6px 0 0; font-size:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.scene-metrics-block { display:flex; flex-direction:column; gap:8px; }
+.scene-metrics-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.studio .scene-metrics-actions button { display:inline-flex; align-items:center; gap:6px; text-transform:none; letter-spacing:0; }
+.scene-metrics-table { border-collapse:collapse; font-size:12px; width:100%; }
+.scene-metrics-table th, .scene-metrics-table td { border-bottom:1px solid var(--line); padding:4px 8px; text-align:right; white-space:nowrap; }
+.scene-metrics-table th:first-child, .scene-metrics-table td:first-child { text-align:left; }
+.scene-metrics-table thead th { color:var(--muted); font-weight:600; }
+.scene-metrics-table td.fail { color:var(--bad); }
+.studio .scene-metrics-table button { min-height:24px; padding:2px 8px; text-transform:none; letter-spacing:0; }
+.studio .scene-metrics-table .sort-head { border:0; padding:0; min-height:0; background:transparent; color:inherit; font-weight:inherit; }
+.studio .scene-metrics .reactive-field select { background:var(--field); color:var(--ink); border:1px solid var(--border-strong); padding:6px 8px; max-width:320px; }
+.param-space { border-collapse:separate; border-spacing:2px; font-size:11px; color:var(--muted); }
+.param-space caption { text-align:left; color:var(--ink); font-weight:600; padding:4px 0; }
+.param-space th { font-weight:500; padding:0 4px; }
+.param-space td { padding:0; width:26px; height:22px; }
+.studio .param-space .param-cell { position:relative; width:26px; height:22px; min-height:0; padding:0; border:1px solid var(--line); }
+.param-base { position:absolute; top:2px; right:2px; width:6px; height:6px; border:1px solid var(--canvas); }
+.param-cell.g-collision, .param-base.g-collision { background:#b91c1c; }
+.param-cell.g-hard, .param-base.g-hard { background:#ea580c; }
+.param-cell.g-close, .param-base.g-close { background:#eab308; }
+.param-cell.g-mild, .param-base.g-mild { background:#16a34a; }
+.param-cell.g-far, .param-base.g-far { background:#64748b; }
+.param-cell.invalid, .param-base.invalid { background:repeating-linear-gradient(45deg, var(--panel) 0 3px, transparent 3px 6px); }

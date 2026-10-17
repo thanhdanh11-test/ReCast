@@ -1,4 +1,5 @@
 import type { DesktopAPI, PackageSelection } from "./types";
+import type { ReactiveKind } from "./reactiveTypes";
 
 type Doc = Pick<Document, "createElement" | "querySelector" | "body">;
 export interface HttpApiOptions {
@@ -113,6 +114,8 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
   };
 
   return {
+    scenarioGroups: args => call("scenarioGroups", args),
+    recordScenarioGroup: args => call("recordScenarioGroup", args),
     settings: () => call("settings"),
     listScenes: () => call("listScenes"),
     sourceScene: (args) => call("sourceScene", args),
@@ -164,7 +167,15 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
       return files?.length ? readPackage(files) : null;
     },
     importPackage: (args) => call("importPackage", args),
+    reactiveCandidates: (args) => call("reactiveCandidates", args),
+    importReactive: (args) => call("importReactive", args),
+    reactiveSensitivity: (args) => call("reactiveSensitivity", args),
+    // Overloaded by `kinds` (plan47 C5): the worker answers the shape that matches the request.
+    reactiveMetrics: (args: { scene: string; reactions?: number[]; kinds?: ReactiveKind[] }) => call<never>("reactiveMetrics", args),
+    replayErrorMetrics: (args) => call("replayErrorMetrics", args),
+    esminiCheck: (args) => call("esminiCheck", args),
     templateFit: (args) => call("templateFit", args),
+    mapStatus: () => call("mapStatus", {}),
     exportMapContext: async ({ source_id }) => {
       const context = await call<{ scene: string }>("exportMapContext", { source_id });
       const name = `topeye-${context.scene}-map.json`;

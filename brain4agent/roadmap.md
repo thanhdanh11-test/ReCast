@@ -3,8 +3,11 @@
 Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại OpenSCENARIO từ nuScenes; đo quỹ đạo và số kịch bản hợp lệ. Blender/NuRec/perception là nghiên cứu phụ, chưa nghiệm thu và không tự chạy tiếp.
 
 ## Mục tiêu hiện tại (Active)
+- [ ] [Plan49](../planning/49_2026-10-16_scenario-unify/plan.md) **Owner UX pending:** v0.37.0 local technical work/rollout complete; one Scenario workspace, durable pair reload, resource/map/job/report repairs. FE538/server51/BE819 + browser gates pass. Full same-lane two-way ego remains separate.
+- [ ] [Plan48](../planning/48_2026-10-15_unified-scenario-demo/plan.md) v0.36.1: chọn dataset trên web chính mở thẳng cùng component/bộ nút demo (Có hướng dẫn/Chuyên sâu/thanh5bước). AccessApp initialGuided=true, chờ source load trước khi gọi API. Back trả công cụ cũ.72tests/typecheck/build pass;Chrome12bước12gói0lỗi. Full same-lane ego interaction remains pending; owner visual feedback open.
+- [ ] [Plan47](../planning/47_2026-10-15_reactive-kinds-ui/plan.md) v0.35.0: ba loại phản ứng mới + workspace mới; cổng kỹ thuật local đạt (BE819/FE505/server43, Chrome ba kind), chờ chủ dự án duyệt ảnh từng kind và hình thức.
 - [x] [Plan44](../planning/44_2026-10-15_tab-switch/plan.md) v0.32.1: đổi tab không dựng lại 3D (2,8 s → <0,3 s, không còn long task), icon tab đang chọn màu đỏ.
-- [ ] [Plan43](../planning/43_2026-10-15_real2sim-import/plan.md) gói real2sim của team — **đợt 1 v0.32.0 ✅ local**: nạp thư mục gói (OSC 1.1, 73 actor, xuất hiện/biến mất) + Báo cáo kịch bản từ report.json. Còn: đợt 2 tài xế phản ứng IDM + biến thể trên cảnh thật; đợt 3 lưới biến thể hàng loạt + xuất đúng định dạng gói với .xodr có độ cao/bề rộng làn đo/nối road.
+- [ ] [Plan43](../planning/43_2026-10-15_real2sim-import/plan.md) gói real2sim của team — **đợt 1 v0.32.0 ✅ local**: nạp thư mục gói (OSC 1.1, 73 actor, xuất hiện/biến mất) + Báo cáo kịch bản từ report.json. Phản ứng IDM/biến thể đã có ở Plan45; lưới chỉ số và báo cáo ở Plan46. Còn: xuất gói kèm `.xodr` với độ cao/bề rộng làn đo và kết nối road để esmini kiểm được gói team thiếu road.
 - [ ] [Plan38](../planning/38_2026-10-13_scenario-authoring/plan.md) Tạo kịch bản bằng template + AI: P01 giao diện (20 loại, form 8 phần, tab AI chatbot mock) ✅ local; **P02 v0.28.0 ✅ local** — "Tạo từ template" biên dịch thật qua `validate_xosc`, đặt dọc quỹ đạo ego nguồn, tự tìm vị trí/lật (đo 44/100 loại×cảnh); **v0.29.0 gợi ý map dùng được khi chọn loại**, **v0.30.0 sửa bằng form template** ✅ local. P03 AI thật ⬜. Cũ: chờ chủ duyệt; P02 compiler template→XOSC + anchor map ⬜; P03 AI thật phía server ⬜.
 - [x] [Plan37](../planning/37_2026-10-13_runner-polish/plan.md)0.26.1: camera sát đáy, timeline rõ màu/không footer, xoá từng lịch sử vào .trash; sửa metrics loading khi quay lại;16-step E2E đạt.
 - [x] [Plan36](../planning/36_2026-10-13_runner-timeline/plan.md) v0.26.0: runner 2:1, timeline XOSC từng vật thể, tabs Kịch bản/Số liệu/Lịch sử; 15-step real E2E đạt.
@@ -56,6 +59,14 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [ ] Dữ liệu thật 8 cam của team: viết adapter mới. Nếu không có map làn thì tự dò làn từ intensity LiDAR.
 
 ## 💡 Kho Ý Tưởng & Backlog (Idea Vault)
+- (plan46) Dịch EN cho 48 thuật ngữ `help/terms.ts` (hiện chỉ tiếng Việt).
+- (plan46) Giữ `.xodr` khi nạp gói real2sim của team để esmini check chạy được (đổi đường nạp plan43).
+- (plan46) Quét chỉ số 2 cho cả dataset chạy nền có tiến độ + lưu kết quả (hiện đo từng cảnh, RAM cache).
+- (plan45) Học tiếp từ replay-forge:
+  - lưới tham số bấm-ô (mức phanh × t0) + tab "Ca hiếm tìm sẵn" (quét tự động nền);
+  - giai đoạn 2–4 của họ: liên kết làn/vạch dừng, người đi bộ băng qua, xe chen làn;
+  - kiểm chéo holdout cho làm mượt `pilot` (pilot rút ngắn thời gian dừng).
+- (plan45) Đo kích thước/offset cầu sau thật của xe ego AV2 (đang dùng số nuScenes).
 - Plan43: thống nhất ngưỡng động học với real2sim (tool: tăng tốc 4, phanh 8,2 m/s²; app: 12 m/s²) và ghi bộ ngưỡng vào báo cáo; đọc `.xodr` của gói khi worker nhận được file > 8 MiB (stream/đường dẫn cục bộ).
 - Plan38: loại giao lộ chỉ đặt được ở đúng giao lộ — cần nhận diện giao lộ từ map.
 *Nơi lưu trữ các ý tưởng hay, kiến trúc mở rộng chưa ưu tiên làm ngay nhưng cần giữ lại để tham khảo.*
@@ -91,6 +102,10 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [x] ~~Bowl view / adaptive bowl~~: đã loại (REVIEW.md).
 
 ## Đã hoàn thành (Done)
+- ✅ 2026-10-17T14:25:05+07:00 v0.37.1 — Làm mờ cảnh có map lỗi ở ô Cảnh nguồn (trang Kịch bản) và bộ chọn Map của Tạo kịch bản (`map_status`).
+- [x] Plan49 technical delivery0.37.0: mainweb5180,13packages/5groups reload proof,20scene classification18valid/2sourceinvalid,EN/light/mobile,independent review approved. Owner visual sign-off remains Active above.
+- ✅ v0.34.0 (2026-10-15) — Đủ phần đo đạc/baseline/thuật ngữ replay-forge: baseline vs pilot mỗi kịch bản, chỉ số 1 + 2 theo cảnh, ca hiếm, lưới tham số, esmini check, 48 thuật ngữ; khớp số replay-forge 10 cảnh. [Plan46](../planning/46_2026-10-15_reactive-metrics/plan.md)
+- ✅ v0.33.0 (2026-10-15) — Kịch bản phản ứng (tab "Phản ứng", gói real2sim) + chuyển động template giới hạn độ giật. [Plan45](../planning/45_2026-10-15_reactive-events/plan.md)
 - [x] **v0.6.0 Dataset Import (2026-10-09):** Backend hỗ trợ `resolve_dataset`/`inspect_dataset`, trả về `version`/`scenes`. Frontend tích hợp `chooseDataset` và tự động load scene đầu tiên. App packaged thành công, pass 572 tests backend và 145 tests frontend. [Plan 07](../planning/07_2026-10-09_dataset-import/plan.md).
 - [x] **Tiếp nhận Claude / StreetGS 30k (2026-10-08):** xác nhận Kaggle COMPLETE, checkpoint 30000; xuất splat 1.010.984 Gaussian; viewer có splat/mesh; thử TSDF+LiDAR+atlas 149.999 tam giác, GLB 25,9 MB. Kết luận mesh chưa đạt (phủ camera trước 29,3%). Backend 525 pass, giữ G-POC/G-sim mở. Chi tiết `docs/sim.md`, SPEC-S14, evidence/s14.
 - [x] **S11 pilot procedural (2026-10-07):** 17,4 phút cho 6×39 ảnh, KID tốt nhất trong các hướng (65,3), nhận diện 0,54. Còn mở: mẫu xe chi tiết (cần tài khoản Sketchfab/BlenderKit) để đạt ≥ 0,8; đưa cảnh procedural lên web.

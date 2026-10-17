@@ -2,6 +2,11 @@
 
 Tổng hợp các lỗi khó, các lưu ý dị biệt hoặc cách workaround đặc thù của dự án này để AI không dẫm lại vết xe đổ.
 
+## Plan47 — kind windows và dừng vạch
+- Không dùng `fits`/cửa sổ brake để quyết định t0 của accelerate/stopline/lane_change: brake cần quãng phanh riêng, có thể loại nhầm event hợp lệ của kind khác. `parse_event` phải đối chiếu cửa sổ đúng kind và lưới chỉ số 2 phải sinh event tạo được từ UI.
+- Stopline nằm trên map chưa đủ điều kiện tạo: mô phỏng 1D phải đến được vị trí `stopline_s - STOP_S0` và vận tốc cuối không vượt khả năng giảm tốc trong bước snap; nếu không, trả `EVENT_NOT_ALLOWED` để tránh nhảy vận tốc tức thời.
+- Workspace Phản ứng giữ scene riêng; đổi scene phải gọi loader source tương ứng trước khi hiện candidates/map, đồng thời xoá lựa chọn xe của scene cũ.
+
 ## Môi trường & Config
 - **Gemini CLI (`gemini` v0.62.0) không dùng được** (2026-10-03):
   - Lỗi: `IneligibleTierError: UNSUPPORTED_CLIENT`, vì tài khoản free-tier Code Assist không còn được hỗ trợ.
@@ -223,3 +228,33 @@ Owner screenshot shows distant pavement breakup. Pilot camera now adapts near pl
 - Plan42 mainweb: using the old roadScene floor=min(ego.z) on approved pastel terrain changes the unsupported-ground datum and can exceed subdivision budgets (Miami initially168fallbacks). Preserve preview datum-0.08m and separate25k budget/island for decorative landscape.40source/imported builds then0fallback. Never include presentation overlays in collision map/hash; imported/replayed actor z stays measured.
 
 - GitHub destination corrected by owner2026-10-13: use AI20K-Build-Phase-Cohort-4A/P-056, main, source-tool/topeye. Local origin still points thanh danh test repo (thanhdanh11-test/topeye); do not infer delivery destination from origin. Transfer scoped patches via separate P-056 checkout; no force-push/history deletion.
+
+- Plan45 (2026-10-15): ego của `source_scene` là `ego_pose` = **cầu sau**, KHÔNG phải tâm hộp.
+  - Mọi phép hình học ego (gap/va chạm/TTC/xe trước) phải dời +1,39 m theo hướng xe và dùng 4,084×1,730 m (Renault Zoe, như replay-forge). Lệch này từng làm gap sai 1,18 m và loại sai 1/100 sự kiện.
+  - AV2 (`city_SE3_egovehicle` gốc cầu sau) đang TẠM dùng cùng offset/kích thước nuScenes — chưa đo xe AV2.
+- Plan45: tỉ lệ hợp lệ kịch bản phản ứng phụ thuộc lưới thử/cảnh. 39/100 (3 cảnh) KHÔNG so được với 76,1% của replay-forge (777 sự kiện/10 cảnh). So sánh đúng là chạy cả hai engine trên cùng lưới.
+- Plan45: replay-forge dùng target `half` (không phải `slow`) — bảng nhãn `Real2simReport.TARGET` phải có `half`.
+
+- Plan46: ngưỡng vật lý/nhóm hiếm của replay-forge được hiệu chỉnh trên ego mốc nhãn **2 Hz**. `source_scene` vẫn có ego dày ~20 Hz cho màn xem; chỉ `reactive.scene_model` và chỉ số lấy 2 Hz. Trộn hai mật độ làm scene-1094 lệch 14/50 biến thể.
+- Plan46: cache `esmini_check` phải xác minh hash gói, giới hạn tên/kích thước payload, engine và trạng thái file `.xodr` được XOSC tham chiếu trước khi trả kết quả. `.xodr` ngoài manifest có thể xuất hiện sau lần `no_road`; cache thiếu fingerprint road sẽ trả `passed:null` cũ.
+- Plan46: xoá gói trong lúc `scenario_metrics` nạp có thể làm `load_imported` trả `IO_ERROR` thay vì `FileNotFoundError`; chỉ đổi thành `NOT_FOUND` khi manifest đã mất, tránh nuốt lỗi IO của gói còn tồn tại.
+- Plan46: POST gói > giới hạn phải đọc hết stream với bộ đệm đã ngừng tăng rồi mới trả 400. Trả lời giữa `for await (req)` làm `fetch` đôi khi chờ vô hạn và Node test hủy các test sau; ba lượt server 43/43 sau sửa đều đạt.
+
+- Plan46: `help.js` replay-forge có 43 key (có `T_s0` chữ hoa); grep `[a-z_]` đếm sót. Đếm bằng cách nạp module.
+- Plan46: `local-server.mjs` handler từng đọc `server.address().port` không kiểm null ⇒ request keep-alive lúc server đóng làm sập tiến trình (web 5180 tắt). Đã trả 503.
+- Plan46: quét chỉ số 2 đủ 10 cảnh mất ~35 phút / mức phản xạ (scene-1077 ~20 phút). UI đo từng cảnh (~30 s scene-0061), không quét 10 cảnh.
+
+## Plan49 audit — 2026-10-17T00:06:42+07:00
+-0.36.1 defaultscene0103 and0655 mapContext rejects invalid roadpolygons; guided currently offers runnable choices before thatgate. Do not loosen mapparser.
+- Guided `pairs` useRef resets on leave; candidate loadawait gateslibrary+retry incorrectly; initialGuidedbootfailure hideserror underpending; active-modeclick resets form. Fullfrontend fails ENkey Có hướng dẫn.
+- Canonical evidence/contracts: planning/49_2026-10-16_scenario-unify/specs/AUDIT.md. Historical audit findings; v0.37.0 repairs below supersede the UI defects.
+
+## Plan49 repairs — v0.37.0
+- Source geometry0103/0655 remains invalid; creation is gated BEFORE import with actual error. Never loosen parser. Source/library retained.
+- v0.37.1 picker greying MUST reuse `map_context.validate_source_polygons` on the same origin/bounds (`source_scene.scene_vector_map`) — a separate validity check could drift from the real gate. `canCreate=false` also during loading, so the creator banner alone cannot tell invalid from pending.
+- Concurrent boot reads previously hit server BUSY before reaching queued bridge; readonly map/candidate/open/read now queue, mutations remain gated. Same-dataset reload must not use dataset-change busy gate while old metrics finish.
+- Group reader4MiB limit must also bound writer FINAL UTF8 serialization. Independent reproduction11915groups showed successful write could brick next read; red/green regression and byte-preservation recheck recorded.
+- Raw report.json retains non-brake fields lost in UI projection. Group validation uses immutable raw bytes and source.reactive_event; do not pair by names.
+- A pilot may have persisted before group-write failure: retry metadata only, otherwise a retry creates duplicate pilot. Separate this from baseline-only partial persistence.
+- Cancel/reload/scene switch require generation checks after awaited operations, including manual esmini/scene metrics. A library refresh failure never hides an already generated result.
+- E2E waits must include the child job controller (`.sw-cancel`), not only source busy indicator; library is an embedded tab (Thư viện), not a second scenario route.

@@ -7,6 +7,7 @@ follow the real road. The result always goes through `validate_xosc`, the same g
 
 import math
 import re
+from itertools import pairwise
 
 import numpy as np
 
@@ -34,6 +35,11 @@ ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,31}")
 STEP_S = 0.01
 MAX_ROUTE_POINTS = 50
 MAX_EVENTS = 64
+JERK_BRAKE = 10.0
+JERK_NORMAL = 3.0
+SPEED_GAIN = 1.0
+MAX_BRAKE_MPS2 = {CATEGORY["bus"]: 5.0, CATEGORY["truck"]: 5.0}
+DEFAULT_MAX_BRAKE_MPS2 = 8.0
 
 
 def bad(message):
@@ -201,7 +207,7 @@ def chaikin(points, rounds=5):
     p = np.asarray(points, dtype=float)
     for _ in range(rounds if len(p) > 2 else 0):
         q = [p[0]]
-        for a, b in zip(p[:-1], p[1:], strict=True):
+        for a, b in pairwise(p):
             q += [0.75 * a + 0.25 * b, 0.25 * a + 0.75 * b]
         q.append(p[-1])
         p = np.array(q)
@@ -214,25 +220,49 @@ def smooth_step(f):
 
 
 def simulate(actor, duration):
-    """Fine-step (s, lateral) states of one actor along its own local route."""
+    """Fine-step (s, lateral) states of one actor along its own local route.
+
+    Jerk limiting ported from replay-forge (phanhieunghia353) @ d36205b,
+    real2sim/behavior.py::_jerk_limited.
+    """
     group = "pedestrian" if actor["kind"] == "pedestrian" else "vehicle"
     v = actor["initial_mps"] if actor["delay_s"] == 0 else 0.0
     desired, rate = actor["target_mps"], actor["accel_mps2"] or RAMP_MPS2[group]
     pending = list(actor["events"])
     shifts = [e for e in pending if e["type"] == "lane_change"]
     s, states = 0.0, []
-    for k in range(int(round(duration / STEP_S)) + 1):
+    a = 0.0
+    braking = False
+    for k in range(round(duration / STEP_S) + 1):
         t = k * STEP_S
         while pending and pending[0]["at_s"] <= t + 1e-9:
             e = pending.pop(0)
             if e["type"] in {"hard_brake", "stop"}:
+                braking = True
                 desired, rate = 0.0, e["decel_mps2"]
+                if group != "pedestrian":
+                    rate = min(rate, MAX_BRAKE_MPS2.get(actor["category"], DEFAULT_MAX_BRAKE_MPS2))
             elif e["type"] == "accelerate":
+                braking = False
                 desired, rate = e["target_mps"], e["accel_mps2"]
         lateral = sum(e["lateral_m"] * smooth_step((t - e["at_s"]) / e["duration_s"]) for e in shifts)
         states.append((t, s, lateral, v))
         if t >= actor["delay_s"]:
-            v += max(-rate * STEP_S, min(rate * STEP_S, desired - v))
+            error = desired - v
+            a_target = -rate if braking and v > 0 else max(-rate, min(rate, SPEED_GAIN * error))
+            if a_target < a:
+                if a_target < 0 < a:
+                    a = 0.0
+                a = max(a_target, a - JERK_BRAKE * STEP_S)
+            else:
+                a = min(a_target, a + JERK_NORMAL * STEP_S)
+            next_v = v + a * STEP_S
+            if next_v <= 0:
+                v, a = 0.0, 0.0
+            elif error != 0 and error * (desired - next_v) <= 0:
+                v, a = desired, 0.0
+            else:
+                v = next_v
             s += v * STEP_S
     return states
 
@@ -245,13 +275,13 @@ def compile_actor(actor, duration, hz, frame, mirror=False):
         states = simulate(actor, duration)
     else:
         local = None
-        states = [(k / hz, 0.0, 0.0, 0.0) for k in range(int(round(duration * hz)) + 1)]
+        states = [(k / hz, 0.0, 0.0, 0.0) for k in range(round(duration * hz) + 1)]
 
     def world(s, lateral):
         x, y = (local.offset(s, lateral)[:2]) if local else local_start
         return frame(x, y)
 
-    rows, step = [], (1 if not local else int(round(1 / (hz * STEP_S))))
+    rows, step = [], (1 if not local else round(1 / (hz * STEP_S)))
     yaw = None
     for t, s, lateral, v in states[::step]:
         x, y, ref_h = world(s, lateral)
@@ -259,7 +289,7 @@ def compile_actor(actor, duration, hz, frame, mirror=False):
             heading = ref_h + (-actor["yaw_rad"] if mirror else actor["yaw_rad"])
         else:
             # Heading of the travelled curve (path + lane-change offset), held when standing still.
-            i = int(round(t / STEP_S))
+            i = round(t / STEP_S)
             a, b = states[max(0, i - 5)], states[min(len(states) - 1, i + 5)]
             p0, p1 = world(a[1], a[2]), world(b[1], b[2])
             if math.hypot(p1[0] - p0[0], p1[1] - p0[1]) > 1e-3:

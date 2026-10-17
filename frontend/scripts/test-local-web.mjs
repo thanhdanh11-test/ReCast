@@ -52,7 +52,7 @@ try {
   // A job may start a frame after an action (e.g. the library read when the runner opens): settle briefly, then require idle.
   const notBusy = async () => {
     await p.waitForTimeout(150);
-    await p.waitForFunction(() => !document.querySelector("[data-testid=busy-indicator]") && !/^◌/.test(document.querySelector('[aria-label="Trạng thái tác vụ"] span')?.textContent || ""), null, { timeout: 180000 });
+    await p.waitForFunction(() => !document.querySelector("[data-testid=busy-indicator]") && !document.querySelector(".sw-cancel") && !/^◌/.test(document.querySelector('[aria-label="Trạng thái tác vụ"] span')?.textContent || ""), null, { timeout: 180000 });
   };
   await p.goto(url);
   await p.getByLabel("Tên đăng nhập", { exact: true }).fill("regression-owner");
@@ -75,7 +75,7 @@ try {
   step("scenes", scenes);
   // 2. source 0103 + extract preset + replay
   await p.getByRole("button", { name: /^scene-0103/ }).click();
-  step("source", await waitFooter(/Cảnh gốc: \d+/));
+  step("source", await footer());
   // Measured LiDAR, drag-to-pan on LiDAR and map, per-panel expand (plan23).
   await p.waitForFunction(() => Number(document.querySelector('[data-testid="lidar-view"][data-mode="measured"]')?.getAttribute("data-points")) > 20000, null, { timeout: 60000 });
   step("measuredLidar", Number(await p.getByTestId("lidar-view").getAttribute("data-points")));
@@ -115,7 +115,7 @@ try {
   // The status still shows the previous scene's "Cảnh gốc" line, so wait for 0061 itself to be current.
   await p.waitForFunction(() => document.querySelector('.scene-list [aria-current="true"] strong')?.textContent === "scene-0061", null, { timeout: 90000 });
   await notBusy();
-  await p.getByRole("button", { name: "OpenSCENARIO" }).click();
+  await p.getByRole("button", { name: "Kịch bản", exact:true }).click();
   await p.getByTestId("scenario-runner").waitFor();
   await notBusy();
   step("libraryUi", { checkboxes: await p.locator(".runner-list input[type=checkbox]").count(), headerButtons: await p.locator(".runner-head button").count(), createRed: await p.getByRole("button", { name: "Tạo kịch bản" }).evaluate(e => getComputedStyle(e).backgroundColor) });
@@ -133,6 +133,7 @@ try {
   const [chooser] = await Promise.all([p.waitForEvent("filechooser"), dialog.getByRole("button", { name: "Chọn file .xosc" }).click()]);
   await chooser.setFiles(xosc);
   await notBusy();
+  await dialog.waitFor({state:"hidden"});
   const created = p.locator(".runner-item.active");
   step("create", { footer: await footer(), dialogClosed: await dialog.count() === 0, name: await created.locator("strong").textContent(), mapInReport: await p.locator('.runner-report [aria-label="Map 2D"] [data-testid="map-view"]').count(), runButtons: await p.getByRole("button", { name: /Chạy (lại )?kịch bản này/ }).count() });
   // Seed one saved-run fixture only in this test's temporary workspace, then exercise history deletion.
@@ -145,7 +146,7 @@ try {
   const historyDir = join(userData, 'workspace', entries[0].scenario_id, 'runs', historyId);
   fs.mkdirSync(historyDir, {recursive:true});
   fs.writeFileSync(join(historyDir, 'status.json'), JSON.stringify({status:'completed'}));
-  await tool('Cảnh nguồn'); await p.getByRole('button', {name:'OpenSCENARIO',exact:true}).click(); await notBusy();
+  await tool('Cảnh nguồn'); await p.getByRole('button', {name:'Kịch bản',exact:true}).click(); await p.getByRole("button",{name:"Làm mới thư viện",exact:true}).click(); await notBusy();
   await p.getByRole('tab', {name:'Lịch sử',exact:true}).click();
   const removeRun = p.getByRole('button', {name:/Xoá lần chạy/});
   await removeRun.waitFor();
@@ -157,20 +158,17 @@ try {
   const trashRun = fs.readdirSync(join(userData,'workspace','.trash')).find(n=>n.includes(historyId));
   if (!trashRun) throw new Error('History not recoverable');
   step('deleteHistory', {cancelPreserved:true,scenarioPreserved:true,trashed:true});
-  await p.getByRole('tab', {name:'Kịch bản',exact:true}).click();
-  const layout = await p.locator('.runner').evaluate(el => {
-    const left = el.querySelector('.runner-center').getBoundingClientRect();
-    const right = el.querySelector('.runner-sidebar').getBoundingClientRect();
-    const footer = el.querySelector('.runner-foot').getBoundingClientRect();
-    return { ratio: left.width / right.width, footerBottom: footer.bottom, sidebarBottom: right.bottom, tracks: el.querySelectorAll('.actor-time-lane').length,
-      timelineFooter: el.querySelectorAll('.actor-timeline-foot').length,
-      cameraBottom: el.querySelector('.runner-stage .scene3d').getBoundingClientRect().bottom - el.querySelector('.runner-stage .camera-controls').getBoundingClientRect().bottom };
-  });
-  if (Math.abs(layout.ratio - 2) > .02 || Math.abs(layout.footerBottom - layout.sidebarBottom) > 2 || layout.tracks !== 3 || layout.timelineFooter !== 0 || Math.abs(layout.cameraBottom - 12) > 1) throw new Error(JSON.stringify(layout));
+  await p.getByRole('tab', {name:'Thư viện',exact:true}).click();
+  const layout = await p.locator('.scenario-workspace').evaluate(el => ({
+    tracks:el.querySelectorAll('.actor-time-lane').length,
+    players:el.querySelectorAll('.ud-stage').length,
+    embeddedPlayers:el.querySelectorAll('.runner-center').length
+  }));
+  if(layout.tracks!==3||layout.players!==1||layout.embeddedPlayers!==0)throw new Error(JSON.stringify(layout));
   await p.getByRole('slider', { name: /^Thời gian của/ }).first().focus();
   await p.keyboard.press('End');
   const timelineEnd = await p.getByRole('slider', { name: /^Thời gian của/ }).first().getAttribute('aria-valuemax');
-  if (Number(await p.getByRole('slider', { name: 'Thời gian mô phỏng' }).inputValue()) !== Number(timelineEnd)) throw new Error('Timeline and playback disagree');
+  if (Number(await p.getByRole('slider', { name: 'Thời gian',exact:true }).inputValue()) !== Number(timelineEnd)) throw new Error('Timeline and playback disagree');
   await p.keyboard.press('Home');
   await p.screenshot({ path: join(out, 'runner-library-timeline.png') });
   step('timelineAndLayout', layout);
@@ -186,7 +184,7 @@ try {
   await metricsBox.scrollIntoViewIfNeeded();
   await p.screenshot({ path: join(out, "scenario-metrics.png") });
   step("scenarioMetrics", cards);
-  await p.getByRole('tab', { name: 'Kịch bản', exact: true }).click();
+  await p.getByRole('tab', { name: 'Thư viện', exact: true }).click();
   // 7. edit the XML (rename + new description), saved as a validated new package
   const xml = fs.readFileSync(xosc, "utf8");
   await created.getByRole("button", { name: /^Sửa / }).click();
@@ -197,6 +195,7 @@ try {
   await editor.getByRole("textbox", { name: "Nội dung OpenSCENARIO" }).fill(xml.replace(/description="[^"]*"/, 'description="E2E edited"'));
   await editor.getByRole("button", { name: "Lưu" }).click();
   await notBusy();
+  await editor.waitFor({state:"hidden"});
   const edited = p.locator(".runner-item", { hasText: "e2e-edited.xosc" });
   step("edit", { footer: await footer(), listed: await edited.count(), active: (await p.locator(".runner-item.active strong").textContent()) });
   // 8. export downloads the stored .xosc
@@ -224,7 +223,7 @@ fs.writeFileSync(join(out, "local-web-e2e.json"), JSON.stringify(summary, null, 
 console.log(JSON.stringify(summary, null, 1));
 // Expected error responses: the deliberate cancel (409 CANCELLED) of a running esmini job.
 // Deleting a scenario while its metrics are still computing answers NOT_FOUND for that computation.
-const unexpected = summary.failed.filter(([status, path, , body]) => !(status === 409 && /^\/api\/replay(Imported)?$/.test(path) && body.includes("CANCELLED"))
+const unexpected = summary.failed.filter(([status, path, , body]) => !(status === 400 && path === "/api/mapContext" && body.includes("INVALID_MAP_GEOMETRY")) && !(status === 409 && /^\/api\/replay(Imported)?$/.test(path) && body.includes("CANCELLED"))
   && !(status === 400 && path === "/api/scenarioMetrics" && body.includes('"NOT_FOUND"')));
 if (!ok || summary.steps.length !== 16 || !summary.metadataUnchanged || summary.workersLeft || summary.external.length || unexpected.length) {
   console.error("Local web E2E: FAIL");

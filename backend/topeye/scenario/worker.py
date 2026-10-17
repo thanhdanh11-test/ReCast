@@ -65,7 +65,10 @@ class Service:
         self.sources = {}
         self.source_cache = OrderedDict()
         self.fit_cache = {}
+        self.map_status = None  # {scene: rejection message | None} of the active dataset
+        self.reactive_metric_cache = OrderedDict()  # (dataset, scene, params, engine version) -> read-only result
         self.imports = {}
+        self.reactive_models = OrderedDict()  # source_id -> (SceneModel, candidates), plan45
         self.recovered_workspaces = set()
 
     @staticmethod
@@ -146,8 +149,10 @@ class Service:
             source = self.call("source_scene", {**params, "scene": stored["source"]["scene"]})
             # Reverifies hashes, XML and map before anything is measured.
             imported = load_imported(package, build_map_context(source), self.adapter.root)
-        except FileNotFoundError as exc:  # deleted (moved to .trash) meanwhile
-            raise gone from exc
+        except (FileNotFoundError, ScenarioError) as exc:  # deleted (moved to .trash) meanwhile
+            if not (package / "manifest.json").is_file():
+                raise gone from exc
+            raise
         scenario = {
             "source": imported["source"],
             "interval_s": imported["interval_s"],
@@ -202,6 +207,7 @@ class Service:
             self.sources.clear()
             self.source_cache.clear()
             self.fit_cache.clear()
+            self.map_status = None
             self.imports.clear()
         return self.adapter
 
@@ -239,6 +245,21 @@ class Service:
                 self.fit_cache.pop(next(iter(self.fit_cache)))
         return self.fit_cache[key]
 
+    def reactive_model(self, source):
+        """(SceneModel, candidates) of a loaded source, cached per source_id (plan45 C2)."""
+        from topeye.scenario.reactive import candidates, scene_model
+        from topeye.scenario.reactive_map import ReactiveMap, load_map
+
+        if source["id"] in self.reactive_models:
+            self.reactive_models.move_to_end(source["id"])
+        else:
+            map_data = load_map(self.adapter, source) if hasattr(self.adapter, "scene_map") else ReactiveMap()
+            model = scene_model(source, map_data)
+            self.reactive_models[source["id"]] = (model, candidates(model))
+            if len(self.reactive_models) > SOURCE_CACHE_SIZE:
+                self.reactive_models.popitem(last=False)
+        return self.reactive_models[source["id"]]
+
     def call(self, method, params, progress=lambda *args: None):
         require(
             method
@@ -263,6 +284,13 @@ class Service:
                 "delete_imported_run",
                 "scenario_metrics",
                 "template_fit",
+                "map_status",
+                "reactive_metrics",
+                "replay_error_metrics",
+                "reactive_candidates",
+                "import_reactive",
+                "reactive_sensitivity",
+                "esmini_check",
             },
             "Unknown operation",
         )
@@ -293,9 +321,65 @@ class Service:
         if method == "scenario_metrics":
             # Runs on its own worker; like lidar_frame it must not run workspace recovery.
             return self.scenario_metrics(params, progress)
+        if method == "esmini_check":
+            # plan46 WP3, metrics worker: replays a stored real2sim package, caches next to it (outside its hash).
+            from topeye.scenario.esmini_check import esmini_check
+
+            return esmini_check(guard_output(params["workspace"], self.adapter.root), params.get("scenario_id"),
+                                params.get("engine"))
+        if method == "map_status":
+            # Read-only scene-picker probe (metrics worker): the map admission gate without LiDAR work.
+            from topeye.scenario.source_scene import scene_map_error
+
+            if self.map_status is None:
+                self.map_status = {s: scene_map_error(self.adapter, s) for s in self.adapter.scenes()}
+            return self.map_status
         if method == "template_fit":
             # Read-only probe on the metrics worker: no workspace access, nothing persisted.
             return self.template_fit(params, progress)
+        if method in {"reactive_metrics", "replay_error_metrics"}:
+            from topeye.scenario.reactive import scene_model
+            from topeye.scenario.reactive_map import load_map
+            from topeye.scenario.reactive_metrics import VERSION as REACTIVE_METRIC_VERSION
+            from topeye.scenario.reactive_metrics import reactive_metrics
+            from topeye.scenario.replay_metrics import VERSION as REPLAY_METRIC_VERSION
+            from topeye.scenario.replay_metrics import replay_error_metrics
+
+            scene = params.get("scene")
+            require(isinstance(scene, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", scene),
+                    "Invalid scene", "INVALID_INPUT")
+            reactions = params.get("reactions", [1.0])
+            if method == "reactive_metrics":
+                kinds = params.get("kinds")
+                requested_kinds = ["brake"] if kinds is None else kinds
+                require(isinstance(requested_kinds, list) and 1 <= len(requested_kinds) <= 4
+                        and all(isinstance(kind, str) and kind in ("brake", "accelerate", "stopline", "lane_change")
+                                for kind in requested_kinds) and len(requested_kinds) == len(set(requested_kinds)),
+                        "Invalid kinds", "INVALID_INPUT")
+                require(isinstance(reactions, list) and 1 <= len(reactions) <= 3
+                        and all(isinstance(x, (int, float)) and not isinstance(x, bool)
+                                and 0.3 <= x <= 3 for x in reactions),
+                        "Invalid reactions", "INVALID_INPUT")
+                key = (str(root), version, scene, method, tuple(reactions), tuple(requested_kinds),
+                       kinds is not None, REACTIVE_METRIC_VERSION)
+            else:
+                engine = params.get("engine")
+                engine_path = Path(engine) if isinstance(engine, str) else None
+                signature = (engine_path.stat().st_size, engine_path.stat().st_mtime_ns) if engine_path and engine_path.is_file() else None
+                key = (str(root), version, scene, method, str(engine), signature, REPLAY_METRIC_VERSION)
+            if key not in self.reactive_metric_cache:
+                source = self.cached_source(scene, progress)
+                map_data = (load_map(self.adapter, source) if method == "reactive_metrics"
+                            and requested_kinds != ["brake"] else None)
+                model = scene_model(source, map_data)
+                result = (reactive_metrics(model, reactions, progress, kinds) if method == "reactive_metrics"
+                          else replay_error_metrics(model, engine, progress))
+                self.reactive_metric_cache[key] = result
+                if len(self.reactive_metric_cache) > SOURCE_CACHE_SIZE:
+                    self.reactive_metric_cache.popitem(last=False)
+            else:
+                self.reactive_metric_cache.move_to_end(key)
+            return self.reactive_metric_cache[key]
         if method == "lidar_frame":
             # Read-only and stateless: must not run workspace recovery (a sibling worker may own runs).
             return lidar_frame(self.adapter, params["scene"], params["time_s"])
@@ -321,11 +405,26 @@ class Service:
             source["source"]["dataset_root"] = str(self.adapter.root)
             self.sources[source["id"]] = source
             return source
-        if method in {"map_context", "import_xosc", "import_template", "import_package", "open_imported"}:
+        if method in {
+            "map_context",
+            "import_xosc",
+            "import_template",
+            "import_package",
+            "open_imported",
+            "reactive_candidates",
+            "import_reactive",
+            "reactive_sensitivity",
+        }:
             from topeye.scenario.map_context import build_map_context
 
             source = self.sources.get(params.get("source_id"))
             require(source is not None, "Tải lại cảnh nguồn trước", "STALE_CONTEXT")
+            if method == "reactive_candidates":
+                return self.reactive_model(source)[1]
+            if method == "reactive_sensitivity":  # plan46: re-run with reaction 0.7 / 1.0 / 1.5 s, nothing saved
+                from topeye.scenario.reactive import sensitivity
+
+                return sensitivity(self.reactive_model(source)[0], params.get("event"))
             context = build_map_context(source)
             if method == "map_context":
                 return context
@@ -337,20 +436,29 @@ class Service:
             )
             from topeye.scenario.xosc_import import validate_xosc
 
-            if method == "import_package":
+            if method in {"import_package", "import_reactive"}:
                 # plan43: team real2sim replay package — its own admission path, map findings are notes.
+                # plan45: a reactive scenario is written as such a package and admitted the same way.
                 from topeye.scenario.real2sim import parse_package, persist_package
 
-                files = decode_package(params.get("files"))
+                if method == "import_reactive":
+                    from topeye.scenario.reactive import run_event
+
+                    files = run_event(self.reactive_model(source)[0], params.get("event"))["files"]
+                else:
+                    files = decode_package(params.get("files"))
                 imported = parse_package(files, context)
                 imported["source"]["source_id"] = source["id"]
+                if method == "import_reactive":
+                    imported["source"]["reactive_event"] = copy.deepcopy(params["event"])
                 imported["source"]["dataset_root"] = str(self.adapter.root)
                 imported["environment"] = source["environment"]
                 require_ipc_budget(imported)
                 self.public_import(imported)
-                package = persist_package(
-                    imported, files, context, workspace, self.adapter.root, display_name(imported["import"]["file_name"])
-                )
+                name = display_name(imported["import"]["file_name"])
+                if method == "import_reactive":
+                    name = name.removesuffix(".xosc")  # C2: "<name>_t<t0>_<target>_a<decel>"
+                package = persist_package(imported, files, context, workspace, self.adapter.root, name)
             elif method in {"import_xosc", "import_template"}:
                 if method == "import_template":
                     from topeye.scenario.template import compile_template
