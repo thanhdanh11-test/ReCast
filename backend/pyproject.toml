@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "topeye"
+name = "recast"
 version = "0.43.4"
-description = "LiDAR and surround-camera annotation processing core"
+description = "ReCast: LiDAR and surround-camera annotation processing core"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi", "uvicorn", "numpy", "scipy", "opencv-python-headless", "pyquaternion",
@@ -37,3 +37,6 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+
+[tool.hatch.build.targets.wheel]
+packages = ["topeye"]

@@ -1,4 +1,4 @@
-# Kiến trúc hệ thống Recast
+# Kiến trúc hệ thống ReCast
 
 Ngày lập: 18/10/2026. Snapshot tài liệu `0.43.2`, chức năng Scenario Studio `0.43.1`. Tài liệu mô tả mã nguồn hiện có; không coi kiến trúc Blender/NuRec lịch sử là runtime MVP.
 

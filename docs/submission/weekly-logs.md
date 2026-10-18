@@ -1,4 +1,4 @@
-# Nhật ký tuần — Recast (trước đây là Topeye)
+# Nhật ký tuần — ReCast (trước đây là Topeye)
 
 Ngày tổng hợp: 18/10/2026 · Snapshot tài liệu: `0.43.2`.
 

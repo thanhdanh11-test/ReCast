@@ -756,7 +756,7 @@ describe("shell 0.18.0", () => {
     it("shows only the logo and name on top and no visible status bar", async () => {
         render(<ScenarioApp />);
         const header = document.querySelector(".studio-header")!;
-        expect(header.textContent).toBe("Recast");
+        expect(header.textContent).toBe("ReCast");
         expect(screen.queryByText("Scenario Studio")).toBeNull();
         expect(screen.queryByText("Không gian mô phỏng")).toBeNull();
         expect(screen.getByRole("status", { name: "Trạng thái tác vụ" }).className).toBe("sr-only");

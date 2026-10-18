@@ -1,4 +1,4 @@
-"""Build the static, Vietnamese 5-minute Recast PDF pitch. No product/runtime changes.
+"""Build the static, Vietnamese 5-minute ReCast PDF pitch. No product/runtime changes.
 
 Dependencies: reportlab, pillow, pymupdf. Static Inter TTF files are bundled with OFL.
 Run from any cwd: python /path/to/docs/submission/presentation/build_deck.py
@@ -133,8 +133,8 @@ def build():
     assert sum(s["seconds"] for s in CONTENT["slides"]) == 300
     out = BASE / "topeye-pitch-5min.pdf"
     c = canvas.Canvas(str(out), pagesize=(W, H), pageCompression=1)
-    c.setTitle("Recast — Chủ động tạo kịch bản hiếm | Pitch 5 phút")
-    c.setAuthor("Recast")
+    c.setTitle("ReCast — Chủ động tạo kịch bản hiếm | Pitch 5 phút")
+    c.setAuthor("ReCast")
     c.setSubject("Bộ slide tiếng Việt cho ban giám khảo; 5 phút gồm 45 giây video phát riêng")
 
     # 01 — Cinema opening, real project footage rather than invented product imagery.
@@ -245,7 +245,7 @@ def build():
     photo(c, "driver-view.jpg", 0, 0, W, H)
     shade(c, 0.64)
     header(c, "06 / VIDEO DEMO", True)
-    lines(c, 48, 114, ["Xem Recast", "trong một tình huống."], 46, 55)
+    lines(c, 48, 114, ["Xem ReCast", "trong một tình huống."], 46, 55)
     c.setStrokeColor(WHITE)
     c.setLineWidth(1.5)
     c.circle(785, H - 302, 48, stroke=1, fill=0)
@@ -289,7 +289,7 @@ def build():
     c.save()
 
     # Presenter script and exact timing are generated from the same content source.
-    notes = ["# Recast — Lời dẫn thuyết trình 5 phút", "", "> 9 trang · 300 giây tổng cộng · 45 giây dành cho video phát riêng.", "", "Đây là kịch bản tham chiếu. Cần tập đọc, bấm giờ và thử video trước khi trình bày. Không đọc cả chú thích nguồn trên slide.", "", "| Trang | Thời gian | Nội dung |", "| --- | --- | --- |"]
+    notes = ["# ReCast — Lời dẫn thuyết trình 5 phút", "", "> 9 trang · 300 giây tổng cộng · 45 giây dành cho video phát riêng.", "", "Đây là kịch bản tham chiếu. Cần tập đọc, bấm giờ và thử video trước khi trình bày. Không đọc cả chú thích nguồn trên slide.", "", "| Trang | Thời gian | Nội dung |", "| --- | --- | --- |"]
     elapsed = 0
     for s in CONTENT["slides"]:
         end = elapsed + s["seconds"]

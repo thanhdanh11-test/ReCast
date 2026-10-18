@@ -308,7 +308,9 @@ Owner screenshot shows distant pavement breakup. Pilot camera now adapts near pl
 - ReportLab setFillColor có thể đặt lại alpha từ Color.alpha; setFillAlpha phải đặt SAU setFillColor khi phủ ảnh, nếu không ảnh cinema thành nền đặc. Đã bắt bằng xem ảnh render, không chỉ parse PDF.
 - Inter variable pin wght thành TTF tĩnh có thể giữ chung internal face name; PDF library dedup thành một font. Instance400/500/700 phải có PostScript name riêng, giữ OFL; đo PDFthật thấy3faceembedded. Runtime app không dùng các dependency dựng PDF này.
 
-## 2026-10-18T20:19:23+07:00 — Đổi tên Topeye → Recast (v0.43.4)
+## 2026-10-18T20:19:23+07:00 — Đổi tên Topeye → ReCast (v0.43.4)
 - Chỉ đổi tên HIỂN THỊ. Đừng “dọn nốt” `topeye` trong package Python/CLI/env/header/thư mục: phá editable install, script, env của máy và token client. Muốn đổi hết = MAJOR, cần SPEC + migration.
-- Thư mục dữ liệu: `brandDir()` chọn Recast nếu đã có hoặc không có Topeye; máy cũ tiếp tục dùng `Application Support/Topeye`. Đừng xoá fallback khi chưa có bước di chuyển dữ liệu.
+- Thư mục dữ liệu: `brandDir()` chọn ReCast nếu đã có hoặc không có Topeye; máy cũ tiếp tục dùng `Application Support/Topeye`. Đừng xoá fallback khi chưa có bước di chuyển dữ liệu.
+- Distribution Python đổi `topeye`→`recast`: venv cũ còn metadata `topeye-0.1.0`; phải `uv pip uninstall topeye` rồi `uv pip install -e '.[...]'` (venv do uv cài, KHÔNG có pip). Module import vẫn là `topeye`.
+- Sync P-056: người cộng tác có thể đẩy trực tiếp vào `source-tool/topeye/`; LUÔN `git log` P-056 sau pull và gộp trước khi rsync --delete (đã đè 46a3a33 một lần, 2026-10-18).
 - Tên file PDF `topeye-pitch-5min.pdf` giữ nguyên vì README/evidence trỏ tới.

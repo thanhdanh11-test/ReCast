@@ -3,9 +3,10 @@
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
 ## v0.43.4 — 2026-10-18T20:19:23+07:00 (PATCH đổi tên hiển thị)
-- Tên app hiển thị Topeye → **Recast** (UI, tiêu đề HTML, log server, i18n, author XOSC, README, docs/submission, PDF pitch dựng lại). Logo không chứa chữ nên giữ nguyên.
-- Quyết định: GIỮ định danh kỹ thuật `topeye` (package Python, lệnh `topeye-*`, env `TOPEYE_*`, header `X-Topeye-Token`, tên repo, font nội bộ `TopeyeDeckSans`) vì đổi là breaking change (MAJOR, cần SPEC). Thư mục dữ liệu mặc định thành `Application Support/Recast` và `Documents/Recast Projects`, máy đã có thư mục Topeye thì dùng tiếp (`brandDir` trong local-server.mjs) — không mất tài khoản/workspace. Không sửa lịch sử changelog/docs/scenario.md/evidence máy sinh.
-- Đo: FE578, server67, typecheck/build exit0; BE363 (lọc export/metrics/scenario), ruff exit0; PDF9trang, 0 chữ Topeye.
+- Tên app hiển thị Topeye → **ReCast** (UI, tiêu đề HTML, log server, i18n, author XOSC, README, docs/submission, PDF pitch dựng lại). Logo không chứa chữ nên giữ nguyên.
+- Chốt cách viết **ReCast** (chủ duyệt 2026-10-18, theo bản của người cộng tác P-056 46a3a33); gộp thêm chỗ đổi của họ (index.html, sim viewer, Sidebar, help/terms, ScenarioWorkspace) và đổi distribution: npm `recast-frontend`, Python `recast` (`[tool.hatch.build.targets.wheel] packages=["topeye"]`). Venv phải cài lại editable.
+- Quyết định: GIỮ định danh kỹ thuật `topeye` (module Python, lệnh `topeye-*`, env `TOPEYE_*`, header `X-Topeye-Token`, tên repo, font nội bộ `TopeyeDeckSans`) vì đổi là breaking change (MAJOR, cần SPEC). Thư mục dữ liệu mặc định thành `Application Support/ReCast` và `Documents/ReCast Projects`, máy đã có thư mục Topeye thì dùng tiếp (`brandDir` trong local-server.mjs) — không mất tài khoản/workspace. Không sửa lịch sử changelog/docs/scenario.md/evidence máy sinh.
+- Đo sau khi chốt ReCast + cài lại venv: BE842 pass, FE578, server67, typecheck/build/ruff exit0; PDF9trang, 0 chữ Topeye.
 
 ## v0.43.3 — 2026-10-18T18:22:40+07:00 (plan60, PATCH tài liệu)
 - Thêm docs/submission/presentation/: PDF pitch9trang16:9, lời dẫn5phút gồm45s video ngoài; trọng tâm pain point thu dữ liệu hiếm, hai tình huống chủ dự án chọn. Theo DESIGN-ferrari, Inter500/400, ảnh thật dự án và sơ đồ vector được ghi rõ.

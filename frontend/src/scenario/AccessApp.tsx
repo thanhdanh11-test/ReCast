@@ -9,7 +9,7 @@ import { loadPreferences, PREFERENCES_EVENT } from "./preferences";
 
 
 function Brand() {
-  return <div className="access-brand"><img src={logo} alt=""/><span>Recast<small>SCENARIO STUDIO</small></span></div>;
+  return <div className="access-brand"><img src={logo} alt=""/><span>ReCast<small>SCENARIO STUDIO</small></span></div>;
 }
 function Login({ configured, onSession }: { configured: boolean; onSession: (s: Session) => void }) {
   const t = useT();
@@ -27,14 +27,14 @@ function Login({ configured, onSession }: { configured: boolean; onSession: (s: 
     finally { setBusy(false); }
   }
   return <main className="access-screen login-screen">
-    <section className="login-world" aria-label="Recast Scenario Studio">
+    <section className="login-world" aria-label="ReCast Scenario Studio">
       <Brand/>
       <div className="login-editorial"><p className="access-eyebrow">{t("GÓC NHÌN TỪ DỮ LIỆU THẬT")}</p><h1>{t("Từ đường phố")}<br/>{t("đến kịch bản")}<span>.</span></h1><p>{t("Chọn một bản đồ. Khám phá chuyển động.")}<br/>{t("Bắt đầu hành trình mô phỏng của bạn.")}</p></div>
       <div className="road-art" aria-hidden="true"><div className="road-line road-one"/><div className="road-line road-two"/><div className="road-line road-three"/><div className="road-pin"><Route size={24}/></div><span className="road-caption">YOUR NEXT SCENARIO STARTS HERE</span></div>
       <div className="login-world-foot"><span>{t("LiDAR · Quỹ đạo · OpenSCENARIO")}</span><span>{t("01 / KHỞI ĐỘNG")}</span></div>
     </section>
     <section className="login-form-panel">
-      <div className="login-form-wrap"><span className="access-section-number">RECAST / ACCESS</span><h2>{configured ? t("Chào mừng trở lại.") : t("Bắt đầu với Recast.")}</h2><p className="access-subtitle">{configured ? t("Đăng nhập để mở thư viện map của bạn.") : t("Tạo tài khoản trên máy này để vào thư viện map.")}</p>
+      <div className="login-form-wrap"><span className="access-section-number">RECAST / ACCESS</span><h2>{configured ? t("Chào mừng trở lại.") : t("Bắt đầu với ReCast.")}</h2><p className="access-subtitle">{configured ? t("Đăng nhập để mở thư viện map của bạn.") : t("Tạo tài khoản trên máy này để vào thư viện map.")}</p>
         <form onSubmit={submit} className="access-form">
           <label>{t("Tên đăng nhập")}<input autoFocus name="username" autoComplete="username" required minLength={3} maxLength={64} pattern={"[A-Za-z0-9_.\\-]{3,64}"} value={username} onChange={e => setUsername(e.target.value)} placeholder={t("Nhập tên đăng nhập")} disabled={busy}/></label>
           <div className="password-label"><label htmlFor="local-password">{t("Mật khẩu")}</label><div className="password-field"><input id="local-password" name="password" type={visible ? "text" : "password"} autoComplete={configured ? "current-password" : "new-password"} required minLength={12} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} placeholder={t("Tối thiểu 12 ký tự")} disabled={busy}/><button type="button" aria-label={visible ? t("Ẩn mật khẩu") : t("Hiện mật khẩu")} aria-pressed={visible} onClick={() => setVisible(v => !v)}>{visible ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div></div>
@@ -122,7 +122,7 @@ function AccessScreens() {
     try { const s = await accessCall<Session>("auth/logout", {}); setSession(s); setStudio(false); setEntries([]); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   }
-  if (!session) return <main className="access-screen access-pending"><Brand/>{loading ? <p role="status"><LoaderCircle className="access-spin"/>{t("Đang mở Recast…")}</p> : <><p role="alert">{error}</p><button className="access-primary" onClick={() => window.location.reload()}>{t("Thử lại")}</button></>}</main>;
+  if (!session) return <main className="access-screen access-pending"><Brand/>{loading ? <p role="status"><LoaderCircle className="access-spin"/>{t("Đang mở ReCast…")}</p> : <><p role="alert">{error}</p><button className="access-primary" onClick={() => window.location.reload()}>{t("Thử lại")}</button></>}</main>;
   if (!session.authenticated) return <Login key={String(session.configured)} configured={session.configured} onSession={s => { setError(""); setStudio(false); setSession(s); }}/>;
   if (studio) return <ScenarioApp initialGuided onLibrary={() => { setStudio(false); void refresh().catch(e => setError(e.message)); }} onLogout={() => void logout()}/>;
   const count = entries.filter(e => e.status === "ready").reduce((sum, e) => sum + e.sceneCount, 0);

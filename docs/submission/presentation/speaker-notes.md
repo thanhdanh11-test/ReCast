@@ -1,4 +1,4 @@
-# Recast — Lời dẫn thuyết trình 5 phút
+# ReCast — Lời dẫn thuyết trình 5 phút
 
 > 9 trang · 300 giây tổng cộng · 45 giây dành cho video phát riêng.
 
@@ -18,11 +18,11 @@
 
 ## Trang 1 — 20 giây
 
-Recast bắt đầu từ một câu hỏi: nếu cứ đưa xe ra đường để thu thập dữ liệu, bao giờ chúng ta mới gặp đủ những tình huống hiếm cần kiểm thử? Chúng em xây dựng một công cụ để chủ động tạo, phát lại và đánh giá các kịch bản giao thông, thay vì chỉ chờ chúng tình cờ xuất hiện.
+ReCast bắt đầu từ một câu hỏi: nếu cứ đưa xe ra đường để thu thập dữ liệu, bao giờ chúng ta mới gặp đủ những tình huống hiếm cần kiểm thử? Chúng em xây dựng một công cụ để chủ động tạo, phát lại và đánh giá các kịch bản giao thông, thay vì chỉ chờ chúng tình cờ xuất hiện.
 
 ## Trang 2 — 40 giây
 
-Trong những chuyến thu thập dữ liệu, phần lớn điều chúng ta quan sát là giao thông thường ngày. Nhưng để kiểm thử, nhóm phát triển còn cần những khoảnh khắc khó gặp: một người bất ngờ bước ra, hoặc chiếc xe phía trước phanh gấp. Chúng ta khó chủ động chọn lúc các tình huống này xảy ra, cũng khó gặp lại chúng với đúng khoảng cách và vận tốc mong muốn. Vì vậy, chỉ tăng lượng dữ liệu thu được chưa chắc giải quyết được phần còn thiếu. Bài toán của Recast là giúp tạo ra các tình huống cần kiểm thử một cách có kiểm soát và có thể lặp lại.
+Trong những chuyến thu thập dữ liệu, phần lớn điều chúng ta quan sát là giao thông thường ngày. Nhưng để kiểm thử, nhóm phát triển còn cần những khoảnh khắc khó gặp: một người bất ngờ bước ra, hoặc chiếc xe phía trước phanh gấp. Chúng ta khó chủ động chọn lúc các tình huống này xảy ra, cũng khó gặp lại chúng với đúng khoảng cách và vận tốc mong muốn. Vì vậy, chỉ tăng lượng dữ liệu thu được chưa chắc giải quyết được phần còn thiếu. Bài toán của ReCast là giúp tạo ra các tình huống cần kiểm thử một cách có kiểm soát và có thể lặp lại.
 
 ## Trang 3 — 35 giây
 
@@ -30,15 +30,15 @@ Chúng em tập trung minh họa bằng hai trường hợp. Thứ nhất là tr
 
 ## Trang 4 — 35 giây
 
-Recast tổ chức quy trình thành bốn bước. Đầu tiên, đọc cảnh và quỹ đạo từ dữ liệu nguồn như nuScenes. Tiếp theo, người dùng thiết kế tình huống từ mẫu hoặc thay đổi sự kiện và tham số. Sau đó, hệ thống tạo quỹ đạo và xuất kịch bản để phát lại. Cuối cùng, kết quả được phân tích bằng các chỉ số và điều kiện kiểm định. Giá trị chúng em hướng tới là tận dụng lại cảnh đã có để xây dựng thêm những bài kiểm thử có thể tái hiện, thay vì luôn phải bắt đầu bằng một chuyến thu thập mới.
+ReCast tổ chức quy trình thành bốn bước. Đầu tiên, đọc cảnh và quỹ đạo từ dữ liệu nguồn như nuScenes. Tiếp theo, người dùng thiết kế tình huống từ mẫu hoặc thay đổi sự kiện và tham số. Sau đó, hệ thống tạo quỹ đạo và xuất kịch bản để phát lại. Cuối cùng, kết quả được phân tích bằng các chỉ số và điều kiện kiểm định. Giá trị chúng em hướng tới là tận dụng lại cảnh đã có để xây dựng thêm những bài kiểm thử có thể tái hiện, thay vì luôn phải bắt đầu bằng một chuyến thu thập mới.
 
 ## Trang 5 — 35 giây
 
-Đây là giao diện sản phẩm thực tế. Người dùng chọn cảnh, xem bản đồ hoặc không gian ba chiều và theo dõi chuyển động trên dòng thời gian. Sau khi tạo tình huống, các kịch bản được lưu vào lịch sử để mở lại, phân tích hoặc xuất. Với tình huống phản ứng, Recast cho phép so sánh baseline không phản ứng và pilot có phản ứng theo mô hình. Như vậy, công cụ không dừng ở việc vẽ ra một cảnh, mà kết nối quá trình thiết kế với việc xem lại diễn biến và đọc kết quả của chính kịch bản đó.
+Đây là giao diện sản phẩm thực tế. Người dùng chọn cảnh, xem bản đồ hoặc không gian ba chiều và theo dõi chuyển động trên dòng thời gian. Sau khi tạo tình huống, các kịch bản được lưu vào lịch sử để mở lại, phân tích hoặc xuất. Với tình huống phản ứng, ReCast cho phép so sánh baseline không phản ứng và pilot có phản ứng theo mô hình. Như vậy, công cụ không dừng ở việc vẽ ra một cảnh, mà kết nối quá trình thiết kế với việc xem lại diễn biến và đọc kết quả của chính kịch bản đó.
 
 ## Trang 6 — 30 giây
 
-Một điểm quan trọng là tạo được kịch bản chưa đồng nghĩa kịch bản đã đạt. Recast tách trạng thái tạo và lưu khỏi kết quả kiểm định. Người dùng có thể xem khoảng cách, thời gian tới va chạm, mức phanh và các lý do chưa đạt. Một số vấn đề có thể liên quan đến dữ liệu nguồn hoặc giới hạn mô hình. Việc hiển thị rõ những giới hạn này giúp kết quả dễ kiểm tra lại, thay vì coi một chuyển động trông hợp lý là bằng chứng duy nhất.
+Một điểm quan trọng là tạo được kịch bản chưa đồng nghĩa kịch bản đã đạt. ReCast tách trạng thái tạo và lưu khỏi kết quả kiểm định. Người dùng có thể xem khoảng cách, thời gian tới va chạm, mức phanh và các lý do chưa đạt. Một số vấn đề có thể liên quan đến dữ liệu nguồn hoặc giới hạn mô hình. Việc hiển thị rõ những giới hạn này giúp kết quả dễ kiểm tra lại, thay vì coi một chuyển động trông hợp lý là bằng chứng duy nhất.
 
 ## Trang 7 — 45 giây
 
@@ -50,7 +50,7 @@ Về tính khả thi, MVP hiện chạy trên máy local và luồng esmini cơ 
 
 ## Trang 9 — 25 giây
 
-Trong giai đoạn tiếp theo, Recast hướng tới mở rộng thư viện tình huống hiếm, cải thiện trải nghiệm chia sẻ và tăng khả năng tương tác của mô phỏng. Mục tiêu xuyên suốt vẫn là giúp người phát triển chủ động có những kịch bản cần kiểm thử, có thể lặp lại và có số liệu để đối chiếu. Recast: từ cảnh đã có đến những tình huống cần kiểm thử. Chúng em cảm ơn ban giám khảo.
+Trong giai đoạn tiếp theo, ReCast hướng tới mở rộng thư viện tình huống hiếm, cải thiện trải nghiệm chia sẻ và tăng khả năng tương tác của mô phỏng. Mục tiêu xuyên suốt vẫn là giúp người phát triển chủ động có những kịch bản cần kiểm thử, có thể lặp lại và có số liệu để đối chiếu. ReCast: từ cảnh đã có đến những tình huống cần kiểm thử. Chúng em cảm ơn ban giám khảo.
 
 ## Chuẩn bị video
 

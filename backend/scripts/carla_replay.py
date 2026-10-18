@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay a Recast CARLA package in CARLA 0.9.x, with the exact timing of trajectories.csv.
+"""Replay a ReCast CARLA package in CARLA 0.9.x, with the exact timing of trajectories.csv.
 
 Why not only the .xosc: CARLA scenario_runner supports FollowTrajectoryAction "only Polylines
 without temporal constraints" (scenario_runner Docs/openscenario_support.md), so the timed event
@@ -25,7 +25,7 @@ import zipfile
 from bisect import bisect_right
 from pathlib import Path
 
-DT = 0.05  # s, same step as the Recast simulation
+DT = 0.05  # s, same step as the ReCast simulation
 VIEWS = ("chase", "driver")
 # Driver eye relative to the ego origin (CARLA: x forward, y right, z up): left seat, behind the windscreen.
 DRIVER_EYE = (0.1, -0.38, 1.25)
@@ -49,7 +49,7 @@ BLUEPRINTS = [
 
 
 def read_package(path):
-    """(xodr text or None, csv text, package name, CARLA town or None) from a Recast export .zip or folder.
+    """(xodr text or None, csv text, package name, CARLA town or None) from a ReCast export .zip or folder.
 
     A scene recorded in a CARLA town (manifest "carla_town") has no .xodr: the town itself is loaded.
     """

@@ -1,4 +1,4 @@
-"""Automatic scene metrics: Recast replay (esmini) vs a constant-velocity baseline (plan33).
+"""Automatic scene metrics: ReCast replay (esmini) vs a constant-velocity baseline (plan33).
 
 Definitions live in planning/33_2026-10-13_scene-metrics/specs/00-SPEC.md §1; keep them in sync.
 """
@@ -105,8 +105,8 @@ def metrics_xosc(entities, duration):
         revMajor=1,
         revMinor=0,
         date="2026-10-13T00:00:00",
-        description="Recast scene metrics",
-        author="Recast",
+        description="ReCast scene metrics",
+        author="ReCast",
     )
     node(root, "ParameterDeclarations")
     node(root, "CatalogLocations")
@@ -296,7 +296,7 @@ def scene_metrics(
     pilot_bundle=None,
     max_gap=MAX_GAP,
 ):
-    """`pilot_bundle`: replay this existing XOSC package as Recast instead of building one from labels."""
+    """`pilot_bundle`: replay this existing XOSC package as ReCast instead of building one from labels."""
     actors = scene["actors"]
     tracks = {a["id"]: rows(a) for a in actors if len(a["samples"]) >= 2}
     moving = [a for a in actors if a["id"] in tracks and is_moving(tracks[a["id"]])]
@@ -309,7 +309,7 @@ def scene_metrics(
     use_engine = bool(engine and engine.is_file())
     if not use_engine:
         notes.append(
-            "Không có esmini: chưa tính được sai số phát lại của Recast và biến thể hợp lệ."
+            "Không có esmini: chưa tính được sai số phát lại của ReCast và biến thể hợp lệ."
         )
     work = Path(cache_dir) if cache_dir else Path(tempfile.gettempdir())
     work.mkdir(parents=True, exist_ok=True)

@@ -54,7 +54,7 @@ export const TERMS = {
     modes: ["Trạng thái theo thời gian",
         "Xám: chạy như bản ghi. Vàng: đã thấy xe trước chậm lại, đang phản xạ. Màu xe: tự lái theo mô hình người lái. Xanh lục: đã quay lại kế hoạch, trễ hơn bản ghi."],
     // ---------------------------------------------------------------- checks
-    c_esmini: ["esmini chạy hết", "esmini phát lại file xuất ra, thoát mã 0, và log có đủ mọi vật thể trong thời gian chúng có mặt. Ở topeye, điều kiện này kiểm riêng từng gói bằng “Kiểm bằng esmini” (chạy trên worker chỉ số), không có trong báo cáo lúc tạo."],
+    c_esmini: ["esmini chạy hết", "esmini phát lại file xuất ra, thoát mã 0, và log có đủ mọi vật thể trong thời gian chúng có mặt. Ở ReCast, điều kiện này kiểm riêng từng gói bằng “Kiểm bằng esmini” (chạy trên worker chỉ số), không có trong báo cáo lúc tạo."],
     c_physics: ["Giới hạn vật lý", "Tăng tốc ≤ 4 m/s², phanh ≤ giới hạn của loại xe + 0,2 m/s², tốc độ ≤ 40 m/s; đo từ vị trí x, y (trung bình 0,2 s), nên bắt được cả bước nhảy vị trí."],
     c_label: ["Dữ liệu nguồn cần kiểm tra", "Bộ kiểm định tìm vi phạm gần vị trí dữ liệu nguồn cũng vượt ngưỡng, trong 5 m dọc đường đi. Đây là suy đoán để kiểm tra thêm, không chứng minh nhãn gốc sai. Biến thể vẫn bị loại theo luật hiện tại vì còn chuyển động vượt ngưỡng."],
     c_collision: ["Không xe nào đâm nhau", "Hộp hai xe không được chồng nhau, trừ khi một trong hai là xe của bạn. Kiểm mỗi 0,025 s."],

@@ -143,7 +143,7 @@ function expandHome(path) {
   return path.trim().replace(/^~(?=$|\/)/, os.homedir());
 }
 
-// The app was renamed Topeye → Recast; machines that already have the old folder keep using it.
+// The app was renamed Topeye → ReCast; machines that already have the old folder keep using it.
 function brandDir(parent, name, legacyName) {
   const legacy = join(parent, legacyName);
   return !fs.existsSync(join(parent, name)) && fs.existsSync(legacy) ? legacy : join(parent, name);
@@ -151,7 +151,7 @@ function brandDir(parent, name, legacyName) {
 
 export function createLocalServer({
   staticDir = join(root, "frontend", "dist-local"),
-  userData = brandDir(join(os.homedir(), "Library", "Application Support"), "Recast", "Topeye"),
+  userData = brandDir(join(os.homedir(), "Library", "Application Support"), "ReCast", "Topeye"),
   python = join(root, "backend", ".venv", "bin", "python"),
   engine = join(root, "backend", ".tools", "esmini", "build", "EnvironmentSimulator", "Libraries", "esminiLib", "libesminiLib.dylib"),
   version = JSON.parse(fs.readFileSync(join(root, "frontend", "package.json"), "utf8")).version,
@@ -168,7 +168,7 @@ export function createLocalServer({
   const settingsPath = join(userData, "scenario-settings.json");
   let settings;
   try { settings = JSON.parse(fs.readFileSync(settingsPath, "utf8")); } catch { settings = {}; }
-  settings.workspace ||= brandDir(join(os.homedir(), "Documents"), "Recast Projects", "Topeye Projects");
+  settings.workspace ||= brandDir(join(os.homedir(), "Documents"), "ReCast Projects", "Topeye Projects");
   const saveSettings = () => {
     const temporary = settingsPath + "." + randomUUID() + ".tmp";
     fs.writeFileSync(temporary, JSON.stringify(settings), { flag: "wx", mode: 0o600 });
@@ -494,7 +494,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const requested = Number(process.env.TOPEYE_PORT || 5180);
   host.listen(requested).then((port) => {
     const url = `http://127.0.0.1:${port}/`;
-    console.log(`Recast local web: ${url}`);
+    console.log(`ReCast local web: ${url}`);
     if (!process.env.TOPEYE_NO_OPEN) spawn("open", [url], { stdio: "ignore", detached: true }).unref();
   }).catch((e) => {
     console.error(e.code === "EADDRINUSE" ? `Cổng ${requested} đang bận; đặt TOPEYE_PORT khác.` : e);

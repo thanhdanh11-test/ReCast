@@ -1,4 +1,4 @@
-# Recast — bộ slide cho ban giám khảo
+# ReCast — bộ slide cho ban giám khảo
 
 - [PDF thuyết trình](topeye-pitch-5min.pdf): 9 trang, 16:9, tiếng Việt.
 - [Lời dẫn và bảng thời gian](speaker-notes.md): tổng 300 giây, đã tính 45 giây video.
@@ -8,7 +8,7 @@
 
 ## Brief đã chốt
 
-Tên dự án **Recast**; người nghe là **ban giám khảo**. Bài nói dài **5 phút**, nhấn mạnh khó thu thập đủ tình huống hiếm trong những chuyến thu dữ liệu. Hai ví dụ: trẻ em lao ra từ sau xe đỗ và xe phía trước phanh gấp. Có video demo, phát riêng tại trang 7.
+Tên dự án **ReCast**; người nghe là **ban giám khảo**. Bài nói dài **5 phút**, nhấn mạnh khó thu thập đủ tình huống hiếm trong những chuyến thu dữ liệu. Hai ví dụ: trẻ em lao ra từ sau xe đỗ và xe phía trước phanh gấp. Có video demo, phát riêng tại trang 7.
 
 Quyết định 5 phút thay thế yêu cầu 3 phút trước đó. Không còn hai thời lượng cùng áp dụng. Không bổ sung tên thành viên hoặc đơn vị khi chưa được cung cấp.
 

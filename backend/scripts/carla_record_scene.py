@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record one CARLA town as a raw scene for Recast (plan56, 01-CONTRACTS "Raw bundle").
+"""Record one CARLA town as a raw scene for ReCast (plan56, 01-CONTRACTS "Raw bundle").
 
 Runs next to a CARLA 0.9.15 server (e.g. inside the carla-env client container):
     python carla_record_scene.py --town Town10HD_Opt --out /work/output/topeye/town10hd

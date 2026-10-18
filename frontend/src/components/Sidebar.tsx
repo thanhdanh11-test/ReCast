@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           T
         </div>
         <div className="flex flex-col leading-none">
-          <span className="font-semibold text-sm">topeye</span>
+          <span className="font-semibold text-sm">ReCast</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">3D Annotator</span>
         </div>
       </div>
