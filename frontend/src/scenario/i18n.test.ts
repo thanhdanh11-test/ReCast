@@ -6,6 +6,7 @@ import { GROUPS, SCENARIO_TYPES } from "./authoring/catalog";
 import { EVENT_LABEL, EVENT_PARAMS, KIND_LABEL, TEMPLATE_FILE_ERROR } from "./authoring/template";
 import { SUGGESTIONS } from "./authoring/mockAi";
 import { REASON } from "./authoring/MapFit";
+import { VALIDITY_REASONS, VALIDITY_TITLES, SOURCE_EXPLANATION, BASELINE_EXPLANATION, VALIDATION_EXPLANATION } from "./studio/validity";
 
 const dir = join(process.cwd(), "src/scenario");
 /** Keys translated indirectly: status/kind tables, settings section labels, shortcuts, panel labels. */
@@ -47,7 +48,7 @@ const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1])
 
 describe("i18n dictionary", () => {
     it("has an English entry for every literal and indirect key", () => {
-        const keys = [...literalKeys(), ...INDIRECT, ...authoringKeys()];
+        const keys = [...literalKeys(), ...INDIRECT, ...authoringKeys(), ...Object.values(VALIDITY_REASONS), ...Object.values(VALIDITY_TITLES), SOURCE_EXPLANATION, BASELINE_EXPLANATION, VALIDATION_EXPLANATION];
         expect(keys.length).toBeGreaterThan(300);
         expect(keys.filter(k => !(k in EN))).toEqual([]);
     });

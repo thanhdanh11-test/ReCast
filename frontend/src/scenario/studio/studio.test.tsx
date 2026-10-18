@@ -9,6 +9,7 @@ import { ExportsPage } from "./ExportsPage";
 import { SceneList } from "./SceneList";
 import { sectionsOf } from "./AnalysisPage";
 import { AnalysisSummary } from "./AnalysisSummary";
+import { HistoryPanel } from "./HistoryPanel";
 import { carlaBlocked } from "./ScenarioStudio";
 import { chosenActorIds, invalidityOf } from "./validity";
 import type { DesktopAPI, ExportJob, ImportedEntry, ImportedScenario, Scenario, ScenarioGroup } from "../types";
@@ -216,5 +217,25 @@ describe("plan53 analysis summary", () => {
         wrap(<AnalysisSummary report={report({})} detail={detail}/>);
         const ttc = screen.getByText("Thời gian tới va chạm nhỏ nhất (TTC)").closest("tr")!;
         expect([...ttc.querySelectorAll("td")].slice(4).map(td => td.textContent)).toEqual(["—", "—"]);
+    });
+});
+
+describe("validation explanations across library and analysis", () => {
+    const reasons = ["[label_error] Nhãn gốc sai vật lý tại cùng chỗ", "[physics] Vượt giới hạn"];
+    it("shows every mixed reason and replaces the source-blaming summary on analysis", () => {
+        const detail = { summary: "Không dùng được: nhãn gốc của dữ liệu lỗi ở đoạn này.", checks: [], comparison: { pilot: { valid: false, reasons, group: null } } } as never;
+        wrap(<AnalysisSummary report={{ valid: false, reasons, drivers: { react: true } } as never} detail={detail}/>);
+        expect(screen.getByText("Nhiều điều kiện chưa đạt")).toBeTruthy();
+        expect(screen.getByText("Vi phạm chuyển động gần vị trí dữ liệu nguồn cũng vượt ngưỡng kiểm định.")).toBeTruthy();
+        expect(screen.getByText("Chuyển động mô phỏng vượt giới hạn tốc độ, gia tốc hoặc phanh.")).toBeTruthy();
+        expect(screen.queryByText("Không dùng được: nhãn gốc của dữ liệu lỗi ở đoạn này.")).toBeNull();
+        expect(screen.getByText(/chưa chứng minh nhãn gốc sai/)).toBeTruthy();
+    });
+    it("identifies a saved baseline collision in history without opening or rewriting it", () => {
+        const e = entry("a", "baseline", { kind: "real2sim", invalid: { code: "REPORT_INVALID", message: "old summary" },
+            report: { valid: false, group: null, event: null, reasons: ["[collision] old reason"], react: false } });
+        wrap(<HistoryPanel rows={historyRows([e], [])} activeId={null} busy={false} onRetry={vi.fn()} onOpen={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} onAnalyse={vi.fn()}/>);
+        expect(screen.getByText("Baseline có va chạm").title).toBe("Có va chạm giữa các xe trong kịch bản.");
+        expect(screen.queryByText("Không hợp lệ")).toBeNull();
     });
 });

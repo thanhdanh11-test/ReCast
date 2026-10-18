@@ -158,7 +158,10 @@ def _report_summary(scenario):
     if not isinstance(report, dict):
         return None
     event = report.get("event") if isinstance(report.get("event"), dict) else None
-    return {"valid": report.get("valid"), "group": report.get("group"), "event": event}
+    drivers = report.get("drivers")
+    return {"valid": report.get("valid"), "group": report.get("group"), "event": event,
+            "reasons": [r for r in report.get("reasons") or [] if isinstance(r, str)],
+            "react": drivers.get("react") if isinstance(drivers, dict) else None}
 
 
 def _project(workspace, scenario_id):

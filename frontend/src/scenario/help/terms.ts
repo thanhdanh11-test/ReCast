@@ -31,7 +31,7 @@ export const TERMS = {
         "Chạy lại cùng tình huống với phản xạ 0,7 s, 1,0 s và 1,5 s. Nếu kết luận đổi, nó phụ thuộc nhiều vào giả định về người lái."],
     // ---------------------------------------------------------------- result
     valid: ["Hợp lệ",
-        "Qua cả 7 điều kiện: esmini chạy được; mọi xe trong giới hạn vật lý; nhãn gốc không lỗi ở đoạn bị đổi; không xe nào đâm nhau (trừ xe của bạn); không bám sát phi lý; không có nhập làn, cắt ngang, người đi bộ ở chỗ va chạm (chưa mô phỏng); không có xe vừa vào khung hình đúng chỗ đó. Điều kiện esmini được kiểm riêng bằng “Kiểm bằng esmini”; sáu điều kiện còn lại có trong mục “Kiểm tra hợp lệ”."],
+        "Trạng thái kiểm định khác với việc tạo hoặc lưu thành công. Kiểm định xét toàn bộ quỹ đạo xe thay đổi, kể cả trước sự kiện: giới hạn vật lý, vi phạm gần dữ liệu nguồn, va chạm, bám sát và tương tác chưa hỗ trợ. Pilot có ego va chạm bị loại; baseline giữ quy tắc đánh giá riêng để so sánh. “Kiểm bằng esmini” là bước riêng; chưa kiểm esmini không đồng nghĩa chạy lỗi."],
     group: ["Nhóm",
         "Việc xe của bạn phải làm: suýt chạm hoặc phải phanh gấp (tính là ca hiếm), phanh nhẹ là đủ, hoặc không bị ảnh hưởng."],
     close: ["Suýt chạm",
@@ -56,7 +56,7 @@ export const TERMS = {
     // ---------------------------------------------------------------- checks
     c_esmini: ["esmini chạy hết", "esmini phát lại file xuất ra, thoát mã 0, và log có đủ mọi vật thể trong thời gian chúng có mặt. Ở topeye, điều kiện này kiểm riêng từng gói bằng “Kiểm bằng esmini” (chạy trên worker chỉ số), không có trong báo cáo lúc tạo."],
     c_physics: ["Giới hạn vật lý", "Tăng tốc ≤ 4 m/s², phanh ≤ giới hạn của loại xe + 0,2 m/s², tốc độ ≤ 40 m/s; đo từ vị trí x, y (trung bình 0,2 s), nên bắt được cả bước nhảy vị trí."],
-    c_label: ["Nhãn gốc lỗi", "Nếu chỗ vi phạm vật lý trùng (trong 5 m dọc đường đi) với chỗ chính nhãn gốc đã phi lý, lỗi là của dữ liệu. Biến thể vẫn bị loại vì kịch bản sẽ chứa chuyển động đó."],
+    c_label: ["Dữ liệu nguồn cần kiểm tra", "Bộ kiểm định tìm vi phạm gần vị trí dữ liệu nguồn cũng vượt ngưỡng, trong 5 m dọc đường đi. Đây là suy đoán để kiểm tra thêm, không chứng minh nhãn gốc sai. Biến thể vẫn bị loại theo luật hiện tại vì còn chuyển động vượt ngưỡng."],
     c_collision: ["Không xe nào đâm nhau", "Hộp hai xe không được chồng nhau, trừ khi một trong hai là xe của bạn. Kiểm mỗi 0,025 s."],
     c_excused: ["Chồng hộp được miễn", "Nhãn có thể vẽ hai hộp chồng nhau dù xe không chạm. Chồng hộp được miễn khi bản ghi có đúng cặp đó ở cùng vị trí tương đối (lệch dọc < 1,5 m, ngang < 0,75 m) và không sâu hơn quá 0,1 m."],
     c_tailgate: ["Bám sát phi lý", "Khoảng cách cản < 0,5 m khi xe sau chạy > 3 m/s, kéo dài quá 0,5 s. Ngoài đời không ai lái như vậy."],

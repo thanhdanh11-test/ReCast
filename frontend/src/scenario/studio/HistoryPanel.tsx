@@ -1,6 +1,7 @@
 import { BarChart3, Pencil, Save, Trash2 } from "lucide-react";
 import { useT } from "../i18n";
 import { KIND_LABEL, describeName, translateVars, type HistoryRow } from "./history";
+import { assessmentOf } from "./validity";
 
 /** Right column of the Studio (plan50 P01 §3): created scenarios of the current scene with Sửa · Xoá · Phân tích · Lưu. */
 export function HistoryPanel({ rows, activeId, busy, error, onRetry, onOpen, onEdit, onDelete, onAnalyse, onSave }: {
@@ -18,10 +19,11 @@ export function HistoryPanel({ rows, activeId, busy, error, onRetry, onOpen, onE
             {rows.map(row => {
                 const editBlocked = row.kind === "real2sim";
                 const readable = describeName(row.name);
+                const assessment = assessmentOf(row.entry.report);
                 return <li key={row.id} className={row.id === activeId ? "active" : undefined}>
                     <button className="studio-history-main" disabled={busy} onClick={() => onOpen(row)}>
                         <strong title={row.name}>{readable ? t(readable.key, translateVars(readable.vars, t)) : row.name}</strong>
-                        <small><span className={`chip studio-kind-${row.kind}`}>{t(KIND_LABEL[row.kind])}</span>{row.entry.invalid && <span className="chip studio-invalid-chip" title={row.entry.invalid.message}>{t("Không hợp lệ")}</span>}{row.baseline ? ` ${t("baseline + pilot")} · ` : " "}{time(row.created_at)}</small>
+                        <small><span className={`chip studio-kind-${row.kind}`}>{t(KIND_LABEL[row.kind])}</span>{row.entry.invalid && <span className="chip studio-invalid-chip" title={assessment ? assessment.reasons.map(r => t(r)).join(" · ") : row.entry.invalid.message}>{assessment ? t(assessment.title) : row.entry.invalid.code === "EGO_COLLISION" ? t("Có va chạm") : t("Chưa đạt kiểm định")}</span>}{row.baseline ? ` ${t("baseline + pilot")} · ` : " "}{time(row.created_at)}</small>
                     </button>
                     <span className="studio-history-actions">
                         <button className="icon-button" aria-label={t("Sửa {name}", { name: row.name })} title={editBlocked ? t("Gói real2sim chỉ xem; sửa trong tool real2sim") : t("Sửa")} disabled={busy || editBlocked} onClick={() => onEdit(row)}><Pencil size={14} aria-hidden/></button>

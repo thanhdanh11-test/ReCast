@@ -22,16 +22,13 @@ import type { Preferences } from "../preferences";
 import { ScenarioTools } from "./ScenarioTools";
 import { SceneTechnical } from "./SceneTechnical";
 import { ReactiveDock } from "../reactive/ReactiveDock";
+import { assessmentOf } from "../studio/validity";
+import { AssessmentDetails } from "../studio/AssessmentDetails";
 import type { DesktopAPI, ImportedEntry, ImportedScenario, Scenario, ScenarioGroup, ReactiveEvent } from "../types";
 import type { EsminiCheck, ReactiveKind } from "../reactiveTypes";
 import "../authoring/authoring.css";
 import "../unified/unified.css";
 
-const REASON_TEXT: Record<string, string> = {
-  ego_collision: "xe của bạn vẫn va chạm", collision: "hai xe khác đâm nhau", physics: "vượt giới hạn phanh/gia tốc",
-  tailgating: "có xe bám quá sát", unsupported_interaction: "có xe cắt ngang hoặc người đi bộ chưa mô phỏng được",
-  unsupported_appearing: "một xe vừa xuất hiện đúng chỗ tình huống", label_error: "nhãn dữ liệu gốc lỗi ở đoạn này",
-};
 const STEPS = ["Chọn xe", "Chọn tình huống", "Chỉnh tham số", "Xem kết quả", "Lưu / Xuất"];
 type Step = 1 | 2 | 3 | 4 | 5;
 type View = "pair" | "baseline" | "pilot" | "source";
@@ -83,7 +80,7 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
   // plan52: inside the Studio the overlay closes once the pair exists, so "Xem kết quả / Lưu" are never reached.
   const steps = create ? allSteps.slice(0, 3) : allSteps;
   /** plan52: verdict of the current choice before simulating (pilot validity at its reaction time). */
-  const [verdict, setVerdict] = useState<{ key: string; valid: boolean | null; reason?: string } | null>(null);
+  const [verdict, setVerdict] = useState<{ key: string; valid: boolean | null; reasons?: string[] } | null>(null);
   const type = template ? TYPE_BY_ID.get(template.scenario_type) : undefined;
   const choice = reactionChoice(selected, kind, params, t0, source);
   useEffect(()=>{onDirtyChange?.(step===3&&!artifact);return()=>onDirtyChange?.(false);},[step,artifact?.id]);
@@ -129,17 +126,17 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
   /** Pilot validity of one event at its own reaction time, or null when it cannot be checked. */
   /** The pre-check in flight: creating waits for it, since the server refuses writes while the worker is busy. */
   const checking = useRef<Promise<unknown> | null>(null);
-  async function validityOf(event: ReactiveEvent): Promise<{ valid: boolean; reason?: string } | null> {
+  async function validityOf(event: ReactiveEvent): Promise<{ valid: boolean; reasons?: string[] } | null> {
     if (!api.reactiveSensitivity) return null;
     const run = runCheck(event);
     checking.current = run;
     try { return await run; } finally { if (checking.current === run) checking.current = null; }
   }
-  async function runCheck(event: ReactiveEvent): Promise<{ valid: boolean; reason?: string } | null> {
+  async function runCheck(event: ReactiveEvent): Promise<{ valid: boolean; reasons?: string[] } | null> {
     try {
       const r = await session.sourceAction(source_id => api.reactiveSensitivity({ source_id, event: { ...event, react: true } }));
       const run = r.runs.find(x => Math.abs(x.reaction_s - event.reaction_s) < 1e-6) ?? r.runs[0];
-      return run ? { valid: run.valid, reason: run.reasons[0] } : null;
+      return run ? { valid: run.valid, reasons: run.reasons } : null;
     } catch { return null; }
   }
   function chooseIntent(next: ReactiveKind) {
@@ -348,7 +345,7 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
                : selected && source && <>
                 {guided && <fieldset disabled={busy} className="ud-fields"><label>{t("Cách xảy ra")}<select aria-label={t("Cách xảy ra")} value={guidedOptions(selected, kind, source).findIndex(o => JSON.stringify(o.params) === JSON.stringify(params))} onChange={e => { const option = guidedOptions(selected, kind, source)[Number(e.target.value)]; if (option) { setParams(option.params); setT0(option.time); } }}><option value={-1} disabled>{t("Đã tùy chỉnh thông số")}</option>{guidedOptions(selected, kind, source).map((o, i) => <option key={o.label} value={i}>{presetLabel(o)}</option>)}</select></label><label>{t("Xảy ra lúc")}<select aria-label={t("Xảy ra lúc")} value={choice.chosenTime} onChange={e => setT0(Number(e.target.value))}>{choice.availableTimes.map(seconds => <option key={seconds} value={seconds}>{t("Giây")} {fmt(seconds)}</option>)}</select></label><p className="ud-context">{t("Xe của bạn phản ứng sau")} {fmt(params.reaction)} {t("giây.")} {kind === "brake" ? params.goal === "half" ? t("Xe trước giảm tốc một nửa.") : t("Xe trước phanh đến khi dừng.") : t(INTENTS[kind].description)}</p></fieldset>}
                 <details open={guided ? undefined : true} className="ud-report"><summary>{t("Thông số chi tiết")}</summary><ReactionParameters selected={selected} source={source} kind={kind} params={params} setParams={setParams} t0={t0} setT0={setT0} busy={busy}/></details>
-                {verdict && verdict.key === eventKey && <p className={`ud-verdict ${verdict.valid === null ? "" : verdict.valid ? "ok" : "bad"}`} role="status">{verdict.valid === null ? t("Đang kiểm tra kịch bản này…") : verdict.valid ? t("✓ Kịch bản này hợp lệ: các xe phản ứng kịp.") : `${t("✗ Kịch bản này sẽ không hợp lệ")}: ${t(REASON_TEXT[verdict.reason ?? ""] ?? verdict.reason ?? "")}. ${t("Chọn cách xảy ra khác (phanh nhẹ hơn) hoặc thời điểm khác.")}`}</p>}
+                {verdict && verdict.key === eventKey && <div className={`ud-verdict ${verdict.valid === null ? "" : verdict.valid ? "ok" : "bad"}`} role="status">{verdict.valid === null ? t("Đang kiểm tra kịch bản này…") : verdict.valid ? t("Đạt các kiểm tra trước khi tạo; esmini chưa được kiểm tra.") : <><strong>{t(assessmentOf(verdict)!.title)}</strong><AssessmentDetails assessment={assessmentOf(verdict)!}/></>}</div>}
                 {!choice.event && <p role="status">{t("Thông số chưa phù hợp. Chọn lại một cách xảy ra ở trên hoặc đổi xe.")}</p>}
               </>}
             <p className="ud-context">{templateMode ? t("Tạo quỹ đạo và kiểm tra vị trí trên map. Kết quả được tự lưu.") : t("So sánh cùng tình huống khi không bật và có bật phản ứng. Hai kết quả được tự lưu để bạn xem lại.")}</p>
@@ -357,7 +354,7 @@ export function ScenarioWorkspace({ api, scene = "scene-0061", source: providedS
           {step === 4 && artifact && <>
             {partialGroup && <button disabled={busy||!session.canCreate} onClick={()=>void (partialGroup.pilot_id?work(async()=>{if(api.recordScenarioGroup)await checked(api.recordScenarioGroup({group:partialGroup}));setPartialGroup(null);await safeRefresh();}):createPair({...partialGroup.event,react:true} as ReactiveEvent,partialGroup))}>{t(partialGroup.pilot_id?"Lưu lại liên kết hai gói":"Thử lại pilot đã thiếu")}</button>}
             <p className="ud-context">{pair ? t("Hai khung dùng cùng thời gian. Bấm Phát hoặc kéo thanh thời gian để xem ego và các xe thay đổi phản ứng.") : t("Phát lại quỹ đạo đã tạo và kiểm tra kết quả trước khi xuất.")}</p>
-            <div className="ud-role"><strong>{pair ? t("2 biến thể · 1 sự kiện") : artifactLabel}</strong><p>{current?.name ?? artifact.id.slice(0, 12)} · {activeArtifact?.actors.length} {t("đối tượng")}</p><p>{report?.valid === false ? t("Báo cáo đánh dấu không hợp lệ. Xem lý do trước khi dùng.") : report?.valid === true ? t("Đạt các kiểm tra có trong báo cáo; esmini xem riêng ở dưới.") : t("Đã qua cổng kiểm tra khi nạp.")}</p></div>
+            <div className="ud-role"><strong>{pair ? t("2 biến thể · 1 sự kiện") : artifactLabel}</strong><p>{current?.name ?? artifact.id.slice(0, 12)} · {activeArtifact?.actors.length} {t("đối tượng")}</p>{report?.valid === false ? <><strong>{t(assessmentOf(report)!.title)}</strong><AssessmentDetails assessment={assessmentOf(report)!}/></> : <p>{report?.valid === true ? t("Đạt các kiểm tra có trong báo cáo; esmini xem riêng ở dưới.") : t("Đã qua cổng kiểm tra khi nạp.")}</p>}</div>
             {report && activeArtifact && <details className="ud-report"><summary>{t("Báo cáo của")} {artifactLabel.toLowerCase()}</summary><Real2simReport report={report} diagnostics={activeArtifact.import.diagnostics} esmini={esmini} onEsminiCheck={() => void work(async () => setEsmini(await checked(api.esminiCheck({ scenario_id: activeArtifact.id }))))}/></details>}
             <button className="ud-primary" disabled={busy} onClick={() => go(5)}>{t("Tiếp: lưu và xuất")}<ArrowRight size={16}/></button>
             <button className="ud-secondary" disabled={busy} onClick={() => go(1)}>{t("Thiết kế tình huống khác")}</button>

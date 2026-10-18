@@ -76,7 +76,7 @@ describe("Real2simReport with a reactive detail (plan46)", () => {
         const checks = block("Kiểm tra hợp lệ");
         expect(within(checks).getAllByRole("row")).toHaveLength(8);
         expect(within(checks).getByRole("cell", { name: "chưa kiểm" })).toBeTruthy();
-        for (const term of ["esmini chạy hết", "Giới hạn vật lý", "Nhãn gốc lỗi", "Không xe nào đâm nhau", "Bám sát phi lý", "Nhập làn, cắt ngang", "Xe vừa vào khung hình", "Chồng hộp được miễn"])
+        for (const term of ["esmini chạy hết", "Giới hạn vật lý", "Dữ liệu nguồn cần kiểm tra", "Không xe nào đâm nhau", "Bám sát phi lý", "Nhập làn, cắt ngang", "Xe vừa vào khung hình", "Chồng hộp được miễn"])
             expect(within(checks).getByRole("button", { name: `Giải thích: ${term}` })).toBeTruthy();
         expect(within(checks).getByText("car_300 – car_301 @4,50 s")).toBeTruthy();
         // 4. charts: speed, acceleration, gap, TTC
@@ -98,7 +98,7 @@ describe("Real2simReport with a reactive detail (plan46)", () => {
         await screen.findByText("Kết luận đổi theo phản xạ: phụ thuộc nhiều vào giả định về người lái.");
         expect(run).toHaveBeenCalledTimes(1);
         expect(within(block("Thử độ nhạy")).getAllByRole("row")).toHaveLength(4);
-        expect(within(block("Thử độ nhạy")).getByRole("cell", { name: "✗ các xe khác đâm nhau" })).toBeTruthy();
+        expect(within(block("Thử độ nhạy")).getByRole("cell", { name: "✗ Có va chạm giữa các xe trong kịch bản." })).toBeTruthy();
     });
     it("shows the esmini check states and asks for one", async () => {
         const onCheck = vi.fn();

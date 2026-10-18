@@ -14,6 +14,20 @@ from topeye.scenario.models import ScenarioError
 from topeye.scenario.xosc_import import validate_xosc
 
 
+def test_report_summary_preserves_all_reasons_and_baseline_without_changing_verdict():
+    from topeye.scenario.library import _report_summary
+
+    report = {"valid": False, "group": None, "event": {"actor": "bus_038"},
+              "reasons": ["[label_error] source", "[physics] acceleration"], "drivers": {"react": False}}
+    original = json.dumps(report, sort_keys=True)
+    summary = _report_summary({"report": report})
+    assert summary["reasons"] == report["reasons"]
+    assert summary["valid"] is False and summary["react"] is False
+    assert json.dumps(report, sort_keys=True) == original
+    assert _report_summary({"report": {"valid": False}})["reasons"] == []
+    assert _report_summary({"report": {"valid": False}})["react"] is None
+
+
 def package(tmp_path, name=None):
     context = build_map_context(source_fixture())
     xml = fixture_xml(context)

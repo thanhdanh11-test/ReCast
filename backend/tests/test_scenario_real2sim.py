@@ -241,7 +241,8 @@ def test_persist_load_list_read_and_tamper(context, tmp_path):
     assert loaded["actors"] == s["actors"] and loaded["report"] == s["report"]
     [entry] = list_imported(tmp_path / "ws")
     assert entry["kind"] == "real2sim" and entry["actors"] == 3
-    assert entry["report"] == {"valid": True, "group": "close", "event": REPORT["event"]}
+    assert entry["report"] == {"valid": True, "group": "close", "event": REPORT["event"],
+                               "reasons": REPORT["reasons"], "react": REPORT["drivers"]["react"]}
     assert read_imported(tmp_path / "ws", s["id"])["xml"].startswith("<?xml")
     (package / "report.json").write_text(json.dumps({**REPORT, "valid": False}))
     with pytest.raises(ScenarioError) as exc:

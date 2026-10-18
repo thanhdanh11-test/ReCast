@@ -7,6 +7,8 @@ import { ReactiveCharts } from "./ReactiveCharts";
 import type { CheckId, CheckResult, EsminiCheck, ReactiveDetail, ReactiveGroup, ReactiveKindDetail, ReactiveSensitivity, VariantOutcome } from "./reactiveTypes";
 import { KIND_LABEL } from "./reactive/model";
 import { mentions } from "./studio/analysis";
+import { assessmentOf, VALIDITY_REASONS } from "./studio/validity";
+import { AssessmentDetails } from "./studio/AssessmentDetails";
 import type { Diagnostic, Real2simReport as Report } from "./types";
 
 /** Number with unit, Vietnamese decimal comma; "—" when the tool did not report it (never invented). */
@@ -17,7 +19,7 @@ const TARGET: Record<string, string> = { hold: "dừng hẳn", stop: "dừng r�
 
 /** Rejection reason codes of the reactive assessment (replay-forge format.js REASON_LABEL). */
 const REASON: Record<string, string> = {
-    collision: "các xe khác đâm nhau", label_error: "nhãn gốc của dữ liệu bị lỗi", physics: "sai vật lý", tailgating: "bám sát phi lý",
+    ...VALIDITY_REASONS,
     unsupported_interaction: "có xe nhập làn, cắt ngang hoặc người đi bộ (chưa mô phỏng)",
     unsupported_appearing: "có xe vừa đi vào khung hình đúng chỗ tình huống (chưa mô phỏng)", esmini: "esmini báo lỗi",
 };
@@ -46,6 +48,7 @@ export function Real2simReport({ report, diagnostics, onSensitivity, esmini, onE
     esmini?: EsminiState; onEsminiCheck?: () => void;
 }) {
     const t = useT();
+    const assessment = assessmentOf(report);
     const [showAll, setShowAll] = useState(false);
     const keep = (id: string) => !focus || showAll || focus.has(id);
     const allNotes = diagnostics.filter(d => /^(MAP_NOTE_|DYNAMIC_NOTE|REPORT_FIELD)/.test(d.code));
@@ -107,10 +110,10 @@ export function Real2simReport({ report, diagnostics, onSensitivity, esmini, onE
         <section className="r2s-block">
             <h3>{t("Kết luận")} <HelpTip term="valid"/> <small className="runner-muted">{t("theo real2sim")}</small></h3>
             <p className={`r2s-verdict ${report.valid === true ? "pass" : report.valid === false ? "fail" : ""}`}>
-                {report.valid === true ? t("Hợp lệ") : report.valid === false ? t("Không hợp lệ") : t("Chưa rõ")}
+                {assessment ? t(assessment.title) : report.valid === true ? t("Hợp lệ") : t("Chưa rõ")}
                 {report.group && <><span className="chip">{report.group}</span><HelpTip term="group"/></>}
             </p>
-            {report.reasons.length > 0 && <ul className="r2s-notes">{report.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
+            {assessment ? <AssessmentDetails assessment={assessment}/> : report.reasons.length > 0 && <ul className="r2s-notes">{report.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
         </section>
         {eventBlock}
         {ego && <section className="r2s-block">
@@ -163,7 +166,7 @@ export function Real2simReport({ report, diagnostics, onSensitivity, esmini, onE
     </div>;
 }
 
-const reasonText = (reasons: string[], t: Translate) => reasons.map(r => t(REASON[r] ?? r)).join("; ");
+const reasonText = (reasons: string[], t: Translate) => reasons.map(r => t(REASON[/^\[([^\]]+)\]/.exec(r)?.[1] ?? r] ?? r)).join("; ");
 const groupText = (g: ReactiveGroup | null, t: Translate) => g ? t(GROUP_LABEL[g]) : "—";
 const span = ([a, b]: [number, number, ...unknown[]]) => `${fmt(a, 1)}–${fmt(b, 1, " s")}`;
 
@@ -174,6 +177,7 @@ function ReactiveSections({ detail, react, onSensitivity, esmini, onEsminiCheck,
 }) {
     const t = useT();
     const own: VariantOutcome | undefined = react ? detail.comparison?.pilot : detail.comparison?.baseline;
+    const assessment = own ? assessmentOf({ ...own, react }) : null;
     const group = own?.valid ? own.group : null;
     if (brief) return <>
         {eventBlock}
@@ -188,10 +192,10 @@ function ReactiveSections({ detail, react, onSensitivity, esmini, onEsminiCheck,
         <section className="r2s-block" aria-label={t("Kết luận")}>
             <h3>{t("Kết luận")} <HelpTip term="valid"/></h3>
             <p className={`r2s-verdict ${own?.valid === true ? "pass" : own?.valid === false ? "fail" : ""}`}>
-                {own?.valid === true ? t("Hợp lệ") : own?.valid === false ? t("Không hợp lệ") : t("Chưa rõ")}
+                {assessment ? t(assessment.title) : own?.valid === true ? t("Hợp lệ") : t("Chưa rõ")}
                 {group && <><span className="chip">{t(GROUP_LABEL[group])}</span><HelpTip term={GROUP_TERM[group]}/></>}
             </p>
-            <p className="r2s-summary">{detail.summary}</p>
+            {assessment ? <AssessmentDetails assessment={assessment} summary={detail.summary}/> : <p className="r2s-summary">{detail.summary}</p>}
         </section>
         {eventBlock}
         <CompareBlock detail={detail} react={react}/>

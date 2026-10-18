@@ -49,7 +49,7 @@ describe("ScenarioCreator", () => {
         expect(json).toMatchObject({ profile: "topeye-scenario-template-v1", scenario_type: "emergency_stop", params: { gap_m: 35 }, map: { scene: "scene-0103" } });
         expect(json.actors.find((a: { id: string }) => a.id === "lead").start.x_m).toBe(39.5);
         fireEvent.click(dialog.getByRole("button", { name: "Kiểm tra" }));
-        expect(dialog.getByText("Template hợp lệ")).toBeTruthy();
+        expect(dialog.getByText("Tham số hợp lệ · chưa kiểm tra chuyển động trên map")).toBeTruthy();
         fireEvent.change(dialog.getByRole("spinbutton", { name: "Thời lượng" }), { target: { value: "90" } });
         fireEvent.click(dialog.getByRole("button", { name: "Kiểm tra" }));
         expect(within(dialog.getByRole("alert")).getByText("Thời lượng phải trong 2–60 s")).toBeTruthy();

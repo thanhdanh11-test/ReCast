@@ -6,6 +6,8 @@ import { MARKER_LABEL } from "../ReactiveCharts";
 import type { ReactiveDetail, ReactiveGroup } from "../reactiveTypes";
 import type { Real2simReport } from "../types";
 import { SEVERITY, checkTally, keyMoments, kpiRows, type KpiId, type KpiRow } from "./analysis";
+import { assessmentOf } from "./validity";
+import { AssessmentDetails } from "./AssessmentDetails";
 
 /** Vietnamese decimal comma; "—" when the report has no number (never invented). */
 const fmt = (v: number | null | undefined, digits: number, unit = "") =>
@@ -18,6 +20,7 @@ export function AnalysisSummary({ report, detail, onChecks }: { report: Real2sim
     const t = useT();
     const react = report?.drivers?.react !== false;
     const own = react ? detail.comparison?.pilot : detail.comparison?.baseline;
+    const assessment = assessmentOf(report);
     const thresholds = report?.drivers?.thresholds;
     const rows = kpiRows(detail, thresholds);
     const tally = checkTally(detail.checks);
@@ -29,8 +32,8 @@ export function AnalysisSummary({ report, detail, onChecks }: { report: Real2sim
             <Icon size={26} aria-hidden/>
             <div>
                 <small>{t("KẾT LUẬN")} · {t(react ? "biến thể có phản ứng (pilot)" : "biến thể không phản ứng (baseline)")}</small>
-                <strong>{own?.valid === true ? t("Kịch bản hợp lệ") : own?.valid === false ? t("Kịch bản không hợp lệ") : t("Chưa đủ dữ liệu để kết luận")}</strong>
-                <p>{detail.summary}</p>
+                <strong>{assessment ? t(assessment.title) : own?.valid === true ? t("Kịch bản hợp lệ") : own?.valid === false ? t("Chưa đạt kiểm định") : t("Chưa đủ dữ liệu để kết luận")}</strong>
+                {assessment ? <AssessmentDetails assessment={assessment} summary={detail.summary}/> : <p>{detail.summary}</p>}
                 {total > 0 && <p className="an-tally">
                     {t("Kiểm định: {p}/{n} điều kiện đạt", { p: tally.passed, n: total })}
                     {tally.failed > 0 && <span className="bad"> · {t("{n} không đạt", { n: tally.failed })}</span>}

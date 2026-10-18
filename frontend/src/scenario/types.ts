@@ -220,7 +220,7 @@ export interface ImportedEntry {
   invalid?: { code: string; message: string; actor_id?: string; t_s?: number };
   /** "real2sim" = team replay package (plan43): view only, report instead of metrics. */
   kind?: "imported" | "real2sim";
-  report?: { valid: boolean | null; group: string | null; event: Real2simReport["event"] } | null;
+  report?: { valid: boolean | null; group: string | null; event: Real2simReport["event"]; reasons?: string[]; react?: boolean | null } | null;
   scenario_id: string;
   package_path: string;
   name: string;

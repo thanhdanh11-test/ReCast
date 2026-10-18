@@ -596,9 +596,9 @@ describe('Scenario Studio (plan50)',()=>{
   mock.openImported.mockResolvedValue({...importedScenario,import:{...importedScenario.import,diagnostics:[{code:'EGO_COLLISION',message:invalid.message,actor_id:'lead',t_s:6.9}]}});
   mock.readImported.mockResolvedValue({scenario_id:'a'.repeat(32),name:'crash.xosc',file_name:'crash.xosc',xml:'<OpenSCENARIO/>',template:null});
   await openStudio();
-  expect((await history().findByText('Không hợp lệ')).getAttribute('title')).toBe(invalid.message);
+  expect((await history().findByText('Có va chạm')).getAttribute('title')).toBe(invalid.message);
   fireEvent.click(history().getByText('crash.xosc'));
-  const banner=await screen.findByText('Kịch bản không hợp lệ');
+  const banner=await waitFor(()=>{const el=document.querySelector('.studio-invalid strong');expect(el?.textContent).toBe('Có va chạm');return el!;});
   const box=within(banner.closest('.studio-invalid') as HTMLElement);
   expect(box.getByText(invalid.message)).toBeTruthy();
   expect(box.getByText('Tăng khoảng cách ban đầu giữa ego và lead.')).toBeTruthy();

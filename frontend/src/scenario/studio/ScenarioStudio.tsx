@@ -14,7 +14,8 @@ import { AnalysisPage } from "./AnalysisPage";
 import { SaveDialog } from "./SaveDialog";
 import { XmlEditDialog } from "./XmlEditDialog";
 import { describeName, historyRows, initialOf, translateVars, type HistoryRow } from "./history";
-import { chosenActorIds, invalidityOf } from "./validity";
+import { assessmentOf, chosenActorIds, invalidityOf } from "./validity";
+import { AssessmentDetails } from "./AssessmentDetails";
 import type { Preferences } from "../preferences";
 import type { SceneEnvironmentSettings } from "../weather";
 import type { DesktopAPI, ExportFormat, ImportedScenario, Scenario, Scene } from "../types";
@@ -180,6 +181,7 @@ export function ScenarioStudio({ api, scene, scenes, source, mapErrors, onSelect
         return Math.min(130, Math.max(45, 2 * Math.hypot(o.x_m - e.x_m, o.y_m - e.y_m) + 30));
     })();
     const invalid = shown ? invalidityOf(opened?.row?.entry, shown) : null;
+    const assessment = assessmentOf(shown?.report);
     const marks: TimelineMark[] = [];
     if (report?.event?.t0 != null) {
         marks.push({ t: report.event.t0, label: t("Tình huống"), tone: "event" });
@@ -240,7 +242,8 @@ export function ScenarioStudio({ api, scene, scenes, source, mapErrors, onSelect
                 {(used3d || mode === "3d") && <div className="studio-3d" hidden={mode !== "3d"}><TrackView scenario={displayed} replay={null} time={time} active={active && !hideCenter && mode === "3d"} display={preferences} environmentSettings={environmentSettings}/></div>}
             </div>
             {invalid && shown && <div className="studio-invalid" role="alert">
-                <strong>{t("Kịch bản không hợp lệ")}</strong><p>{invalid.message}</p>
+                <strong>{assessment ? t(assessment.title) : invalid.code === "EGO_COLLISION" ? t("Có va chạm") : t("Chưa đạt kiểm định")}</strong>
+                {assessment ? <AssessmentDetails assessment={assessment} summary={invalid.message}/> : <p>{invalid.message}</p>}
                 {invalid.hints.length > 0 && <><small>{t("Cách sửa")}</small><ul>{invalid.hints.map(h => <li key={h.key}>{t(h.key, h.vars)}</li>)}</ul></>}
                 {opened?.row && opened.row.kind !== "real2sim" && <button disabled={busy} onClick={() => void edit(opened.row!)}>{t("Sửa kịch bản")}</button>}
             </div>}

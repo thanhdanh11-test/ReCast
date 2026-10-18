@@ -137,7 +137,7 @@ export function ScenarioCreator({ scenes, currentScene, busy, onClose, onExportM
                         {!mapsMatch && <p className="authoring-warn">{t("Map của template khác map đang chọn ở trên.")}</p>}
                         {issues && (issues.length
                             ? <ul className="authoring-issues" role="alert">{issues.map((issue, i) => <li key={i}><TriangleAlert size={12} aria-hidden/>{t(issue.message, issue.vars)}</li>)}</ul>
-                            : <p className="chip ok authoring-valid"><Check size={12} aria-hidden/>{t("Template hợp lệ")}</p>)}
+                            : <p className="chip ok authoring-valid"><Check size={12} aria-hidden/>{t("Tham số hợp lệ · chưa kiểm tra chuyển động trên map")}</p>)}
                     </div>
                 </div>}
                 {loadError && <p className="authoring-warn" role="alert">{t(loadError)}</p>}
