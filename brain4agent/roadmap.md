@@ -112,6 +112,8 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - 💡 Idea Vault (2026-10-18): ghi thêm Town khác (Town03/05) bằng `carla_record_scene.py --town`; nhãn “Cảnh CARLA” thay “dữ liệu thật”; người đi bộ trong bản ghi CARLA.
 
 ## Đã hoàn thành (Done)
+- [x] Plan60 / v0.43.3 — 2026-10-18T18:22:40+07:00: PDF pitch Topeye9trang/5phút gồm45s video ngoài + lời dẫn/nguồn/preview. Brief đã hỏi/chốt trước: ban giám khảo, ca hiếm, trẻ em sau xe đỗ, xe trước phanh gấp, DESIGN-ferrari. PDF0overflow/fontnhúng/Unicodeđạt; không có video cuối, không jobremote.
+- [x] Plan59 / v0.43.2 — 2026-10-18T17:54:46+07:00: README, sơ đồ Mermaid+SVG, đặc tả/thiết kế, kiểm thử, nhật ký tuần hồi cứu trong docs/submission/. Đo mới BE842/FE578/server67,0fail0skip; build và4/4esmini đạt; bằng chứng tracked. Chưa push/public hosting/video/deck.
 - [x] Plan58 / v0.43.1 — 2026-10-18T16:07:35+07:00: phân biệt nguồn/vật lý/va chạm/chưa hỗ trợ, đủ lý do trên history/Studio/analysis/pre-check; template chỉ kiểm tham số. FE578/BE44 focused, build/lint/browser ✅; main5180 restarted when idle, 3 config hashes preserved. Không đổi luật valid/ngưỡng.
 - ✅ 2026-10-18T15:28:18+07:00 v0.43.0 — Plan57: nút Xem trên CARLA (bật máy Brev, quay video sau xe / trong xe, tải về).
 - ✅ 2026-10-18T02:13:05+07:00 v0.42.0 — Plan56: Town10HD CARLA là một cảnh trong app (Tự tạo + xuất về chính Town).

@@ -1,0 +1,10 @@
+{
+  "title": "Kiến trúc Topeye Scenario Studio",
+  "viewBox": {
+    "width": 1440,
+    "height": 1000
+  },
+  "textElements": 39,
+  "outsideCanvas": [],
+  "method": "Browser SVG text bounding boxes; screenshot unavailable after capture timeout"
+}

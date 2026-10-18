@@ -303,3 +303,7 @@ Owner screenshot shows distant pavement breakup. Pilot camera now adapts near pl
 - Không dùng `reasons[0]` để giải thích toàn bộ verdict. Không gọi `label_error` là bằng chứng nhãn sai: chỉ là so vị trí vi phạm trong 5 m. UI dùng assessmentOf cho mã thô và mã [code] có mô tả.
 - Giữ raw report/valid/ngưỡng; không “sửa” gói đã lưu để thay nhãn. Thư viện server cũ thiếu reasons/react thì hiển thị chung trước khi mở. Restart backend cần đợi tác vụ CARLA hiện tại xong; audit thấy carla-render status running nên không restart server chính.
 - 2026-10-18T16:07:35+07:00: điều kiện chờ restart nêu trên đã được giải quyết: không còn job queued/running, main5180 restart thành công, 3 config hashes giữ nguyên.
+
+## 2026-10-18T18:24:34+07:00 — PDF deck rendering (Plan60)
+- ReportLab setFillColor có thể đặt lại alpha từ Color.alpha; setFillAlpha phải đặt SAU setFillColor khi phủ ảnh, nếu không ảnh cinema thành nền đặc. Đã bắt bằng xem ảnh render, không chỉ parse PDF.
+- Inter variable pin wght thành TTF tĩnh có thể giữ chung internal face name; PDF library dedup thành một font. Instance400/500/700 phải có PostScript name riêng, giữ OFL; đo PDFthật thấy3faceembedded. Runtime app không dùng các dependency dựng PDF này.

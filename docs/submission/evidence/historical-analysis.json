@@ -1,0 +1,8 @@
+{
+  "title": "Nhiều điều kiện chưa đạt",
+  "reasons": [
+    "Vi phạm chuyển động gần vị trí dữ liệu nguồn cũng vượt ngưỡng kiểm định.",
+    "Chuyển động mô phỏng vượt giới hạn tốc độ, gia tốc hoặc phanh."
+  ],
+  "explanation": "Kiểm định xét toàn bộ quỹ đạo, kể cả trước sự kiện. Vi phạm gần cùng vị trí trong dữ liệu nguồn là dấu hiệu cần kiểm tra, chưa chứng minh nhãn gốc sai hoặc thao tác tạo kịch bản sai."
+}

@@ -1,0 +1,60 @@
+{
+  "assets": {
+    "child-crossing.jpg": {
+      "origin": "existing local project video tre_em_lao_ra.mp4",
+      "frame_time_s": 11,
+      "kind": "CARLA simulation frame",
+      "sha256": "195dbf475139df06e590ca28cf1ce374845d57a5190719c1adea48703ee78598"
+    },
+    "driver-view.jpg": {
+      "origin": "existing local project video car154_trong_xe.mp4",
+      "frame_time_s": 9,
+      "kind": "CARLA simulation frame; no claim of specific braking-event verification",
+      "sha256": "ae1048670a52c9c914bb5b6b4da88570a7eef6f8e5c4fefdac0b24b76ff17d92"
+    },
+    "studio.png": {
+      "origin": "docs/submission/evidence/historical-studio.png",
+      "kind": "real UI capture; prior 0.43.1 validation session",
+      "sha256": "bb38cba8c2d3b0a18d6a52bc0de8797f677e193f96b085bd2b1a22dcb106492c"
+    },
+    "analysis.png": {
+      "origin": "docs/submission/evidence/historical-analysis.png",
+      "kind": "real UI capture; source asset retained for editing",
+      "sha256": "94ba36a6343f81e52033fc8d9ad0dcd04077a38a22abee7cb0d34671fd732365"
+    },
+    "InterVariable.ttf": {
+      "origin": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter%5Bopsz,wght%5D.ttf",
+      "license": "OFL-Inter.txt",
+      "kind": "font source",
+      "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031"
+    },
+    "Inter-400.ttf": {
+      "origin": "static instance from bundled InterVariable.ttf; wght400/opsz24; distinct internal face name",
+      "license": "OFL-Inter.txt",
+      "sha256": "b598eadf193a412277179b209a7c17686b95052ecc72a475b9bcacd3344d8873"
+    },
+    "Inter-500.ttf": {
+      "origin": "static instance from bundled InterVariable.ttf; wght500/opsz24; distinct internal face name",
+      "license": "OFL-Inter.txt",
+      "sha256": "de3010d78bfd3eef20077f2f9d0d5c3e788b1b9d332e1eac04c258e2d84f9365"
+    },
+    "Inter-700.ttf": {
+      "origin": "static instance from bundled InterVariable.ttf; wght700/opsz24; distinct internal face name",
+      "license": "OFL-Inter.txt",
+      "sha256": "d1abe5a6916d71d72731d4577f6559709bd770b2b1e1d3d9071b41a180ea2a77"
+    },
+    "OFL-Inter.txt": {
+      "origin": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/OFL.txt",
+      "kind": "font license",
+      "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+    },
+    "topeye-logo.png": {
+      "origin": "frontend/src/scenario/assets/topeye-logo.png",
+      "kind": "existing project branding",
+      "sha256": "3556d9a03505242c7cad98ff179c15886f327e287c50f58f8bf8352c5879a8ff"
+    }
+  },
+  "design_guide": "frontend/DESIGN-ferrari.md",
+  "new_ai_generated_images": false,
+  "remote_jobs_started": false
+}

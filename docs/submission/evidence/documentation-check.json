@@ -1,0 +1,15 @@
+{
+  "documents": 5,
+  "local_links_checked": 27,
+  "broken_links": [],
+  "svg_xml_valid": true,
+  "mermaid_blocks": 3,
+  "mermaid_check": "Basic fence/structure inspection only; not rendered by a Mermaid compiler",
+  "files": [
+    "README.md",
+    "docs/submission/architecture.md",
+    "docs/submission/specification-design.md",
+    "docs/submission/testing.md",
+    "docs/submission/weekly-logs.md"
+  ]
+}

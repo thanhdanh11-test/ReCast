@@ -1,5 +1,7 @@
 # Topeye Scenario — N3-09B, v0.22.0
 
+> Hồ sơ nộp sản phẩm hiện tại (`0.43.3`, 18/10/2026): bắt đầu tại [README](../README.md), [kiến trúc](submission/architecture.md), [đặc tả/thiết kế](submission/specification-design.md), [kiểm thử](submission/testing.md) và [nhật ký tuần](submission/weekly-logs.md). Các mục phiên bản cũ bên dưới là tài liệu vận hành/lịch sử, không phải toàn bộ cam kết của bản hiện tại.
+
 ## Tóm tắt phiên bản hiện hành
 
 - 0.32.1: đổi Cảnh nguồn ⇄ OpenSCENARIO tức thì — hai màn luôn mount (`.view-pane`), màn ẩn giữ cảnh 3D đã dựng và không vẽ (`TrackView active`); trước đó mỗi lần đổi dựng lại cả cảnh ≈2,5 s. Icon rail đỏ theo màn đang hiện. Plan44.
@@ -483,3 +485,6 @@ Authenticated group APIs store `.scenario-groups.json` separately from immutable
 - Source-related violations use “Dữ liệu nguồn cần kiểm tra”: the 5 m positional match is a heuristic, not proof of incorrect annotations. Validation covers the entire changed trajectory, including before the event. Source-related canned summaries are replaced by this explanation; detailed check measurements remain available.
 - `listImported` report metadata adds optional `reasons: string[]` and `react: boolean | null`; read from existing scenario.json, no payload rewriting. Older servers lacking these fields fall back to “Chưa đạt kiểm định” until the scenario opens. Existing `valid`, reasons, thresholds and package hashes keep their meaning.
 - Template parameter checks say “Tham số hợp lệ · chưa kiểm tra chuyển động trên map”; pre-check success makes no esmini claim. esmini execution remains separate. No dataset repair, collision-policy relaxation or threshold change.
+
+## Pitch deck — v0.43.3 (Plan60)
+Bộ [PDF 9 trang](submission/presentation/topeye-pitch-5min.pdf) cho ban giám khảo: 5 phút gồm 45 giây video riêng, trọng tâm thiếu dữ liệu tình huống hiếm, ví dụ trẻ em từ sau xe đỗ và xe trước phanh gấp. Có [lời dẫn](submission/presentation/speaker-notes.md), ảnh xem nhanh, nguồn dựng PDF và kiểm tra artifact. Thiết kế theo frontend/DESIGN-ferrari.md, Inter thay FerrariSans. Không nhúng video, không tạo job CARLA hoặc đổi logic sản phẩm.

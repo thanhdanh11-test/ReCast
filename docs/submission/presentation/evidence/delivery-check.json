@@ -1,0 +1,17 @@
+{
+  "documents": 7,
+  "links_checked": 38,
+  "broken_links": [],
+  "pdf_pages": 9,
+  "timing_seconds": 300,
+  "video_seconds_included": 45,
+  "source_python_ast_valid": true,
+  "pdf_hash_matches": true,
+  "font_faces": [
+    "TopeyeDeckSans-Bold",
+    "TopeyeDeckSans-Medium",
+    "TopeyeDeckSans-Regular"
+  ],
+  "text_overflows": 0,
+  "pdf_bytes": 3595062
+}

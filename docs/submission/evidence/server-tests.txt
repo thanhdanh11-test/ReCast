@@ -1,0 +1,416 @@
+
+> topeye-frontend@0.43.2 test:server
+> node --test server/*.test.mjs
+
+TAP version 13
+# Subtest: a stopped VM is started, the package replayed, the video fetched, then the VM stopped again
+ok 1 - a stopped VM is started, the package replayed, the video fetched, then the VM stopped again
+  ---
+  duration_ms: 20.237833
+  type: 'test'
+  ...
+# Subtest: a running VM is reused; a failing step ends the render as failed and names the step
+ok 2 - a running VM is reused; a failing step ends the render as failed and names the step
+  ---
+  duration_ms: 15.920709
+  type: 'test'
+  ...
+# Subtest: rejects bad input, a second render while busy, an unfinished export and a missing configuration
+ok 3 - rejects bad input, a second render while busy, an unfinished export and a missing configuration
+  ---
+  duration_ms: 11.511291
+  type: 'test'
+  ...
+# Subtest: a render left running by an earlier server reads as interrupted
+ok 4 - a render left running by an earlier server reads as interrupted
+  ---
+  duration_ms: 4.797292
+  type: 'test'
+  ...
+# Subtest: a flaky SSH step is retried before the render fails, and the failure quotes brev
+ok 5 - a flaky SSH step is retried before the render fails, and the failure quotes brev
+  ---
+  duration_ms: 32.825959
+  type: 'test'
+  ...
+# Subtest: the brev runner closes stdin, so brev exec never waits for input
+ok 6 - the brev runner closes stdin, so brev exec never waits for input
+  ---
+  duration_ms: 13.793959
+  type: 'test'
+  ...
+# Subtest: plan52: the catalog is nuScenes-only — Argoverse 2 is refused and an old entry is hidden, files untouched
+ok 7 - plan52: the catalog is nuScenes-only — Argoverse 2 is refused and an old entry is hidden, files untouched
+  ---
+  duration_ms: 8.227292
+  type: 'test'
+  ...
+# Subtest: all worker endpoints, catalog and events reject unauthenticated requests before worker runs
+ok 8 - all worker endpoints, catalog and events reject unauthenticated requests before worker runs
+  ---
+  duration_ms: 175.268958
+  type: 'test'
+  ...
+# Subtest: setup requires per-run token and same origin; session response has no credential hash
+ok 9 - setup requires per-run token and same origin; session response has no credential hash
+  ---
+  duration_ms: 109.032125
+  type: 'test'
+  ...
+# Subtest: logout revokes existing session and SSE connection
+ok 10 - logout revokes existing session and SSE connection
+  ---
+  duration_ms: 124.633541
+  type: 'test'
+  ...
+# Subtest: valid imports persist; broken import preserves active dataset; previews cannot escape source
+ok 11 - valid imports persist; broken import preserves active dataset; previews cannot escape source
+  ---
+  duration_ms: 202.103958
+  type: 'test'
+  ...
+# Subtest: logout during inspection prevents subsequent settings/catalog writes
+ok 12 - logout during inspection prevents subsequent settings/catalog writes
+  ---
+  duration_ms: 256.497834
+  type: 'test'
+  ...
+# Subtest: logout during catalog initialization does not return dataset roots
+ok 13 - logout during catalog initialization does not return dataset roots
+  ---
+  duration_ms: 310.062333
+  type: 'test'
+  ...
+# Subtest: partial request body completed after logout cannot create a workspace
+ok 14 - partial request body completed after logout cannot create a workspace
+  ---
+  duration_ms: 187.475458
+  type: 'test'
+  ...
+# Subtest: account and settings-page endpoints need a session; password change rotates it over HTTP
+ok 15 - account and settings-page endpoints need a session; password change rotates it over HTTP
+  ---
+  duration_ms: 532.019417
+  type: 'test'
+  ...
+# Subtest: setup hashes credentials privately, issues HttpOnly session, and cannot overwrite account
+ok 16 - setup hashes credentials privately, issues HttpOnly session, and cannot overwrite account
+  ---
+  duration_ms: 147.815625
+  type: 'test'
+  ...
+# Subtest: logout, expiry and restart revoke sessions
+ok 17 - logout, expiry and restart revoke sessions
+  ---
+  duration_ms: 170.322542
+  type: 'test'
+  ...
+# Subtest: parallel wrong passwords cannot bypass five-attempt throttle; cooldown expires
+ok 18 - parallel wrong passwords cannot bypass five-attempt throttle; cooldown expires
+  ---
+  duration_ms: 535.827125
+  type: 'test'
+  ...
+# Subtest: setup race has exactly one winner
+ok 19 - setup race has exactly one winner
+  ---
+  duration_ms: 89.923833
+  type: 'test'
+  ...
+# Subtest: rejects malformed credentials and corrupt persisted account; no fallback to setup
+ok 20 - rejects malformed credentials and corrupt persisted account; no fallback to setup
+  ---
+  duration_ms: 2.735209
+  type: 'test'
+  ...
+# Subtest: unknown username and wrong password share the same error
+ok 21 - unknown username and wrong password share the same error
+  ---
+  duration_ms: 473.895708
+  type: 'test'
+  ...
+# Subtest: password change verifies the current password, revokes other sessions and keeps the caller signed in
+ok 22 - password change verifies the current password, revokes other sessions and keeps the caller signed in
+  ---
+  duration_ms: 734.945333
+  type: 'test'
+  ...
+# Subtest: password change shares the five-attempt throttle
+ok 23 - password change shares the five-attempt throttle
+  ---
+  duration_ms: 516.018125
+  type: 'test'
+  ...
+# Subtest: session hours persist and bound new sessions only to the chosen lifetime
+ok 24 - session hours persist and bound new sessions only to the chosen lifetime
+  ---
+  duration_ms: 181.236708
+  type: 'test'
+  ...
+# Subtest: binds loopback only
+ok 25 - binds loopback only
+  ---
+  duration_ms: 156.968291
+  type: 'test'
+  ...
+# Subtest: index embeds the per-run token
+ok 26 - index embeds the per-run token
+  ---
+  duration_ms: 104.799875
+  type: 'test'
+  ...
+# Subtest: rejects missing or wrong token
+ok 27 - rejects missing or wrong token
+  ---
+  duration_ms: 93.442541
+  type: 'test'
+  ...
+# Subtest: rejects foreign Origin and Host (DNS rebinding)
+ok 28 - rejects foreign Origin and Host (DNS rebinding)
+  ---
+  duration_ms: 121.808708
+  type: 'test'
+  ...
+# Subtest: event stream needs the token
+ok 29 - event stream needs the token
+  ---
+  duration_ms: 238.997708
+  type: 'test'
+  ...
+# Subtest: static files cannot escape the build directory
+ok 30 - static files cannot escape the build directory
+  ---
+  duration_ms: 146.534042
+  type: 'test'
+  ...
+# Subtest: unknown fields and methods are rejected
+ok 31 - unknown fields and methods are rejected
+  ---
+  duration_ms: 112.961041
+  type: 'test'
+  ...
+# Subtest: worker calls require a dataset, then carry server-owned params
+ok 32 - worker calls require a dataset, then carry server-owned params
+  ---
+  duration_ms: 179.942042
+  type: 'test'
+  ...
+# Subtest: chooseDataset rejects a missing directory
+ok 33 - chooseDataset rejects a missing directory
+  ---
+  duration_ms: 143.456542
+  type: 'test'
+  ...
+# Subtest: openImported refuses packages inside the dataset
+ok 34 - openImported refuses packages inside the dataset
+  ---
+  duration_ms: 120.293
+  type: 'test'
+  ...
+# Subtest: importXosc bounds payload and identity
+ok 35 - importXosc bounds payload and identity
+  ---
+  duration_ms: 156.678292
+  type: 'test'
+  ...
+# Subtest: validateArgs enforces the request allowlist
+ok 36 - validateArgs enforces the request allowlist
+  ---
+  duration_ms: 0.505666
+  type: 'test'
+  ...
+# Subtest: lidarFrame validates input and uses its own worker while the main worker is busy
+ok 37 - lidarFrame validates input and uses its own worker while the main worker is busy
+  ---
+  duration_ms: 138.604
+  type: 'test'
+  ...
+# Subtest: library listing and named imports pass through the allowlist
+ok 38 - library listing and named imports pass through the allowlist
+  ---
+  duration_ms: 116.037291
+  type: 'test'
+  ...
+# Subtest: importTemplate forwards a bounded template object to the worker
+ok 39 - importTemplate forwards a bounded template object to the worker
+  ---
+  duration_ms: 164.842917
+  type: 'test'
+  ...
+# Subtest: importPackage forwards a bounded real2sim package to the main worker
+ok 40 - importPackage forwards a bounded real2sim package to the main worker
+  ---
+  duration_ms: 280.286
+  type: 'test'
+  ...
+# Subtest: reactiveCandidates and importReactive route to the main worker with a bounded event object
+ok 41 - reactiveCandidates and importReactive route to the main worker with a bounded event object
+  ---
+  duration_ms: 128.252042
+  type: 'test'
+  ...
+# Subtest: plan46: reactiveSensitivity on the main worker; scene metrics and esminiCheck on the metrics worker
+ok 42 - plan46: reactiveSensitivity on the main worker; scene metrics and esminiCheck on the metrics worker
+  ---
+  duration_ms: 163.517667
+  type: 'test'
+  ...
+# Subtest: templateFit probes a scene on the metrics worker
+ok 43 - templateFit probes a scene on the metrics worker
+  ---
+  duration_ms: 88.682625
+  type: 'test'
+  ...
+# Subtest: read/delete library packages only by scenario id
+ok 44 - read/delete library packages only by scenario id
+  ---
+  duration_ms: 118.127083
+  type: 'test'
+  ...
+# Subtest: worker bridge queues concurrent requests instead of refusing them
+ok 45 - worker bridge queues concurrent requests instead of refusing them
+  ---
+  duration_ms: 196.598167
+  type: 'test'
+  ...
+# Subtest: scenarioMetrics validates the scenario id and runs on its own worker
+ok 46 - scenarioMetrics validates the scenario id and runs on its own worker
+  ---
+  duration_ms: 90.720125
+  type: 'test'
+  ...
+# Subtest: run deletion validates both scoped identities
+ok 47 - run deletion validates both scoped identities
+  ---
+  duration_ms: 0.399667
+  type: 'test'
+  ...
+# Subtest: reopens the same dataset read-only during a pending worker without allowing a dataset change
+ok 48 - reopens the same dataset read-only during a pending worker without allowing a dataset change
+  ---
+  duration_ms: 86.465
+  type: 'test'
+  ...
+# Subtest: plan50: an unreadable export zip is a 404, never a crashed server (review F1)
+ok 49 - plan50: an unreadable export zip is a 404, never a crashed server (review F1)
+  ---
+  duration_ms: 102.306209
+  type: 'test'
+  ...
+# Subtest: plan52: user input rejected by the worker is 400; only server/worker failures are 500
+ok 50 - plan52: user input rejected by the worker is 400; only server/worker failures are 500
+  ---
+  duration_ms: 0.119417
+  type: 'test'
+  ...
+# Subtest: plan57: renderCarla input, CARLA info, and the video served whole or by byte range
+ok 51 - plan57: renderCarla input, CARLA info, and the video served whole or by byte range
+  ---
+  duration_ms: 102.083917
+  type: 'test'
+  ...
+# Subtest: storage info counts scenarios, metrics cache and trash separately
+ok 52 - storage info counts scenarios, metrics cache and trash separately
+  ---
+  duration_ms: 9.332
+  type: 'test'
+  ...
+# Subtest: clearing the metrics cache keeps scenario packages; emptying trash touches only .trash
+ok 53 - clearing the metrics cache keeps scenario packages; emptying trash touches only .trash
+  ---
+  duration_ms: 7.693208
+  type: 'test'
+  ...
+# Subtest: feedback is validated, stored privately and listed newest first
+ok 54 - feedback is validated, stored privately and listed newest first
+  ---
+  duration_ms: 7.996542
+  type: 'test'
+  ...
+# Subtest: runs jobs one at a time in order and serves the finished zip
+ok 55 - runs jobs one at a time in order and serves the finished zip
+  ---
+  duration_ms: 133.102708
+  type: 'test'
+  ...
+# Subtest: a process that dies or overruns ends its job as failed, never running forever
+ok 56 - a process that dies or overruns ends its job as failed, never running forever
+  ---
+  duration_ms: 182.929208
+  type: 'test'
+  ...
+# Subtest: jobs orphaned by a previous server show as interrupted
+ok 57 - jobs orphaned by a previous server show as interrupted
+  ---
+  duration_ms: 2.196334
+  type: 'test'
+  ...
+# Subtest: delete: busy while running, moves finished or waiting exports to .trash, rejects bad ids
+ok 58 - delete: busy while running, moves finished or waiting exports to .trash, rejects bad ids
+  ---
+  duration_ms: 4.444
+  type: 'test'
+  ...
+# Subtest: a job the worker just queued is not an orphan before enqueue (review F2); older ones are
+ok 59 - a job the worker just queued is not an orphan before enqueue (review F2); older ones are
+  ---
+  duration_ms: 4.061792
+  type: 'test'
+  ...
+# Subtest: symlinked exports folder, trash or zip are refused (review F4)
+ok 60 - symlinked exports folder, trash or zip are refused (review F4)
+  ---
+  duration_ms: 1.812583
+  type: 'test'
+  ...
+# Subtest: persists partial and complete groups across reads without changing packages
+ok 61 - persists partial and complete groups across reads without changing packages
+  ---
+  duration_ms: 22.374541
+  type: 'test'
+  ...
+# Subtest: rejects mismatched variant, map and event, leaving metadata intact
+ok 62 - rejects mismatched variant, map and event, leaving metadata intact
+  ---
+  duration_ms: 10.785459
+  type: 'test'
+  ...
+# Subtest: does not reuse a variant across groups with identical display names
+ok 63 - does not reuse a variant across groups with identical display names
+  ---
+  duration_ms: 21.746792
+  type: 'test'
+  ...
+# Subtest: preserves corrupt metadata instead of overwriting it
+ok 64 - preserves corrupt metadata instead of overwriting it
+  ---
+  duration_ms: 8.175625
+  type: 'test'
+  ...
+# Subtest: rejects paths and changed hashes
+ok 65 - rejects paths and changed hashes
+  ---
+  duration_ms: 4.237042
+  type: 'test'
+  ...
+# Subtest: keeps group metadata readable after a partner is trashed
+ok 66 - keeps group metadata readable after a partner is trashed
+  ---
+  duration_ms: 8.073583
+  type: 'test'
+  ...
+# Subtest: rejects oversized metadata before replacing the readable file
+ok 67 - rejects oversized metadata before replacing the readable file
+  ---
+  duration_ms: 61.528333
+  type: 'test'
+  ...
+1..67
+# tests 67
+# suites 0
+# pass 67
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3555.360167

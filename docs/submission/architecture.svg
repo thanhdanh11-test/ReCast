@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000" role="img" aria-labelledby="title desc">
+<title id="title">Kiến trúc Topeye Scenario Studio</title>
+<desc id="desc">Trình duyệt gọi Node local server; server điều phối Python workers đọc nuScenes, chạy esmini, lưu workspace và xuất gói. CARLA là tích hợp tùy chọn.</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/></marker></defs>
+<rect width="1440" height="1000" fill="#f8fafc"/>
+<g font-family="Arial, sans-serif" fill="#0f172a">
+<text x="48" y="52" font-size="28" font-weight="700">TOPEYE — KIẾN TRÚC HỆ THỐNG</text>
+<text x="48" y="82" font-size="16" fill="#475569">MVP chạy local · snapshot 0.43.2 · 18/10/2026</text>
+<rect x="48" y="130" width="220" height="100" rx="12" fill="white" stroke="#2563eb" stroke-width="2"/>
+<text x="68" y="163" font-size="19" font-weight="700">Người dùng</text>
+<text x="68" y="190" font-size="15" fill="#475569">Thiết kế · xem · đánh giá</text>
+<rect x="350" y="130" width="380" height="100" rx="12" fill="white" stroke="#2563eb" stroke-width="2"/>
+<text x="370" y="163" font-size="19" font-weight="700">Trình duyệt</text>
+<text x="370" y="190" font-size="15" fill="#475569">React / TypeScript / Three.js</text>
+<text x="370" y="214" font-size="15" fill="#475569">Studio · 2D/3D · phân tích</text>
+<rect x="900" y="130" width="490" height="100" rx="12" fill="white" stroke="#2563eb" stroke-width="2"/>
+<text x="920" y="163" font-size="19" font-weight="700">Node local server</text>
+<text x="920" y="190" font-size="15" fill="#475569">HTTP 127.0.0.1 · session · token</text>
+<text x="920" y="214" font-size="15" fill="#475569">Worker bridge · tiến trình SSE</text>
+<rect x="48" y="350" width="310" height="125" rx="12" fill="white" stroke="#0f766e" stroke-width="2"/>
+<text x="68" y="383" font-size="19" font-weight="700">Dataset nuScenes</text>
+<text x="68" y="410" font-size="15" fill="#475569">Metadata · quỹ đạo · LiDAR</text>
+<text x="68" y="434" font-size="15" fill="#475569">Nguồn chỉ đọc</text>
+<rect x="650" y="350" width="740" height="125" rx="12" fill="white" stroke="#2563eb" stroke-width="2"/>
+<text x="670" y="383" font-size="19" font-weight="700">Python workers</text>
+<text x="670" y="410" font-size="15" fill="#475569">Worker chính · worker chỉ số · worker LiDAR/đọc</text>
+<text x="670" y="434" font-size="15" fill="#475569">Adapter → compile / simulate → assess → persist</text>
+<rect x="540" y="590" width="340" height="115" rx="12" fill="white" stroke="#0f766e" stroke-width="2"/>
+<text x="560" y="623" font-size="19" font-weight="700">esmini 3.9.0</text>
+<text x="560" y="650" font-size="15" fill="#475569">Headless replay</text>
+<text x="560" y="674" font-size="15" fill="#475569">Pose engine → chỉ số</text>
+<rect x="1010" y="590" width="380" height="115" rx="12" fill="white" stroke="#2563eb" stroke-width="2"/>
+<text x="1030" y="623" font-size="19" font-weight="700">Workspace local</text>
+<text x="1030" y="650" font-size="15" fill="#475569">Gói + report + manifest hash</text>
+<text x="1030" y="674" font-size="15" fill="#475569">Lịch sử · runs · cache · exports</text>
+<rect x="1010" y="815" width="380" height="115" rx="12" fill="white" stroke="#2563eb" stroke-width="2"/>
+<text x="1030" y="848" font-size="19" font-weight="700">Hàng đợi xuất</text>
+<text x="1030" y="875" font-size="15" fill="#475569">Tiến trình local riêng</text>
+<text x="1030" y="899" font-size="15" fill="#475569">XOSC / gói CARLA</text>
+<rect x="490" y="815" width="380" height="115" rx="12" fill="white" stroke="#7c3aed" stroke-width="2"/>
+<text x="510" y="848" font-size="19" font-weight="700">CARLA — tùy chọn</text>
+<text x="510" y="875" font-size="15" fill="#475569">Brev CLI · máy cấu hình riêng</text>
+<text x="510" y="899" font-size="15" fill="#475569">Video sau xe / trong xe</text>
+<path d="M268 180 H340" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<path d="M730 170 H890" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="760" y="157" font-size="14" fill="#475569">HTTP JSON</text>
+<path d="M900 205 H740" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="760" y="223" font-size="14" fill="#475569">Kết quả / SSE</text>
+<path d="M1140 230 V340" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="1152" y="295" font-size="14" fill="#475569">JSONL stdio</text>
+<path d="M358 412 H640" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="445" y="399" font-size="14" fill="#475569">Đọc nguồn</text>
+<path d="M710 475 V580" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="724" y="535" font-size="14" fill="#475569">Chạy engine</text>
+<path d="M835 590 V485" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="850" y="540" font-size="14" fill="#475569">Pose đo</text>
+<path d="M1200 475 V580" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="1213" y="535" font-size="14" fill="#475569">Lưu / đọc gói</text>
+<path d="M1200 705 V805" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)"/>
+<text x="1214" y="762" font-size="14" fill="#475569">Yêu cầu xuất</text>
+<path d="M1010 870 H880" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)" stroke-dasharray="8 6"/>
+<text x="902" y="853" font-size="14" fill="#475569">Gói phát lại</text>
+<path d="M680 815 V760 H990 V650 H1000" fill="none" stroke="#64748b" stroke-width="2.3" marker-end="url(#arrow)" stroke-dasharray="8 6"/>
+<text x="704" y="750" font-size="14" fill="#475569">Video → workspace</text>
+<text x="48" y="970" font-size="15" fill="#475569">Nét liền: pipeline local bắt buộc · Nét đứt: tích hợp tùy chọn · Không có Live URL công khai trong kiến trúc hiện tại</text>
+</g></svg>

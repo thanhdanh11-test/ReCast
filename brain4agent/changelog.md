@@ -2,6 +2,14 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.43.3 — 2026-10-18T18:22:40+07:00 (plan60, PATCH tài liệu)
+- Thêm docs/submission/presentation/: PDF pitch9trang16:9, lời dẫn5phút gồm45s video ngoài; trọng tâm pain point thu dữ liệu hiếm, hai tình huống chủ dự án chọn. Theo DESIGN-ferrari, Inter500/400, ảnh thật dự án và sơ đồ vector được ghi rõ.
+- PDF được parse/render9trang, fontnhúng, tiếngViệt,0textoverflow; số đo1487tests và4/4esmini đọc từ evidence0.43.2, không nhận là test runtime mới. Chưa chỉ định video demo cuối; không nhúng video/remote/GPU/publish.
+
+## v0.43.2 — 2026-10-18T17:54:46+07:00 (plan59, PATCH tài liệu)
+- Thêm README.md và docs/submission/{architecture.md,architecture.svg,specification-design.md,testing.md,weekly-logs.md}; phân biệt MVP local, CARLA tùy chọn, giới hạn profile và AI mock. Nhật ký theo tuần từ Git/changelog, không bịa phân công/giờ làm.
+- Bằng chứng mới tracked: backend842,frontend578,server67,0fail0skip; build/TypeScript exit0; esmini4/4. Artifact browser0.43.1 được sao chép có provenance, không nhận là E2E mới. Không đổi logic sản phẩm/remote deployment.
+
 ## v0.43.1 — 2026-10-18T16:02:18+07:00 (plan58)
 - Phân biệt dữ liệu nguồn cần kiểm tra, chuyển động vượt ngưỡng, baseline có va chạm và tương tác chưa hỗ trợ; hiện đầy đủ lý do trên các màn. Không đổi luật valid hoặc ngưỡng. Form mẫu làm rõ chỉ kiểm tham số; lý do nguồn được diễn đạt là suy đoán cần kiểm tra.
 - Thư viện bổ sung reasons/react khi đọc gói cũ; không ghi lại dataset/package.

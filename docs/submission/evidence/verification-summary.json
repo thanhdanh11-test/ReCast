@@ -1,0 +1,76 @@
+{
+  "measured_at": "2026-10-18T10:53:12.271252+00:00",
+  "source_base_sha": "e908a4aa862074dd1a9b23b9547b7c16deea8f9b",
+  "package_version": "0.43.2",
+  "snapshot_note": "Working tree adds documentation and package version only; no product logic changes. This is not a published release tag.",
+  "platform": "Darwin arm64",
+  "node": "v22.23.2",
+  "python": "Python 3.12.13",
+  "gates": {
+    "backend": {
+      "command": "cd backend && .venv/bin/python -m pytest -q",
+      "exit_code": 0,
+      "passed": 842,
+      "failed": 0,
+      "skipped": 0,
+      "warnings": 1,
+      "duration_s": 377.7,
+      "evidence": "backend-tests.txt"
+    },
+    "frontend": {
+      "command": "cd frontend && npm test -- --run",
+      "exit_code": 0,
+      "passed": 578,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "frontend-tests.txt"
+    },
+    "server": {
+      "command": "cd frontend && npm run test:server",
+      "exit_code": 0,
+      "passed": 67,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "server-tests.txt"
+    },
+    "build": {
+      "command": "cd frontend && npm run build",
+      "exit_code": 0,
+      "includes_typecheck": true,
+      "evidence": "build.txt"
+    },
+    "engine_acceptance": {
+      "command": "topeye.scenario.cli.accept(dataset, engine, temporary_workspace)",
+      "exit_code": 0,
+      "generated": 4,
+      "valid": 4,
+      "scene": "scene-0103",
+      "evidence": "scenario-acceptance.json"
+    }
+  },
+  "documentation": {
+    "documents": 5,
+    "local_links_checked": 27,
+    "broken_links": [],
+    "svg_xml_valid": true,
+    "mermaid_blocks": 3,
+    "mermaid_check": "Basic fence/structure inspection only; not rendered by a Mermaid compiler",
+    "files": [
+      "README.md",
+      "docs/submission/architecture.md",
+      "docs/submission/specification-design.md",
+      "docs/submission/testing.md",
+      "docs/submission/weekly-logs.md"
+    ]
+  },
+  "svg_browser_layout": {
+    "title": "Kiến trúc Topeye Scenario Studio",
+    "viewBox": {
+      "width": 1440,
+      "height": 1000
+    },
+    "textElements": 39,
+    "outsideCanvas": [],
+    "method": "Browser SVG text bounding boxes; screenshot unavailable after capture timeout"
+  }
+}

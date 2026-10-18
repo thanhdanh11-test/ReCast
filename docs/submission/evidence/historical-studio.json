@@ -1,0 +1,21 @@
+{
+  "banner": "Nhiều điều kiện chưa đạtKiểm định xét toàn bộ quỹ đạo, kể cả trước sự kiện. Vi phạm gần cùng vị trí trong dữ liệu nguồn là dấu hiệu cần kiểm tra, chưa chứng minh nhãn gốc sai hoặc thao tác tạo kịch bản sai.Vi phạm chuyển động gần vị trí dữ liệu nguồn cũng vượt ngưỡng kiểm định.Chuyển động mô phỏng vượt giới hạn tốc độ, gia tốc hoặc phanh.",
+  "reasons": [
+    "Vi phạm chuyển động gần vị trí dữ liệu nguồn cũng vượt ngưỡng kiểm định.",
+    "Chuyển động mô phỏng vượt giới hạn tốc độ, gia tốc hoặc phanh."
+  ],
+  "chips": [
+    {
+      "text": "Nhiều điều kiện chưa đạt",
+      "title": "Vi phạm chuyển động gần vị trí dữ liệu nguồn cũng vượt ngưỡng kiểm định. · Chuyển động mô phỏng vượt giới hạn tốc độ, gia tốc hoặc phanh."
+    },
+    {
+      "text": "Dữ liệu nguồn cần kiểm tra",
+      "title": "Vi phạm chuyển động gần vị trí dữ liệu nguồn cũng vượt ngưỡng kiểm định."
+    },
+    {
+      "text": "Dữ liệu nguồn cần kiểm tra",
+      "title": "Vi phạm chuyển động gần vị trí dữ liệu nguồn cũng vượt ngưỡng kiểm định."
+    }
+  ]
+}

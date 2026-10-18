@@ -1,0 +1,32 @@
+{
+  "version": "0.43.1",
+  "measured_date": "2026-10-18",
+  "kind": "previous browser inspection; not rerun by documentation task",
+  "records": [
+    {
+      "artifact": "historical-studio.png",
+      "original": "planning/58_2026-10-18_validity-labels/evidence/studio.png",
+      "sha256": "bb38cba8c2d3b0a18d6a52bc0de8797f677e193f96b085bd2b1a22dcb106492c"
+    },
+    {
+      "artifact": "historical-analysis.png",
+      "original": "planning/58_2026-10-18_validity-labels/evidence/analysis.png",
+      "sha256": "94ba36a6343f81e52033fc8d9ad0dcd04077a38a22abee7cb0d34671fd732365"
+    },
+    {
+      "artifact": "historical-studio.json",
+      "original": "planning/58_2026-10-18_validity-labels/evidence/studio.json",
+      "sha256": "50400c699483e5ebfdc654357fc1ec3aa26c1a448b99aabb8361f14716a2c64d"
+    },
+    {
+      "artifact": "historical-analysis.json",
+      "original": "planning/58_2026-10-18_validity-labels/evidence/analysis.json",
+      "sha256": "c367da7bd9d035cf62ac152b0f478812924ecc0842b0830488fdb5da0898cadc"
+    },
+    {
+      "artifact": "historical-package-hashes.json",
+      "original": "planning/58_2026-10-18_validity-labels/evidence/package-hashes.json",
+      "sha256": "a3cf282ee5d052dbb449267855c45212672e96dd06af9c133998006d27e36a68"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+e908a4a 2026-10-18T17:17:40+07:00 feat(scenario): CARLA Town10HD scene and “View in CARLA” renders (v0.43.0)
+b31e1cc 2026-10-18T17:17:09+07:00 fix(scenario): explain validation outcomes separately from creation
+cb038b1 2026-10-17T23:52:54+07:00 feat(scenario): report-style analysis, related-vehicle report and faster scene loading (v0.41.2)
+c073512 2026-10-17T22:21:27+07:00 feat(scenario): scenario studio, ego-collision validity and nuScenes-only catalog (v0.40.0)
+c4ba186 2026-10-17T14:48:38+07:00 feat(scenario): reactive scenarios, unified workspace and map-gated scene pickers (v0.37.1)
+cdd902d 2026-10-15T10:59:43+07:00 feat(scenario): import team real2sim packages, scenario report and instant view switching (v0.32.1)
+9814e04 2026-10-14T16:50:08+07:00 docs(brain): record P-056 sync of v0.31.1 and commit identity fix
+d29392c 2026-10-14T16:46:43+07:00 feat: scenario authoring, pastel maps, bridge structures and settings (v0.31.1)
+95ae6fe 2026-10-13T21:51:47+07:00 fix(camera): show bonnet in driver view
+9025404 2026-10-13T09:44:31+07:00 feat(ui): settings with theme and graphics quality; faster AV2 opening (v0.24.0)
+e3f102f 2026-10-13T09:03:06+07:00 feat: scenario metrics, local login, dataset catalog and Argoverse 2 adapter (v0.23.0)
+c2554a3 2026-10-12T20:16:40+07:00 docs(brain): record removal of desktop build artifacts
+1b93df1 2026-10-12T19:51:31+07:00 feat!: replace Electron desktop app with full-feature localhost web app (v0.15.0)
+3ef337d 2026-10-12T17:06:52+07:00 feat(web): static web demo over precomputed scenario data (v0.13.0)
+329987e 2026-10-12T16:41:49+07:00 chore(frontend): upgrade Vite/Vitest toolchain and drop legacy build entry (v0.12.4)
+2b7048d 2026-10-10T16:00:57+07:00 feat(scenario): Scenario Studio desktop app through v0.12.3
+708e1b1 2026-10-07T08:55:50+07:00 feat(sim): procedural PBR environment from real layout (S11 pilot)
+5811a05 2026-10-06T22:03:23+07:00 fix(viewer): move walk-cycle mixers to module scope so playback renders
+c682fb5 2026-10-06T21:48:10+07:00 feat(sim): 15-minute environment build, library actors and CARLA-style scenarios
+4895790 2026-10-06T10:47:37+07:00 feat(sim): free Blender real-to-sim pipeline on topeye core

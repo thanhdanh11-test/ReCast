@@ -1,0 +1,285 @@
+{
+  "measured_at": "2026-10-18T10:45:28.604827+00:00",
+  "dataset": "nuScenes v1.0-mini",
+  "scene": "scene-0103",
+  "generated": 4,
+  "valid": 4,
+  "cases": [
+    {
+      "case": "baseline",
+      "report": {
+        "coverage": 1.0,
+        "per_actor": [
+          {
+            "id": "ego",
+            "n": 52,
+            "coverage": 1.0,
+            "ade_xy_m": 2.8956850782052633e-16,
+            "fde_xy_m": 8.881784197001252e-16,
+            "max_xy_m": 1.2560739669470201e-15,
+            "yaw_rmse_rad": 0.00012558463220796776,
+            "max_speed_mps": 5.02192167317049,
+            "max_acceleration_mps2": 5.655848955470883,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          },
+          {
+            "id": "vehicle_1",
+            "n": 52,
+            "coverage": 1.0,
+            "ade_xy_m": 3.142785177400443e-15,
+            "fde_xy_m": 0.0,
+            "max_xy_m": 7.105427357601002e-15,
+            "yaw_rmse_rad": 0.007357551899842831,
+            "max_speed_mps": 5.466545773922722,
+            "max_acceleration_mps2": 5.367804709961885,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          }
+        ],
+        "validity": {
+          "schema": true,
+          "engine_completed": true,
+          "coverage": true,
+          "dynamic_checks": true
+        },
+        "thresholds": {
+          "version": 1,
+          "ade_m": 0.25,
+          "max_xy_m": 0.5,
+          "fde_m": 0.5,
+          "yaw_rmse_rad": 0.05,
+          "max_speed_mps": 40,
+          "max_acceleration_mps2": 10
+        },
+        "events": [
+          {
+            "actors": [
+              "ego",
+              "vehicle_1"
+            ],
+            "minimum_clearance_xy_m": 49.53495346194741,
+            "contact_samples": 0,
+            "first_contact_s": null,
+            "last_contact_s": null,
+            "method": "sampled 2D oriented boxes; ignores height; not continuous collision detection"
+          }
+        ],
+        "status": "pass",
+        "engine_version": "3.9.0",
+        "engine_sha256": "8bcba5cdb79713b48604f01179a89f9c64f309b7de1a38ba5d511201e40a48ad",
+        "scenario_sha256": "8176bc6fe5b62368e8357d8aa310748e23b50ce19f54d2c197202370bf215fe9",
+        "exit_code": 0
+      }
+    },
+    {
+      "case": "slower",
+      "report": {
+        "coverage": 1.0,
+        "per_actor": [
+          {
+            "id": "ego",
+            "n": 52,
+            "coverage": 1.0,
+            "ade_xy_m": 1.1911234657323679e-15,
+            "fde_xy_m": 0.0,
+            "max_xy_m": 3.76822190084106e-15,
+            "yaw_rmse_rad": 0.0001258437585705436,
+            "max_speed_mps": 5.021921673170426,
+            "max_acceleration_mps2": 5.655848955471415,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          },
+          {
+            "id": "vehicle_1",
+            "n": 52,
+            "coverage": 1.0,
+            "ade_xy_m": 6.031706501611378e-16,
+            "fde_xy_m": 7.105427357601002e-15,
+            "max_xy_m": 1.0048591735576161e-14,
+            "yaw_rmse_rad": 0.0006823558196276806,
+            "max_speed_mps": 4.3732366191383125,
+            "max_acceleration_mps2": 4.206551588339505,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          }
+        ],
+        "validity": {
+          "schema": true,
+          "engine_completed": true,
+          "coverage": true,
+          "dynamic_checks": true
+        },
+        "thresholds": {
+          "version": 1,
+          "ade_m": 0.25,
+          "max_xy_m": 0.5,
+          "fde_m": 0.5,
+          "yaw_rmse_rad": 0.05,
+          "max_speed_mps": 40,
+          "max_acceleration_mps2": 10
+        },
+        "events": [
+          {
+            "actors": [
+              "ego",
+              "vehicle_1"
+            ],
+            "minimum_clearance_xy_m": 52.20968176736518,
+            "contact_samples": 0,
+            "first_contact_s": null,
+            "last_contact_s": null,
+            "method": "sampled 2D oriented boxes; ignores height; not continuous collision detection"
+          }
+        ],
+        "status": "pass",
+        "engine_version": "3.9.0",
+        "engine_sha256": "8bcba5cdb79713b48604f01179a89f9c64f309b7de1a38ba5d511201e40a48ad",
+        "scenario_sha256": "f3251d7cafe2ac8225b7f560fbb790d1eaae753a1184a4d7ab47403db359b964",
+        "exit_code": 0
+      }
+    },
+    {
+      "case": "faster",
+      "report": {
+        "coverage": 1.0,
+        "per_actor": [
+          {
+            "id": "ego",
+            "n": 44,
+            "coverage": 1.0,
+            "ade_xy_m": 1.2816782154054955e-15,
+            "fde_xy_m": 1.9860273225978185e-15,
+            "max_xy_m": 3.76822190084106e-15,
+            "yaw_rmse_rad": 0.00010641153411823161,
+            "max_speed_mps": 4.597198750000761,
+            "max_acceleration_mps2": 5.655848955471415,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          },
+          {
+            "id": "vehicle_1",
+            "n": 44,
+            "coverage": 1.0,
+            "ade_xy_m": 1.3702625093967492e-15,
+            "fde_xy_m": 0.0,
+            "max_xy_m": 1.0048591735576161e-14,
+            "yaw_rmse_rad": 0.0009187448626891692,
+            "max_speed_mps": 6.559854928707233,
+            "max_acceleration_mps2": 6.309827382508832,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          }
+        ],
+        "validity": {
+          "schema": true,
+          "engine_completed": true,
+          "coverage": true,
+          "dynamic_checks": true
+        },
+        "thresholds": {
+          "version": 1,
+          "ade_m": 0.25,
+          "max_xy_m": 0.5,
+          "fde_m": 0.5,
+          "yaw_rmse_rad": 0.05,
+          "max_speed_mps": 40,
+          "max_acceleration_mps2": 10
+        },
+        "events": [
+          {
+            "actors": [
+              "ego",
+              "vehicle_1"
+            ],
+            "minimum_clearance_xy_m": 51.38819152838706,
+            "contact_samples": 0,
+            "first_contact_s": null,
+            "last_contact_s": null,
+            "method": "sampled 2D oriented boxes; ignores height; not continuous collision detection"
+          }
+        ],
+        "status": "pass",
+        "engine_version": "3.9.0",
+        "engine_sha256": "8bcba5cdb79713b48604f01179a89f9c64f309b7de1a38ba5d511201e40a48ad",
+        "scenario_sha256": "7aa6af7518e6e0ef6da98eceaf7edf5885f2c7e60d53e3f3233cbf7f09920854",
+        "exit_code": 0
+      }
+    },
+    {
+      "case": "offset",
+      "report": {
+        "coverage": 1.0,
+        "per_actor": [
+          {
+            "id": "ego",
+            "n": 45,
+            "coverage": 1.0,
+            "ade_xy_m": 1.2531964772853734e-15,
+            "fde_xy_m": 0.0,
+            "max_xy_m": 3.76822190084106e-15,
+            "yaw_rmse_rad": 0.00010527671263750074,
+            "max_speed_mps": 4.597198750000761,
+            "max_acceleration_mps2": 5.655848955471415,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          },
+          {
+            "id": "vehicle_1",
+            "n": 45,
+            "coverage": 1.0,
+            "ade_xy_m": 1.4210854715202005e-15,
+            "fde_xy_m": 0.0,
+            "max_xy_m": 7.105427357601002e-15,
+            "yaw_rmse_rad": 0.0008221782118402142,
+            "max_speed_mps": 5.466545773922815,
+            "max_acceleration_mps2": 5.258189485426383,
+            "tracking_pass": true,
+            "dynamics_pass": true,
+            "status": "pass"
+          }
+        ],
+        "validity": {
+          "schema": true,
+          "engine_completed": true,
+          "coverage": true,
+          "dynamic_checks": true
+        },
+        "thresholds": {
+          "version": 1,
+          "ade_m": 0.25,
+          "max_xy_m": 0.5,
+          "fde_m": 0.5,
+          "yaw_rmse_rad": 0.05,
+          "max_speed_mps": 40,
+          "max_acceleration_mps2": 10
+        },
+        "events": [
+          {
+            "actors": [
+              "ego",
+              "vehicle_1"
+            ],
+            "minimum_clearance_xy_m": 51.14529803361396,
+            "contact_samples": 0,
+            "first_contact_s": null,
+            "last_contact_s": null,
+            "method": "sampled 2D oriented boxes; ignores height; not continuous collision detection"
+          }
+        ],
+        "status": "pass",
+        "engine_version": "3.9.0",
+        "engine_sha256": "8bcba5cdb79713b48604f01179a89f9c64f309b7de1a38ba5d511201e40a48ad",
+        "scenario_sha256": "53e57ed64ca16a5022b6761142f833d6f7e64d2443a0b879ee9986f38f2adc05",
+        "exit_code": 0
+      }
+    }
+  ]
+}

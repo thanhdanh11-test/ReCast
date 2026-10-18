@@ -79,3 +79,14 @@ Chủ xác nhận “xoá cả thư mục intake” 2026-10-17T19:43:46+07:00: �
 - Regression red4/4 trước triển khai; green578FE/44BE focused,0skip; build/ruff/diff exit0. Browser bản sao 17gói/97payload0mismatch; 2 lý do source+physics hiện trên Studio/analysis. Evidence: planning/58_2026-10-18_validity-labels/evidence/.
 - Main5180 đã restart SAU khi export/CARLA không còn running/queued; HTTP200,3config hashes unchanged. Preview riêng đã tắt, ego task finished. Không chạy remote/commit/push; không sửa quỹ đạo nguồn hay luật valid.
 - 10 file sửa ngoài phiên (15:52–16:02, nghi Antigravity: diễn giải kiểm định, AssessmentDetails) → commit riêng b31e1cc theo yêu cầu chủ; v0.42.0+v0.43.0 commit riêng. Gates: BE 842, FE 578, server 67.
+
+## 2026-10-18T17:54:46+07:00 — Plan59 hồ sơ nộp / v0.43.2
+- Người dùng yêu cầu README, sơ đồ kiến trúc, đặc tả/thiết kế, kiểm thử, nhật ký tuần. Tạo README root + docs/submission/ tracked, SVG độc lập và Mermaid. Nhật ký hồi cứu ba tuần có Git/changelog làm nguồn; không thêm người/giờ làm giả.
+- Đo mới: pytest842 pass/0fail0skip (377,70s,1warning), FE578,server67; npm build (tsc+Vite) exit0; esmini3.9.0 4/4 trên scene0103. Kết quả và source SHA trong docs/submission/evidence/verification-summary.json. Browser0.43.1 được đánh dấu lịch sử/provenance.
+- Kiểm tài liệu:5document/27linklocal0broken,SVGXMLvalid,3Mermaidblocks (chưa compiler-render Mermaid). Không đổi logic sản phẩm, không restart app, không commit/push/public/GPU. Live URL/video/deck/thumbnail vẫn ngoài gói tài liệu này.
+
+## 2026-10-18T18:22:40+07:00 — Plan60 pitch PDF / v0.43.3
+- Chủ yêu cầu hỏi kỹ trước: đã chốt tênTopeye, ban giám khảo,5phút(thay3phút),PDF,theoDESIGN-ferrari,nhấnca hiếm,ví dụtrẻem sau xeđỗ+xe trướcphanhgấp,cóvideo. Tạo9trangPDF + scriptnguồn/lời dẫn300s gồm45s videophátriêng.
+- Kiểm PDFthực9trang16:9,0overflow,fontsnhúng400/500/700,UnicodeVNđạt; render+ràcontactsheet vàtrang1/3/7/8. Sửa overlayalpha ReportLab tránh ảnhfullbleed bịcheđặc; đặt têninstanceTTF riêng đểfontweight khôngdedup. Evidence/provenance trong presentation/evidence/.
+- Dùngvenv/tmp riêng vớiReportLab/PyMuPDF/Pillow,khôngđổiappdependencies. Số đo1487tests/4of4esmini làtừhồsơ0.43.2; khôngchạylạibộtest vì chỉđổiartifact/docs. Khôngvideo cuốiđượcchỉđịnh,khôngnhúng/chạyv mới/remote/commit/push.
+- Hoàn tất 2026-10-18T18:24:34+07:00: PDF9trang,3fontfacesnhúng,0overflow; 38linklocal0broken; scriptASTvalid,PDFhashkhớp; lời dẫn776đơnvị từ/tổng255s lời+45s video. Có inlinepreviewnhẹ trongchat, artifactbền trongrepo. Chưaclipdemo cuối/commit/push.

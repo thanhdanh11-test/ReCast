@@ -24,6 +24,8 @@ Khi nhận nhiệm vụ, Agent tra cứu bảng này để đọc **chính xác*
 | :--- | :--- | :--- |
 | **Ký ức nóng phiên gần nhất** | [`memory/hot/today.md`](memory/hot/today.md) & [`state.json`](memory/hot/state.json) | Trạng thái máy (JSON), nhật ký làm việc theo phiên và kết quả benchmark gần nhất. |
 | **Khởi động / Quy tắc chung** | [`memory-distill.txt`](memory-distill.txt) | Kernel hiện trạng, Startup Protocol, Tech stack cốt lõi. |
+| **Pitch deck 5 phút** | [PDF](../docs/submission/presentation/topeye-pitch-5min.pdf), [lời dẫn](../docs/submission/presentation/speaker-notes.md), [nguồn dựng](../docs/submission/presentation/README.md) | Plan60: 9 trang, 300 giây gồm 45 giây video ngoài; phong cách Ferrari, trọng tâm dữ liệu ca hiếm. |
+| **Hồ sơ nộp Scenario Studio (0.43.2)** | [README](../README.md), [kiến trúc](../docs/submission/architecture.md), [đặc tả/thiết kế](../docs/submission/specification-design.md), [kiểm thử](../docs/submission/testing.md), [nhật ký tuần](../docs/submission/weekly-logs.md) | Bộ tài liệu tracked; diagram SVG và output máy đi kèm. Live URL/video/deck vẫn là hạng mục riêng. |
 | **Bàn giao team** | [`docs/PROJECT_HANDOFF.md`](../docs/PROJECT_HANDOFF.md) | Cấu trúc đầy đủ, giai đoạn, phương pháp đã thử/thất bại; cập nhật GPU Kaggle. |
 | **Tổng quan dự án** | [`project-intro.md`](project-intro.md) | Mục tiêu, kiến trúc tổng thể. |
 | **Kế hoạch nâng cấp & RFCs** | [`planning/`](../planning/) | Thư mục chứa các bản kế hoạch theo chuẩn `[STT]_[YYYY-MM-DD]_[Ten-Ngan]`. |
@@ -56,6 +58,7 @@ Khi nhận nhiệm vụ, Agent tra cứu bảng này để đọc **chính xác*
 
 ```text
 project-root/
+├── README.md                        # Điểm vào hồ sơ nộp và cài/chạy hiện tại
 ├── AGENTS.md / CLAUDE.md             # Luật tối thượng (nguồn chân lý) + shim Claude Code
 ├── brain4agent-v1.7.1.md             # [MARKER] Phiên bản khung não
 ├── PROJECT_BRIEF.md · REVIEW.md      # Ý tưởng gốc + tranh luận khả thi (2026-10-03)

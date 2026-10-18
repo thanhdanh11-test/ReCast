@@ -1,5 +1,5 @@
 {
-  "current_version": "0.43.1",
+  "current_version": "0.43.3",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
@@ -173,9 +173,9 @@
     }
   },
   "active_plan": {
-    "id": "49_2026-10-16_scenario-unify",
-    "status": "local_technical_complete_owner_visual_pending",
-    "updated_at": "2026-10-17T01:04:51+07:00"
+    "id": "60_2026-10-18_pitch-deck",
+    "status": "local_pdf_complete_video_selection_pending",
+    "updated_at": "2026-10-18T18:22:40+07:00"
   },
   "nurec_static": {
     "scene": "scene-0061",
@@ -1362,5 +1362,40 @@
     "rules_changed": false,
     "source_data_changed": false,
     "remote_actions": false
+  },
+  "submission_documentation": {
+    "version": "0.43.2",
+    "updated_at": "2026-10-18T17:54:46+07:00",
+    "documents": 5,
+    "architecture_svg": true,
+    "backend_passed": 842,
+    "frontend_passed": 578,
+    "server_passed": 67,
+    "failed": 0,
+    "skipped": 0,
+    "esmini_cases_passed": 4,
+    "esmini_cases_total": 4,
+    "local_links_checked": 27,
+    "broken_links": 0,
+    "evidence": "docs/submission/evidence/verification-summary.json",
+    "public_live_url_verified": false,
+    "published_to_github": false,
+    "product_logic_changed": false
+  },
+  "pitch_deck": {
+    "version": "0.43.3",
+    "updated_at": "2026-10-18T18:22:40+07:00",
+    "pdf": "docs/submission/presentation/topeye-pitch-5min.pdf",
+    "slides": 9,
+    "talk_seconds": 300,
+    "video_seconds_included": 45,
+    "video_embedded": false,
+    "final_video_selected": false,
+    "text_overflows": 0,
+    "fonts_embedded": true,
+    "unicode_extraction_passed": true,
+    "design_guide": "frontend/DESIGN-ferrari.md",
+    "product_logic_changed": false,
+    "remote_jobs_started": false
   }
 }

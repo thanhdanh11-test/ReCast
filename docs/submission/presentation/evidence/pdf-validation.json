@@ -1,0 +1,26 @@
+{
+  "pdf": "topeye-pitch-5min.pdf",
+  "sha256": "a7201e78c615d0aca9ff498006f4fe08a191cfb771ab675775fa7b5b81af32dc",
+  "pages": 9,
+  "page_size_pt": [
+    960,
+    540
+  ],
+  "aspect_ratio": "16:9",
+  "talk_seconds": 300,
+  "video_seconds_included": 45,
+  "text_overflows": [],
+  "nonembedded_fonts": [],
+  "embedded_faces": [
+    "TopeyeDeckSans-Bold",
+    "TopeyeDeckSans-Medium",
+    "TopeyeDeckSans-Regular"
+  ],
+  "unicode_extraction_passed": true,
+  "evidence_total_tests": 1487,
+  "engine_cases": "4/4",
+  "pdf_video_embedded": false,
+  "speaker_script_units": 776,
+  "font": "Inter static 400/500/700, embedded subsets",
+  "product_logic_changed": false
+}
