@@ -180,6 +180,9 @@ export function createHttpApi(options: HttpApiOptions = {}): DesktopAPI {
     listExports: () => call("listExports", {}),
     deleteExport: (args) => call("deleteExport", args),
     exportUrl: (id) => `${base}/exports/${id}.zip?token=${encodeURIComponent(token)}`,
+    carlaRenderInfo: () => call("carlaRenderInfo", {}),
+    renderCarla: (args) => call("renderCarla", args),
+    carlaVideoUrl: (id, view) => `${base}/exports/${id}/carla-${view}.mp4?token=${encodeURIComponent(token)}`,
     exportMapContext: async ({ source_id }) => {
       const context = await call<{ scene: string }>("exportMapContext", { source_id });
       const name = `topeye-${context.scene}-map.json`;

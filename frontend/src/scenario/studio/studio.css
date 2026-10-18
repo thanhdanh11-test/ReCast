@@ -161,3 +161,13 @@ tr[data-status=failed] .studio-progress-cell span { color:var(--bad); }
 .an-assume { margin:0; padding-left:18px; color:var(--text-2); font-size:12px; line-height:1.6; }
 .an-moments { margin-top:4px; max-width:720px; }
 @media (max-width:760px) { .an-scale { grid-template-columns:1fr; } .an-table { display:block; overflow-x:auto; } }
+/* plan57 Xem trên CARLA */
+.studio-carla-render { margin-top:6px; }
+.studio-carla-render progress { width:100%; height:6px; accent-color:var(--warn); }
+.studio-carla-render span { display:block; font-size:11px; color:var(--text-2); margin-top:2px; }
+.studio-carla-render.failed span { color:var(--bad); }
+.studio-carla-render.done span { color:var(--ok); }
+.studio-carla-views { border:1px solid var(--line); padding:8px 12px; display:flex; flex-direction:column; gap:6px; }
+.studio-carla-views legend { font-size:11px; color:var(--muted); padding:0 4px; }
+.studio-carla-views label { display:flex; align-items:center; gap:8px; font-size:13px; }
+.studio-carla-video { width:100%; max-height:70vh; background:#000; }

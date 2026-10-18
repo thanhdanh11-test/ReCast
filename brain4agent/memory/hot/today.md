@@ -54,3 +54,28 @@ Chủ xác nhận “xoá cả thư mục intake” 2026-10-17T19:43:46+07:00: �
 
 ## 2026-10-17T23:45:48+07:00 — Plan55 (v0.41.2) tăng tốc mở cảnh
 - Đo bằng CPU profile + trace worker: màn ẩn dựng 3D (3,3 s), reactive_candidates chặn hàng đợi (2,8 s), shapely interpolate. Sửa ⇒ bấm cảnh 1–2 s, mở lại 0,1 s. Chủ duyệt “xoá 1 2 3” ⇒ đã xoá ~1,3 GB (tmp test, expansion.zip, dist/preview plan40/42); dự án 2,8 GB.
+
+## 2026-10-18T00:26:41+07:00 — Thử gói CARLA (không có CARLA trên Mac arm64)
+- Xuất gói carla scene-1077 car_051 half (job f6d8d360…): esmini exit 0, lệch 0 m; xe cách tâm làn .xodr trung vị 0,51 m (cùng hệ toạ độ).
+- scenario_runner: FollowTrajectoryAction chỉ Polyline KHÔNG thời gian ⇒ .xosc chạy sai thời điểm trên CARLA. Viết `~/Downloads/topeye-carla-test/carla_replay.py` (generate_opendrive_world + set_transform theo trajectories.csv, sync 0,05 s), kiểm bằng carla giả lập: 73 spawn/destroy, 400 tick, toạ độ y/yaw đổi dấu đúng. Chờ chủ chạy trên máy CARLA thuê.
+
+## 2026-10-18T01:03:14+07:00 — CARLA thật PASS (Brev L4)
+- Máy Brev `extreme-bronze-lion` (L4 24 GB, Ubuntu 22.04) có sẵn `~/carla-env` (docker compose CARLA 0.9.15 headless + image client py3.10 có carla/ScenarioRunner/ffmpeg; `start.sh` tự fix GL/CDI). Brev CLI cài trên Mac, `brev login --email … --skip-browser`, dùng `brev exec/copy` (ssh -host bị chặn cổng).
+- `carla_replay.py` trên CARLA thật: generate_opendrive_world từ .xodr + 73 đối tượng, 20 s, không lỗi spawn; video 1280×720 400 khung `~/Downloads/topeye-carla-test/ketqua/replay.mp4`. Đã `stop.sh` + `brev stop` để không tốn tiền.
+
+## 2026-10-18T02:13:05+07:00 — Plan56 (v0.42.0) Town10HD là cảnh trong app
+- CARLA ghi Town10HD (ego 74 m, 43 xe, LiDAR) → bộ dữ liệu nuScenes `~/Documents/Topeye Datasets/carla-town10hd`; seed “CARLA Town10HD”. E2E test-carla-town PASS (mở 3,7 s, Tự tạo phanh hợp lệ, xuất LogicFile Town10HD_Opt). Chưa commit.
+
+## 2026-10-18T15:28:18+07:00 — Plan57 (v0.43.0) Xem trên CARLA
+- Chủ tạo “Trẻ em lao ra sau xe đỗ” trên carla-town10hd → xuất + dựng trên Town10HD thật, video `~/Downloads/topeye-carla-test/ketqua/tre_em_lao_ra.mp4`.
+- Nút Xem trên CARLA ở Đã xuất (Brev tự bật/tắt, góc sau xe/trong xe). Ghi lại cảnh Town10HD (ego kinematic + clean_tracks) CHƯA xong: VM treo 2 lần.
+
+## 2026-10-18T15:46:58+07:00 — Audit báo không hợp lệ
+- Đọc luồng template/XOSC/reactive → report → library → Studio; rà 17 gói hiện có, 4 invalid (3 pilot Town10HD label_error, 1 baseline scene-1100 collision). Tái chạy 2 pilot bus_038 hold/2 @5/@9: cùng label_error do quỹ đạo ego nguồn; ghi chi tiết trong known-gotchas. Không sửa code, dữ liệu nguồn hay gói đã lưu.
+- Verification: backend `.venv/bin/python -m pytest -q` exit0, 841 passed/0 failed/0 skipped (271,79 s); frontend `npm test -- --run` exit0, 572 passed; `npm run test:server` exit0, 65 passed/0 skipped; `npm run build` exit0 (tsc + Vite); `git diff --check` exit0. Không chạy browser E2E/CARLA/remote.
+
+## 2026-10-18T16:07:35+07:00 — Plan58 / v0.43.1 validation presentation
+- `assessmentOf` + `AssessmentDetails` thống nhất lịch sử/Studio/analysis/pre-check/Real2simReport; đủ mọi lý do, giữ mã lạ, nguồn chỉ là heuristic. Mẫu nói rõ kiểm tham số. Library summary thêm reasons/react; không ghi lại gói.
+- Regression red4/4 trước triển khai; green578FE/44BE focused,0skip; build/ruff/diff exit0. Browser bản sao 17gói/97payload0mismatch; 2 lý do source+physics hiện trên Studio/analysis. Evidence: planning/58_2026-10-18_validity-labels/evidence/.
+- Main5180 đã restart SAU khi export/CARLA không còn running/queued; HTTP200,3config hashes unchanged. Preview riêng đã tắt, ego task finished. Không chạy remote/commit/push; không sửa quỹ đạo nguồn hay luật valid.
+- 10 file sửa ngoài phiên (15:52–16:02, nghi Antigravity: diễn giải kiểm định, AssessmentDetails) → commit riêng b31e1cc theo yêu cầu chủ; v0.42.0+v0.43.0 commit riêng. Gates: BE 842, FE 578, server 67.

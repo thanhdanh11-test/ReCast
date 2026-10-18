@@ -65,3 +65,7 @@ Parent source/dataset/preferences survive scene/scenario navigation. Resource ep
 
 ## v0.40.0 — nuScenes only (plan52)
 Catalog lists/accepts only `format: nuscenes`; an older AV2 entry stays in dataset-catalog.json but is hidden. The AV2 intake (`backend/data/dataset-intake-20261013/`, 31 GB) was deleted 2026-10-17 at the owner's request; ArgoverseAdapter code remains (unit tests on fixtures) but there is no AV2 data on this machine. nuScenes root: ~/cvat-day2/tools/traffic_pipeline/data/nuscenes (unchanged, raw immutable).
+
+## v0.42.0 — Nguồn cảnh CARLA Town (plan56)
+- Bộ dữ liệu sinh từ CARLA, cùng định dạng nuScenes v1.0-mini, đặt ngoài repo `~/Documents/Topeye Datasets/carla-<scene>/`; map location `carla-<Town>` là khoá nhận diện cảnh Town ở bước xuất CARLA.
+- Global frame = OpenDRIVE của Town; app trừ origin = tư thế ego đầu cảnh như mọi cảnh nuScenes; xuất CARLA cộng lại origin.

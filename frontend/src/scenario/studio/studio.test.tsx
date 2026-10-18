@@ -239,3 +239,43 @@ describe("validation explanations across library and analysis", () => {
         expect(screen.queryByText("Không hợp lệ")).toBeNull();
     });
 });
+
+describe("plan57 Xem trên CARLA", () => {
+    const render = (extra: Record<string, unknown>) => ({ schema_version: 1, status: "running", progress: 35, step: "Bật máy GPU (1–5 phút)", view: "driver",
+        started_at: new Date(Date.now() - 125000).toISOString(), finished_at: null, video: null, error: null, ...extra });
+    it("starts a render with the chosen view, shows step and waiting time, then offers the video", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const done = job("5", "done", 100);
+        const listExports = vi.fn()
+            .mockResolvedValueOnce([done, job("6", "done", 100, { format: "xosc" })])
+            .mockResolvedValueOnce([{ ...done, carla_render: render({}) }])
+            .mockResolvedValue([{ ...done, carla_render: render({ status: "done", progress: 100, step: "Xong", video: "carla-driver.mp4" }) }]);
+        const api = { listExports, deleteExport: vi.fn(), exportUrl: (id: string) => `/z/${id}`, carlaRenderInfo: vi.fn().mockResolvedValue({ available: true, instance: "vm1" }),
+            renderCarla: vi.fn().mockResolvedValue(render({ status: "queued", progress: 0 })), carlaVideoUrl: (id: string, view: string) => `/v/${id}/${view}` } as unknown as DesktopAPI;
+        wrap(<ExportsPage api={api} shown/>);
+        await act(async () => {});
+        expect(screen.queryByRole("button", { name: "Xem trên CARLA job-6" })).toBeNull(); // only CARLA packages
+        fireEvent.click(screen.getByRole("button", { name: "Xem trên CARLA job-5" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Trong xe (ghế lái)" }));
+        fireEvent.click(screen.getByRole("button", { name: "Bắt đầu dựng" }));
+        await act(async () => {});
+        expect(api.renderCarla).toHaveBeenCalledWith({ id: "5".repeat(32), view: "driver" });
+        await act(async () => { vi.advanceTimersByTime(1000); });
+        expect((screen.getByRole("progressbar", { name: "CARLA job-5" }) as HTMLProgressElement).value).toBe(35);
+        expect(screen.getByText(/Bật máy GPU \(1–5 phút\) · đã chờ 2:0\d/)).toBeTruthy();
+        await act(async () => { vi.advanceTimersByTime(3000); });
+        expect(screen.getByRole("link", { name: "Tải video job-5" }).getAttribute("href")).toBe(`/v/${"5".repeat(32)}/driver`);
+        fireEvent.click(screen.getByRole("button", { name: "Xem video job-5" }));
+        expect(document.querySelector("video")?.getAttribute("src")).toBe(`/v/${"5".repeat(32)}/driver`);
+        vi.useRealTimers();
+    });
+    it("explains why the button is off when no CARLA machine is configured, and shows a failed render", async () => {
+        const api = { listExports: vi.fn().mockResolvedValue([{ ...job("7", "done", 100), carla_render: render({ status: "failed", step: "Lỗi", error: { code: "CARLA_RENDER_FAILED", message: "Bật CARLA: lỗi" } }) }]),
+            carlaRenderInfo: vi.fn().mockResolvedValue({ available: false, instance: null, reason: "Chưa cấu hình máy CARLA" }), renderCarla: vi.fn() } as unknown as DesktopAPI;
+        wrap(<ExportsPage api={api} shown/>);
+        expect(await screen.findByText(/CARLA: Bật CARLA: lỗi/)).toBeTruthy();
+        const button = screen.getByRole("button", { name: "Xem trên CARLA job-7" }) as HTMLButtonElement;
+        await waitFor(() => expect(button.disabled).toBe(true));
+        expect(button.title).toBe("Chưa cấu hình máy CARLA");
+    });
+});

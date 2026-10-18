@@ -107,7 +107,14 @@ Mục tiêu chính từ2026-10-09: đề N3-09B, app desktop tạo/phát lại O
 - [x] ~~World Labs Marble API, thuê GPU~~: loại vì trả phí (2026-10-05).
 - [x] ~~Bowl view / adaptive bowl~~: đã loại (REVIEW.md).
 
+- 💡 Idea Vault (2026-10-18): đóng kèm `carla_replay.py` vào mọi gói xuất CARLA (scenario_runner bỏ qua thời gian của FollowTrajectoryAction); thêm Property `type=ego_vehicle` + mô tả "CARLA:" tuỳ chọn cho .xosc.
+
+- 💡 Idea Vault (2026-10-18): ghi thêm Town khác (Town03/05) bằng `carla_record_scene.py --town`; nhãn “Cảnh CARLA” thay “dữ liệu thật”; người đi bộ trong bản ghi CARLA.
+
 ## Đã hoàn thành (Done)
+- [x] Plan58 / v0.43.1 — 2026-10-18T16:07:35+07:00: phân biệt nguồn/vật lý/va chạm/chưa hỗ trợ, đủ lý do trên history/Studio/analysis/pre-check; template chỉ kiểm tham số. FE578/BE44 focused, build/lint/browser ✅; main5180 restarted when idle, 3 config hashes preserved. Không đổi luật valid/ngưỡng.
+- ✅ 2026-10-18T15:28:18+07:00 v0.43.0 — Plan57: nút Xem trên CARLA (bật máy Brev, quay video sau xe / trong xe, tải về).
+- ✅ 2026-10-18T02:13:05+07:00 v0.42.0 — Plan56: Town10HD CARLA là một cảnh trong app (Tự tạo + xuất về chính Town).
 - ✅ 2026-10-17T23:45:48+07:00 v0.41.2 — Plan55: tăng tốc mở cảnh/map (bấm cảnh 4–5 s → 1–2 s, mở lại 0,1 s).
 - ✅ 2026-10-17T22:54:05+07:00 v0.41.1 — Plan54: báo cáo chi tiết chỉ ego + xe liên quan.
 - ✅ 2026-10-17T22:37:24+07:00 v0.41.0 — Plan53: trang Phân tích dạng báo cáo (kết luận, thang nguy hiểm, chỉ số có ngưỡng, giả định).

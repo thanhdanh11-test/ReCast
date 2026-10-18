@@ -92,10 +92,47 @@ def scenario_name(manifest, scenario_id):
     return display_name(manifest.get("display_name")) or f"kịch bản {scenario_id[:8]}"
 
 
+def carla_town_of(adapter, scene):
+    """CARLA town name of a scene recorded in CARLA (plan56: map location `carla-<Town>`), else None."""
+    from topeye.scenario.carla_town import LOCATION_PREFIX
+
+    map_info = adapter.scene_map(scene) if hasattr(adapter, "scene_map") else None
+    location = map_info[0] if map_info else ""
+    return location[len(LOCATION_PREFIX):] if location.startswith(LOCATION_PREFIX) else None
+
+
+def in_town_frame(xml_bytes, town, origin):
+    """plan56 D6: LogicFile = the CARLA town; every WorldPosition shifted from the scene frame by `origin`."""
+    root = etree.fromstring(with_road(xml_bytes, town), etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=True))
+    for pos in root.iter("WorldPosition"):
+        for axis, offset in zip("xyz", origin, strict=False):
+            if pos.get(axis) is not None:
+                pos.set(axis, f"{float(pos.get(axis)) + float(offset):.4f}".rstrip("0").rstrip("."))
+    return etree.tostring(root.getroottree(), xml_declaration=True, encoding="utf-8") + b"\n"
+
+
+def shifted_csv(csv_bytes, origin):
+    """trajectories.csv with x_m / y_m moved by origin (scene frame -> town frame)."""
+    import csv
+    import io
+
+    rows = list(csv.reader(io.StringIO(csv_bytes.decode())))
+    head = rows[0]
+    ix, iy = head.index("x_m"), head.index("y_m")
+    for row in rows[1:]:
+        row[ix] = f"{float(row[ix]) + float(origin[0]):.4f}"
+        row[iy] = f"{float(row[iy]) + float(origin[1]):.4f}"
+    out = io.StringIO()
+    csv.writer(out, lineterminator="\n").writerows(rows)
+    return out.getvalue().encode()
+
+
 def carla_support(adapter, scene):
-    """Raise CARLA_UNSUPPORTED unless `scene` has nuScenes map-expansion lane centrelines (D5)."""
+    """Raise CARLA_UNSUPPORTED unless `scene` has nuScenes map-expansion lane centrelines (D5) or is a CARLA town."""
     from topeye.scenario.source_scene import map_directory
 
+    if carla_town_of(adapter, scene):
+        return
     map_info = adapter.scene_map(scene) if hasattr(adapter, "scene_map") else None
     require(map_info and not hasattr(adapter, "vector_map"),
             "Xuất CARLA chỉ hỗ trợ dataset nuScenes có map expansion", "CARLA_UNSUPPORTED")
@@ -175,6 +212,20 @@ def build_files(workspace, job, adapter, step):
     points = [(x, y) for _, _, _, rows in tracks for _, x, y, _ in rows]
     origin = (scenario.get("source") or {}).get("origin_global_m")
     require(isinstance(origin, list) and len(origin) >= 2, "Kịch bản thiếu gốc toạ độ", "INVALID_INPUT")
+    town = carla_town_of(adapter, job["scene"])
+    if town:  # plan56: the town brings its own road and 3D world; positions go back to its frame
+        step(40, f"Đặt vào {town}")
+        files[f"{stem}.xosc"] = in_town_frame(xosc, town, origin)
+        step(60, "Viết .xosc")
+        files["trajectories.csv"] = shifted_csv(stored.get("trajectories.csv") or trajectories_csv(job["scene"], tracks), origin)
+        step(75, "Viết trajectories.csv")
+        if "report.json" in stored:
+            files["report.json"] = stored["report.json"]
+        else:
+            notes.append(NO_REPORT)
+        job["carla_town"] = {"town": town, "origin": origin}
+        step(85, "Viết report và manifest")
+        return files, notes
     xodr_name, xodr = scene_xodr(adapter, job["scene"], origin, points)
     require(len(xodr) <= MAX_XODR_BYTES, ".xodr vượt 16 MiB", "RESOURCE_LIMIT")
     step(40, "Dựng bản đồ .xodr")
@@ -218,6 +269,7 @@ def run_job(workspace, job_id, adapter, version="dev"):
             "scene": job["scene"], "format": job["format"],
             "files": [{"name": n, "bytes": len(b), "sha256": hashlib.sha256(b).hexdigest()} for n, b in files.items()],
             "notes": notes,
+            **({"carla_town": job["carla_town"]} if job.get("carla_town") else {}),
         }, ensure_ascii=False, indent=1).encode()
         require(sum(map(len, files.values())) <= MAX_TOTAL_BYTES, "Gói xuất vượt 32 MiB", "RESOURCE_LIMIT")
         staging = folder / "files.tmp"

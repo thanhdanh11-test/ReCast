@@ -282,3 +282,24 @@ Owner screenshot shows distant pavement breakup. Pilot camera now adapts near pl
 - Pane có `hidden` vẫn mount ⇒ TrackView vẫn dựng 3D khi prop `scenario` đổi (đo ~3,3 s khoá luồng chính/lần đổi cảnh). Pane ẩn phải giữ input cũ (ScenarioApp `paneSource`) hoặc không mount.
 - Worker Python chính xử lý tuần tự: một lệnh đọc nặng tự gửi nền (vd `reactive_candidates` 2,8 s) làm lệnh người dùng kế tiếp (`source_scene`) chờ. Chỉ gửi việc nền khi màn đó thật sự cần.
 - shapely `LineString.interpolate(mảng)` đi từ đầu đường cho mỗi điểm (O(n·m)); dùng nội suy theo độ dài tích luỹ (`structures._along`).
+
+## 2026-10-18 — CARLA trên máy Brev (plan56)
+- LiDAR CARLA trả về bất đồng bộ: sau `world.tick()` phải chờ đúng scan có `frame == frame_id` (queue + timeout), không pop danh sách.
+- File do container client ghi thuộc root: xoá bằng `docker run --rm -v …:/o python:3.10-slim rm -rf …` (sudo/background qua `brev exec` có thể treo). Chạy việc dài bằng `brev exec` tiền cảnh trong tác vụ nền của agent.
+- Traffic Manager có thể kẹt ego sau xe vừa spawn: không spawn xe trong 35 m quanh ego, thử điểm khác nếu ego đi < 60 m.
+
+## 2026-10-18 — Máy Brev treo khi ghi cảnh (plan56/57)
+- VM L4 16 GB hai lần UNHEALTHY lúc ghi cảnh CARLA (nghi hết RAM); `brev stop` có thể kẹt STOPPING nhiều phút. KHÔNG `brev reset` (chỉ giữ /home/brev/workspace ⇒ mất carla-env + image 30 GB). Đợi STOPPED rồi `brev start`.
+- `brev exec` dài có thể treo trước khi lệnh chạy: luôn kiểm mtime/kết quả trên máy trước khi báo xong.
+
+## 2026-10-18T15:46:58+07:00 — Rà soát trạng thái kịch bản (chỉ kiểm tra)
+- Workspace đang cấu hình có 17 gói: 4 không hợp lệ; 3 pilot Town10HD có `label_error` (1 kèm `physics`), 1 baseline scene-1100 có va chạm car_017/car_008 lúc 3,5 s. Không suy diễn tất cả do ego va chạm.
+- Tái chạy bus_038 hold/2 tại 5 s và 9 s đều `valid=False`, `reasons=[label_error]`. Ego nguồn qua engine có max_accel 13,13 m/s² (ngưỡng 4), max_decel 22,53 m/s² (ngưỡng 8,2), 44 bước vi phạm. Pilot giữ vi phạm ego trước sự kiện (t_decel=3,5 s). `assess` xét toàn bộ quỹ đạo xe thay đổi, không chỉ sau sự kiện.
+- `label_error` là phân loại heuristic: vi phạm gần vị trí vi phạm nguồn trong 5 m; không phải bằng chứng độc lập rằng annotation sai. Số đo là đạo hàm vị trí qua nội suy/làm mượt của engine.
+- `summary` và pre-check thường chỉ nêu `reasons[0]`; đọc toàn bộ reasons/checks trước khi kết luận. Tạo/lưu gói không đồng nghĩa valid; esmini chưa kiểm là trạng thái riêng. Không đổi luật/threshold trong lần audit này.
+- Form mẫu ghi “Template hợp lệ” từ `validateTemplate` phía client (cấu trúc/tham số); chưa phải kết luận đặt lên map hay va chạm từ backend. Hai tầng đang dùng chung chữ “hợp lệ”, dễ gây hiểu nhầm.
+
+## 2026-10-18T16:02:18+07:00 — Plan58 validity wording
+- Không dùng `reasons[0]` để giải thích toàn bộ verdict. Không gọi `label_error` là bằng chứng nhãn sai: chỉ là so vị trí vi phạm trong 5 m. UI dùng assessmentOf cho mã thô và mã [code] có mô tả.
+- Giữ raw report/valid/ngưỡng; không “sửa” gói đã lưu để thay nhãn. Thư viện server cũ thiếu reasons/react thì hiển thị chung trước khi mở. Restart backend cần đợi tác vụ CARLA hiện tại xong; audit thấy carla-render status running nên không restart server chính.
+- 2026-10-18T16:07:35+07:00: điều kiện chờ restart nêu trên đã được giải quyết: không còn job queued/running, main5180 restart thành công, 3 config hashes giữ nguyên.

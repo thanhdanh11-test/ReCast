@@ -464,3 +464,22 @@ Authenticated group APIs store `.scenario-groups.json` separately from immutable
 - Màn “Cảnh nguồn” ẩn chỉ nhận cảnh mới khi hiện lại (`paneSource`), không dựng 3D/LiDAR/map ngầm.
 - `structures._along`: nội suy điểm dọc viền đường bằng numpy (thay shapely interpolate O(n·m)).
 - Số đo Chrome: bấm cảnh mới 1,2–2,2 s; mở lại 0,1 s; 3D lần đầu ~3 s.
+
+### Cảnh CARLA Town (v0.42.0, plan56)
+- `backend/scripts/carla_record_scene.py` (chạy cạnh CARLA 0.9.15, vd image client của `~/carla-env` trên máy Brev): trích bản đồ bằng CARLA API (`generate_waypoints` + làn kề như vỉa hè, `get_crosswalks`), ego + ~45 xe Traffic Manager (seed 7), LiDAR 32 tia 20 Hz cao 1,84 m; 20 s; thử tới 5 điểm xuất phát tới khi ego đi ≥ 60 m. Hệ toạ độ = OpenDRIVE của Town (y, yaw đổi dấu so với Unreal).
+- `topeye.scenario.carla_town.build_dataset(raw, out, name)` ghi bộ dữ liệu nuScenes v1.0-mini (bảng JSON, LiDAR .bin, map expansion `carla-<Town>.json`). App đọc bằng adapter nuScenes không sửa: Town10HD → 97 làn, 31 vỉa hè, 7 vạch qua đường, 17 nhà/129 cây/38 cột ước lượng từ LiDAR CARLA.
+- Danh mục: thêm seed `{root, name: "CARLA Town10HD"}` vào `backend/data/dataset-library.json` (cục bộ). Bộ dữ liệu ở `~/Documents/Topeye Datasets/carla-town10hd/`.
+- Xuất CARLA: location `carla-<Town>` ⇒ `.xosc` LogicFile = Town, mọi WorldPosition + `trajectories.csv` cộng origin cảnh, không `.xodr`, manifest `carla_town: {town, origin}`. `carla_replay.py` thấy `carla_town` ⇒ `load_world(Town)` và đặt xe theo độ cao mặt đường.
+- E2E: `node frontend/scripts/test-carla-town.mjs` (mở bộ dữ liệu → 2D/3D → Tự tạo phanh → xuất CARLA).
+
+### Xem trên CARLA (v0.43.0, plan57)
+- Trang **Đã xuất**: bản xuất CARLA đã xong có nút **Xem trên CARLA** → chọn góc **Sau xe (camera bám)** hoặc **Trong xe (ghế lái)** → server (`frontend/server/carla-render.mjs`) dùng Brev CLI đã đăng nhập: kiểm máy, bật máy GPU nếu tắt, chép gói + `backend/scripts/carla_replay.py`, `start.sh` của `carla-env`, chạy replay `--view`, tải `carla-<view>.mp4` về thư mục bản xuất, rồi `brev stop` (khi `stop_after`). Thanh tiến độ ghi bước + thời gian đã chờ; xong có **Xem video** (trình phát) và **Tải video**.
+- Cấu hình cục bộ `backend/data/carla-render.json`: `{brev_instance, remote_dir, stop_after}`; thiếu ⇒ nút tắt kèm lý do. Một lượt dựng một lúc; trạng thái `exports/<id>/carla-render.json`; máy chủ khởi động lại giữa chừng ⇒ INTERRUPTED.
+- API: `carlaRenderInfo`, `renderCarla {id, view}`, `listExports` có `carla_render`; video GET `/api/exports/<id>/carla-<view>.mp4?token=` (hỗ trợ byte range cho tua).
+- `carla_replay.py --view driver`: camera gắn ego tại (0,1; −0,38; 1,25) m, nhìn qua kính chắn gió.
+
+## Validation explanations — v0.43.1 (Plan58)
+- `studio/validity.ts::assessmentOf` is the shared presentation of invalid reports: source-related violations, physical limits, collisions (baseline explicitly named), tailgating, unsupported interactions and mixed/unknown reasons. Studio/history/analysis/Real2simReport and authoring pre-check show every reason; unknown codes retain their original text.
+- Source-related violations use “Dữ liệu nguồn cần kiểm tra”: the 5 m positional match is a heuristic, not proof of incorrect annotations. Validation covers the entire changed trajectory, including before the event. Source-related canned summaries are replaced by this explanation; detailed check measurements remain available.
+- `listImported` report metadata adds optional `reasons: string[]` and `react: boolean | null`; read from existing scenario.json, no payload rewriting. Older servers lacking these fields fall back to “Chưa đạt kiểm định” until the scenario opens. Existing `valid`, reasons, thresholds and package hashes keep their meaning.
+- Template parameter checks say “Tham số hợp lệ · chưa kiểm tra chuyển động trên map”; pre-check success makes no esmini claim. esmini execution remains separate. No dataset repair, collision-policy relaxation or threshold change.

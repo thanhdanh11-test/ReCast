@@ -1,5 +1,5 @@
 {
-  "current_version": "0.41.2",
+  "current_version": "0.43.1",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
@@ -1345,5 +1345,22 @@
     "production_state_hashes_unchanged": true,
     "full_same_lane_two_way_ego": false,
     "remote_deployment": false
+  },
+  "validity_patch": {
+    "version": "0.43.1",
+    "updated_at": "2026-10-18T16:07:35+07:00",
+    "status": "local_browser_and_main_localhost_verified",
+    "frontend_tests": 578,
+    "backend_focused_tests": 44,
+    "fail": 0,
+    "skip": 0,
+    "copied_packages": 17,
+    "compared_payloads": 97,
+    "hash_mismatches": 0,
+    "main_http_status": 200,
+    "private_config_files_preserved": 3,
+    "rules_changed": false,
+    "source_data_changed": false,
+    "remote_actions": false
   }
 }

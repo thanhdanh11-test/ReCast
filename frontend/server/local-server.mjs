@@ -8,6 +8,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { createExports } from "./scenario-exports.mjs";
+import { brevRunner, createCarlaRender } from "./carla-render.mjs";
 import { scenarioGroups, recordScenarioGroup } from "./scenario-groups.mjs";
 import { createAuth } from "./local-auth.mjs";
 import { createCatalog } from "./dataset-catalog.mjs";
@@ -42,6 +43,8 @@ export const allowed = {
   exportScenario: ["scenario_id", "format"],
   listExports: [],
   deleteExport: ["id"],
+  renderCarla: ["id", "view"],
+  carlaRenderInfo: [],
   openImported: ["source_id", "path"],
   replayImported: ["scenario_id"],
   lidarFrame: ["scene", "time_s"],
@@ -86,7 +89,8 @@ export function validateArgs(name, args) {
   if (["scenarioMetrics", "esminiCheck", "exportScenario"].includes(name) && (typeof args.scenario_id !== "string" || !/^[a-f0-9]{32}$/.test(args.scenario_id)))
     throw fail("INVALID_INPUT", "Invalid scenario");
   if (name === "exportScenario" && !["carla", "xosc"].includes(args.format)) throw fail("INVALID_INPUT", "Invalid export format");
-  if (name === "deleteExport" && (typeof args.id !== "string" || !ID.test(args.id))) throw fail("INVALID_INPUT", "Invalid export identity");
+  if (["deleteExport", "renderCarla"].includes(name) && (typeof args.id !== "string" || !ID.test(args.id))) throw fail("INVALID_INPUT", "Invalid export identity");
+  if (name === "renderCarla" && !["chase", "driver"].includes(args.view)) throw fail("INVALID_INPUT", "Invalid view");
   // Template content is checked field by field in the worker (topeye/scenario/template.py).
   if (["importTemplate", "templateFit"].includes(name) && (!args.template || typeof args.template !== "object" || Array.isArray(args.template)))
     throw fail("INVALID_INPUT", "Invalid template");
@@ -147,6 +151,9 @@ export function createLocalServer({
   version = JSON.parse(fs.readFileSync(join(root, "frontend", "package.json"), "utf8")).version,
   bridgeFactory = createWorkerBridge,
   catalogSeeds = fs.existsSync(join(root, "backend/data/dataset-library.json")) ? JSON.parse(fs.readFileSync(join(root, "backend/data/dataset-library.json"), "utf8")) : [],
+  // plan57: machine-local CARLA VM settings (absent = “Xem trên CARLA” disabled) and the Brev runner.
+  carlaConfig = () => { try { return JSON.parse(fs.readFileSync(join(root, "backend/data/carla-render.json"), "utf8")); } catch { return null; } },
+  carlaRun = brevRunner(),
 } = {}) {
   const token = randomBytes(32).toString("hex");
   fs.mkdirSync(userData, { recursive: true });
@@ -194,6 +201,8 @@ export function createLocalServer({
       return child;
     },
   });
+  const carlaRender = createCarlaRender({ workspace: () => settings.workspace, config: carlaConfig, run: carlaRun,
+    replayScript: join(root, "backend", "scripts", "carla_replay.py") });
   const params = (args) => ({
     ...args,
     dataset: settings.dataset,
@@ -280,7 +289,9 @@ export function createLocalServer({
     if (name === "templateFit") return call("template_fit", checked, metricsBridge);
     if (name === "mapStatus") return call("map_status", checked, metricsBridge);
     if (name === "exportScenario") return exportsQueue.enqueue(await call("export_create", checked, metricsBridge));
-    if (name === "listExports") return exportsQueue.list();
+    if (name === "listExports") return exportsQueue.list().map((job) => ({ ...job, carla_render: carlaRender.state(job.id) }));
+    if (name === "carlaRenderInfo") return carlaRender.info();
+    if (name === "renderCarla") return carlaRender.start(checked.id, checked.view);
     if (name === "deleteExport") return exportsQueue.remove(checked.id);
     if (name === "lidarFrame") return call("lidar_frame", checked, lidarBridge);
     if (name === "scenarioMetrics") return call("scenario_metrics", checked, metricsBridge);
@@ -371,6 +382,29 @@ export function createLocalServer({
       try { handle = fs.openSync(zip.path, "r"); } catch { return send(404, { code: "NOT_FOUND", message: "Không đọc được tệp zip" }); }
       res.writeHead(200, { "Content-Type": "application/zip", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
         "Content-Disposition": `attachment; filename="${zip.name}"` });
+      return fs.createReadStream(null, { fd: handle }).on("error", () => res.destroy()).pipe(res);
+    }
+    // plan57: the CARLA video of an export (inline for the player, `download` attribute for saving).
+    const carlaVideo = /^\/api\/exports\/([a-f0-9]{32})\/carla-(chase|driver)\.mp4$/.exec(url.pathname);
+    if (carlaVideo && req.method === "GET") {
+      if (url.searchParams.get("token") !== token) return send(403, { code: "FORBIDDEN", message: "Invalid token" });
+      if (!auth.authenticated(req)) return send(401, { code: "UNAUTHENTICATED", message: "Vui lòng đăng nhập" });
+      let video;
+      try { video = carlaRender.video(carlaVideo[1], carlaVideo[2]); } catch (e) { return send(404, { code: "NOT_FOUND", message: String(e.message).replace(/^[A-Z_]+: /, "") }); }
+      let handle;
+      try { handle = fs.openSync(video.path, "r"); } catch { return send(404, { code: "NOT_FOUND", message: "Không đọc được video" }); }
+      const size = fs.fstatSync(handle).size;
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || "");
+      const headers = { "Content-Type": "video/mp4", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Accept-Ranges": "bytes",
+        "Content-Disposition": `inline; filename="${video.name}"` };
+      if (range && (range[1] || range[2])) {  // the <video> element seeks with byte ranges
+        const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+        const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+        if (start > end || start >= size) { fs.closeSync(handle); res.writeHead(416, { "Content-Range": `bytes */${size}` }); return res.end(); }
+        res.writeHead(206, { ...headers, "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": end - start + 1 });
+        return fs.createReadStream(null, { fd: handle, start, end }).on("error", () => res.destroy()).pipe(res);
+      }
+      res.writeHead(200, { ...headers, "Content-Length": size });
       return fs.createReadStream(null, { fd: handle }).on("error", () => res.destroy()).pipe(res);
     }
     if (url.pathname === "/api/events" && req.method === "GET") {

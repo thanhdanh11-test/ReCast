@@ -359,3 +359,38 @@ test("plan52: user input rejected by the worker is 400; only server/worker failu
   assert.equal(statusFor("BUSY"), 409);
   assert.equal(statusFor("UNAUTHENTICATED"), 401);
 });
+
+test("plan57: renderCarla input, CARLA info, and the video served whole or by byte range", async (t) => {
+  assert.doesNotThrow(() => validateArgs("renderCarla", { id: "a".repeat(32), view: "driver" }));
+  assert.throws(() => validateArgs("renderCarla", { id: "../x", view: "driver" }), /Invalid export identity/);
+  assert.throws(() => validateArgs("renderCarla", { id: "a".repeat(32), view: "roof" }), /Invalid view/);
+  const dir = fs.mkdtempSync(join(os.tmpdir(), "topeye-render-http-"));
+  const ws = join(dir, "ws"), id = "b".repeat(32), exp = join(ws, "exports", id);
+  fs.mkdirSync(exp, { recursive: true });
+  fs.writeFileSync(join(exp, "job.json"), JSON.stringify({ id, status: "done", format: "carla", created_at: "2026-10-18T00:00:00Z" }));
+  fs.writeFileSync(join(exp, "carla-driver.mp4"), "0123456789");
+  fs.mkdirSync(join(dir, "user"));
+  fs.writeFileSync(join(dir, "user", "scenario-settings.json"), JSON.stringify({ workspace: ws }));
+  fs.writeFileSync(join(dir, "index.html"), "x");
+  const host = createLocalServer({ staticDir: dir, userData: join(dir, "user"), catalogSeeds: [], version: "t",
+    carlaConfig: () => null, bridgeFactory: () => ({ busy: false, stop: async () => {}, request: async () => ({}) }) });
+  t.after(() => host.close());
+  const url = `http://127.0.0.1:${await host.listen(0)}`;
+  const setup = await fetch(`${url}/api/auth/setup`, { method: "POST", headers: { "Content-Type": "application/json", "X-Topeye-Token": host.token },
+    body: JSON.stringify({ username: "render-owner", password: "render-test-passphrase" }) });
+  const Cookie = setup.headers.get("set-cookie").split(";")[0];
+  const post = async (name, body = {}) => (await fetch(`${url}/api/${name}`, { method: "POST", headers: { "Content-Type": "application/json", "X-Topeye-Token": host.token, Cookie }, body: JSON.stringify(body) })).json();
+  assert.equal((await post("carlaRenderInfo")).value.available, false);
+  assert.equal((await post("renderCarla", { id, view: "chase" })).code, "CARLA_NOT_CONFIGURED");
+  const video = `${url}/api/exports/${id}/carla-driver.mp4?token=${host.token}`;
+  const whole = await fetch(video, { headers: { Cookie } });
+  assert.equal(whole.status, 200);
+  assert.equal(whole.headers.get("content-type"), "video/mp4");
+  assert.equal(await whole.text(), "0123456789");
+  const part = await fetch(video, { headers: { Cookie, Range: "bytes=2-5" } });
+  assert.equal(part.status, 206);
+  assert.equal(part.headers.get("content-range"), "bytes 2-5/10");
+  assert.equal(await part.text(), "2345");
+  assert.equal((await fetch(`${url}/api/exports/${id}/carla-chase.mp4?token=${host.token}`, { headers: { Cookie } })).status, 404);
+  assert.equal((await fetch(video)).status, 401);
+});

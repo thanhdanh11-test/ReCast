@@ -2,6 +2,16 @@
 
 Tất cả các quyết định kiến trúc và lịch sử nâng cấp phiên bản của dự án.
 
+## v0.43.1 — 2026-10-18T16:02:18+07:00 (plan58)
+- Phân biệt dữ liệu nguồn cần kiểm tra, chuyển động vượt ngưỡng, baseline có va chạm và tương tác chưa hỗ trợ; hiện đầy đủ lý do trên các màn. Không đổi luật valid hoặc ngưỡng. Form mẫu làm rõ chỉ kiểm tham số; lý do nguồn được diễn đạt là suy đoán cần kiểm tra.
+- Thư viện bổ sung reasons/react khi đọc gói cũ; không ghi lại dataset/package.
+
+## v0.43.0 — 2026-10-18T15:28:18+07:00 (plan57)
+- Nút **Xem trên CARLA** ở Đã xuất: server tự bật máy Brev, dựng cảnh trên CARLA, quay video (góc sau xe / trong xe), tải về, tắt máy; tiến độ + thời gian chờ; Xem/Tải video. `carla_replay.py` vào repo (`backend/scripts/`). FE 572, server 65.
+
+## v0.42.0 — 2026-10-18T02:13:05+07:00 (plan56)
+- Town CARLA thành một cảnh trong app: CARLA ghi cảnh (bản đồ, Traffic Manager, LiDAR) → `carla_town.build_dataset` ra bộ dữ liệu nuScenes ⇒ app đọc không sửa lõi. Xuất CARLA cho cảnh Town trỏ thẳng `LogicFile=Town10HD_Opt` + origin. Town10HD: mở 3,7 s, 20 ứng viên Tự tạo, cặp phanh hợp lệ, xuất PASS. BE 840.
+
 ## v0.41.2 — 2026-10-17T23:45:48+07:00 (plan55)
 - Tăng tốc mở cảnh: màn Cảnh nguồn ẩn không dựng 3D khi đổi cảnh trong Studio; Studio không tính trước reactive_candidates (chặn hàng đợi worker); `_along` numpy thay shapely interpolate trong rào chắn; khoá ô số trong groundSupport. Bấm cảnh mới 4–5 s → 1,2–2,2 s; mở lại 3,7 → 0,1 s; 3D đầu 3,7 → ~3 s. BE836/FE570/server60.
 - Dọn (chủ duyệt): xoá thư mục tạm test `topeye-*` 856 MB, `expansion.zip` 380 MB (app chỉ đọc 4 JSON), `dist/`+`preview/` plan40/42 95 MB. Dự án 3,3 → 2,8 GB.

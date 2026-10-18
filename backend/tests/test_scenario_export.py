@@ -193,3 +193,36 @@ def test_road_reference_keeps_comments_before_the_root():
     xml = b"<?xml version='1.0'?>\n<!-- authored by team -->\n<OpenSCENARIO><RoadNetwork/></OpenSCENARIO>"
     out = ex.with_road(xml, "m.xodr")
     assert b"<!-- authored by team -->" in out and b'<LogicFile filepath="m.xodr"/>' in out
+
+
+TOWN_XOSC = (b'<?xml version="1.0" encoding="utf-8"?>\n<OpenSCENARIO><FileHeader description="d"/><CatalogLocations/>'
+             b'<RoadNetwork><LogicFile filepath="x.xodr"/></RoadNetwork><Entities/><Storyboard><Init><Actions><Private entityRef="ego">'
+             b'<PrivateAction><TeleportAction><Position><WorldPosition x="1.5" y="-2.0" z="0.0" h="0.1"/></Position></TeleportAction>'
+             b'</PrivateAction></Private></Actions></Init></Storyboard></OpenSCENARIO>\n')
+
+
+def test_carla_town_scene_exports_against_the_town_itself(tmp_path):
+    """plan56 D6: a CARLA-town scene references the town (no .xodr) and is shifted back into the town frame."""
+    ws = tmp_path / "ws"
+    folder = package(ws)
+    (folder / "original.xosc").write_bytes(TOWN_XOSC)
+    manifest = json.loads((folder / "manifest.json").read_text())
+    manifest["files"]["original.xosc"] = hashlib.sha256(TOWN_XOSC).hexdigest()
+    (folder / "manifest.json").write_text(json.dumps(manifest))
+    town = SimpleNamespace(root=tmp_path / "ds", scene_map=lambda scene: ("carla-Town10HD_Opt", None))
+    assert ex.carla_town_of(town, "scene-1") == "Town10HD_Opt"
+    assert ex.carla_town_of(adapter_for(tmp_path), "scene-1") is None
+    job = ex.create_job(ws, SID, "carla", town)  # no map expansion needed
+    done = ex.run_job(ws, job["id"], town)
+    assert done["status"] == "done", done["error"]
+    names = {f["name"] for f in done["files"]}
+    assert names == {"Dung_khan_cap.xosc", "trajectories.csv", "manifest.json"}  # the town brings its own road
+    files = ws / "exports" / job["id"] / "files"
+    xosc = ET.fromstring((files / "Dung_khan_cap.xosc").read_bytes())
+    assert xosc.find("RoadNetwork/LogicFile").get("filepath") == "Town10HD_Opt"
+    pos = xosc.find(".//WorldPosition")
+    assert (float(pos.get("x")), float(pos.get("y")), float(pos.get("h"))) == (101.5, 98.0, 0.1)  # origin (100, 100, 0) added
+    row = (files / "trajectories.csv").read_text().splitlines()[2].split(",")
+    assert (float(row[4]), float(row[5])) == (102.0, 100.0)  # ego at t=1: local (2, 0) + origin
+    meta = json.loads((files / "manifest.json").read_text())
+    assert meta["carla_town"] == {"town": "Town10HD_Opt", "origin": [100, 100, 0]}

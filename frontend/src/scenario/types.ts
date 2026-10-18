@@ -306,6 +306,10 @@ export interface DesktopAPI {
   deleteExport?(args: { id: string }): Promise<{ removed: true }>;
   /** URL of a finished export's zip (browser download). */
   exportUrl?(id: string): string;
+  /** plan57 “Xem trên CARLA”: whether a CARLA VM is configured, start a render, and the video URL. */
+  carlaRenderInfo?(): Promise<{ available: boolean; instance: string | null; reason?: string }>;
+  renderCarla?(args: { id: string; view: CarlaView }): Promise<CarlaRender>;
+  carlaVideoUrl?(id: string, view: CarlaView): string;
   openImported(args: { source_id: string; path?: string }): Promise<ImportedScenario | null>;
   listImported(): Promise<ImportedEntry[]>;
   /** `template` is set for scenarios made from a template (plan38): they are edited in the template form, not as XML. */
@@ -349,4 +353,12 @@ export interface ExportJob {
   schema_version: 1; id: string; scenario_id: string; name: string; scene: string; format: ExportFormat;
   status: ExportStatus; progress: number; step: string; created_at: string; finished_at: string | null;
   files: { name: string; bytes: number; sha256: string }[]; notes: string[]; error: { code: string; message: string } | null;
+  /** plan57: replay of this CARLA package on the rented CARLA VM, when one was asked for. */
+  carla_render?: CarlaRender | null;
+}
+export type CarlaView = "chase" | "driver";
+/** plan57 01-CONTRACTS: state of one “Xem trên CARLA” render. */
+export interface CarlaRender {
+  schema_version: 1; status: "queued" | "running" | "done" | "failed"; progress: number; step: string; view: CarlaView;
+  started_at: string; finished_at: string | null; video: string | null; error: { code: string; message: string } | null;
 }
