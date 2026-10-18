@@ -307,3 +307,8 @@ Owner screenshot shows distant pavement breakup. Pilot camera now adapts near pl
 ## 2026-10-18T18:24:34+07:00 — PDF deck rendering (Plan60)
 - ReportLab setFillColor có thể đặt lại alpha từ Color.alpha; setFillAlpha phải đặt SAU setFillColor khi phủ ảnh, nếu không ảnh cinema thành nền đặc. Đã bắt bằng xem ảnh render, không chỉ parse PDF.
 - Inter variable pin wght thành TTF tĩnh có thể giữ chung internal face name; PDF library dedup thành một font. Instance400/500/700 phải có PostScript name riêng, giữ OFL; đo PDFthật thấy3faceembedded. Runtime app không dùng các dependency dựng PDF này.
+
+## 2026-10-18T20:19:23+07:00 — Đổi tên Topeye → Recast (v0.43.4)
+- Chỉ đổi tên HIỂN THỊ. Đừng “dọn nốt” `topeye` trong package Python/CLI/env/header/thư mục: phá editable install, script, env của máy và token client. Muốn đổi hết = MAJOR, cần SPEC + migration.
+- Thư mục dữ liệu: `brandDir()` chọn Recast nếu đã có hoặc không có Topeye; máy cũ tiếp tục dùng `Application Support/Topeye`. Đừng xoá fallback khi chưa có bước di chuyển dữ liệu.
+- Tên file PDF `topeye-pitch-5min.pdf` giữ nguyên vì README/evidence trỏ tới.

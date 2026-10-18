@@ -124,7 +124,7 @@ export interface Real2simReport {
   collisions: string[];
   esmini: { exit: number | null; version: string | null; problems: string[]; replay_error_m: Record<string, { mean?: number; max?: number }> } | null;
   run: { created: string | null; commit: string | null; dirty: boolean | null; esmini_version: string | null; dt: number | null; road: string | null } | null;
-  /** Topeye reactive detail (plan46 C2); absent on team real2sim packages. */
+  /** Recast reactive detail (plan46 C2); absent on team real2sim packages. */
   topeye?: ReactiveDetail | null;
 }
 /** Files of a real2sim package folder as sent to importPackage (plan43). */

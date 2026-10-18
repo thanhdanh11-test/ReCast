@@ -1,10 +1,12 @@
-# Topeye — Scenario Studio
+# Recast — Scenario Studio
+
+_Trước đây có tên **Topeye**; mã nguồn vẫn giữ định danh kỹ thuật `topeye` (package Python, lệnh `topeye-*`, biến môi trường `TOPEYE_*`)._
 
 **Chuyển quỹ đạo giao thông thành kịch bản mô phỏng có thể phát lại, tạo biến thể và đánh giá.**
 
-Topeye phục vụ quy trình N3-09B đã ghi nhận trong dự án: dữ liệu nuScenes → OpenSCENARIO → simulator → biến thể → sai số quỹ đạo và số kịch bản hợp lệ. Người dùng xem cảnh trên bản đồ 2D/3D, thiết kế tình huống, so sánh baseline/pilot, đọc báo cáo và xuất gói kịch bản.
+Recast phục vụ quy trình N3-09B đã ghi nhận trong dự án: dữ liệu nuScenes → OpenSCENARIO → simulator → biến thể → sai số quỹ đạo và số kịch bản hợp lệ. Người dùng xem cảnh trên bản đồ 2D/3D, thiết kế tình huống, so sánh baseline/pilot, đọc báo cáo và xuất gói kịch bản.
 
-> Bộ tài liệu: 18/10/2026, phiên bản mã nguồn `0.43.3` (bản vá tài liệu và slide; chức năng từ `0.43.1`). MVP hiện là ứng dụng web **chạy local**, không phải dịch vụ nhiều người dùng đã triển khai công khai. `http://127.0.0.1:5180` không phải Live URL để ban giám khảo truy cập từ máy khác.
+> Bộ tài liệu: 18/10/2026, phiên bản mã nguồn `0.43.4` (đổi tên hiển thị thành Recast; chức năng từ `0.43.1`). MVP hiện là ứng dụng web **chạy local**, không phải dịch vụ nhiều người dùng đã triển khai công khai. `http://127.0.0.1:5180` không phải Live URL để ban giám khảo truy cập từ máy khác.
 
 ## Tài liệu nộp sản phẩm
 
@@ -21,7 +23,7 @@ Topeye phục vụ quy trình N3-09B đã ghi nhận trong dự án: dữ liệu
 
 Quỹ đạo thu từ giao thông thật cần được chuyển sang kịch bản có thời gian và vị trí rõ ràng để tái hiện trong simulator. Nếu chỉ xem chuyển động, người dùng khó biết kịch bản có chạy được, bám đúng quỹ đạo hay vượt giới hạn vật lý.
 
-Topeye kết hợp công cụ trực quan với pipeline kiểm chứng: giữ dữ liệu nguồn chỉ đọc; tạo gói kịch bản riêng; chạy esmini thật để đo khả năng phát lại; mô phỏng phản ứng bám xe để so sánh cùng sự kiện khi không có và có phản ứng. Kết quả lưu được cùng báo cáo và lý do kiểm định.
+Recast kết hợp công cụ trực quan với pipeline kiểm chứng: giữ dữ liệu nguồn chỉ đọc; tạo gói kịch bản riêng; chạy esmini thật để đo khả năng phát lại; mô phỏng phản ứng bám xe để so sánh cùng sự kiện khi không có và có phản ứng. Kết quả lưu được cùng báo cáo và lý do kiểm định.
 
 ## Chức năng hiện có
 
@@ -129,8 +131,8 @@ Kiểm thử có dữ liệu nuScenes/esmini cần đúng dataset và engine loc
 
 ## Dữ liệu, vận hành và giới hạn
 
-- Workspace mặc định: `~/Documents/Topeye Projects`; đầu ra phải nằm ngoài dataset nguồn.
-- Trên macOS, tài khoản/settings/log local ở `~/Library/Application Support/Topeye`. Không đưa thư mục này, mật khẩu hoặc cấu hình máy CARLA lên GitHub.
+- Workspace mặc định: `~/Documents/Recast Projects` (máy đã có `~/Documents/Topeye Projects` thì dùng tiếp); đầu ra phải nằm ngoài dataset nguồn.
+- Trên macOS, tài khoản/settings/log local ở `~/Library/Application Support/Recast` (máy đã có thư mục `Topeye` cũ thì dùng tiếp). Không đưa thư mục này, mật khẩu hoặc cấu hình máy CARLA lên GitHub.
 - Server bind `127.0.0.1`; tài khoản local và các chốt Host/Origin/token không phải thiết kế SaaS nhiều người dùng. Đưa MVP ra Internet cần phương án triển khai riêng.
 - Gói dùng quỹ đạo tính sẵn. Xe xung quanh không tự phản ứng lại khi một hệ lái bên ngoài thay đổi quỹ đạo ego lúc phát lại.
 - Nhà/cây và một phần địa hình hiển thị là hình học ước lượng; không phải digital twin được khảo sát chính xác.

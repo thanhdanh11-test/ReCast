@@ -165,7 +165,7 @@ function FeedbackSection({ t, api, context, openForm }: { t: Translate; api: Des
         a.click();
         URL.revokeObjectURL(a.href);
     }
-    return <Section title={t("Góp ý nhà sản xuất")} note={t("Báo lỗi hoặc đề xuất tính năng cho đội phát triển Topeye.")}>
+    return <Section title={t("Góp ý nhà sản xuất")} note={t("Báo lỗi hoặc đề xuất tính năng cho đội phát triển Recast.")}>
         {local && <form className="settings-form" onSubmit={e => { e.preventDefault(); void submit(); }}>
             <Choice label={t("Loại góp ý")} value={kind} onChange={setKind} options={kinds}/>
             <label className="field">{t("Nội dung")}<textarea aria-label={t("Nội dung")} rows={6} maxLength={4000} value={message} onChange={e => setMessage(e.target.value)}
@@ -244,7 +244,7 @@ export function SettingsPage(props: SettingsPageProps) {
             {section === "feedback" && <FeedbackSection t={t} api={props.api} context={props.feedbackContext} openForm={props.onOpenFeedbackForm}/>}
             {section === "about" && <Section title={t("Thông tin")}>
                 <dl className="settings-kv">
-                    <dt>{t("Phiên bản")}</dt><dd>Topeye {settings?.version ?? "—"}</dd>
+                    <dt>{t("Phiên bản")}</dt><dd>Recast {settings?.version ?? "—"}</dd>
                     <dt>{t("Chế độ")}</dt><dd>{demo ? t("Web demo") : t("Ứng dụng trên máy (localhost)")}</dd>
                     <dt>{t("Bộ mô phỏng")}</dt><dd>{demo ? "—" : settings?.engineAvailable ? "esmini 3.9.0" : t("Chưa cài esmini")}</dd>
                 </dl>

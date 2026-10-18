@@ -1,4 +1,4 @@
-# Đặc tả yêu cầu và thiết kế Topeye
+# Đặc tả yêu cầu và thiết kế Recast
 
 Ngày: 18/10/2026 · Mã tài liệu: SDD-01 · Snapshot: `0.43.2` (bản vá tài liệu).
 

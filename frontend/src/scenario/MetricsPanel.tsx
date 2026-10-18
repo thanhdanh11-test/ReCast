@@ -36,7 +36,7 @@ function ErrorChart({ o, time }: { o: ObjectMetrics; time: number | null }) {
     const x = (t: number) => pad.l + ((t - t0) / Math.max(1e-9, t1 - t0)) * (w - pad.l - pad.r);
     const y = (v: number) => pad.t + (1 - v / top) * (h - pad.t - pad.b);
     const path = (values: (number | null)[]) => values.map((v, i) => v === null ? "" : `${i && values[i - 1] !== null ? "L" : "M"}${x(o.grid_t[i]).toFixed(1)} ${y(v).toFixed(1)}`).join("");
-    return <svg className="metrics-chart" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={t("Sai số theo thời gian: Topeye và baseline")}>
+    return <svg className="metrics-chart" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={t("Sai số theo thời gian: Recast và baseline")}>
         {[top, top / 2, 0].map(v => <g key={v}><line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} className="metrics-grid"/><text x={pad.l - 4} y={y(v) + 3} textAnchor="end">{num(v, v >= 10 ? 1 : v >= 0.1 ? 2 : 3)} m</text></g>)}
         <path d={path(o.baseline_err)} className="metrics-baseline"/>
         {o.pilot_err && <path d={path(o.pilot_err)} className="metrics-pilot"/>}
@@ -63,12 +63,12 @@ export function MetricsPanel({ state, time }: { state: MetricsState | null; time
     return <div className="metrics">
         <h3>{t("Chỉ số kịch bản")}</h3>
         <div className="metrics-cards">
-            <div className="metrics-card"><span>{t("Sai số phát lại (Topeye)")}</span><strong>{m.replay.pilot ? `${num(m.replay.pilot.ade_m, 3)} m` : "—"}</strong><small>baseline {num(m.replay.baseline.ade_m, 3)} m</small></div>
+            <div className="metrics-card"><span>{t("Sai số phát lại (Recast)")}</span><strong>{m.replay.pilot ? `${num(m.replay.pilot.ade_m, 3)} m` : "—"}</strong><small>baseline {num(m.replay.baseline.ade_m, 3)} m</small></div>
             <div className="metrics-card"><span>{t("Vật thể chuyển động")}</span><strong>{m.objects.moving}</strong><small>{t("trên {n} vật thể", { n: m.objects.total })}</small></div>
-            <div className="metrics-card"><span>{t("Biến thể hợp lệ (Topeye)")}</span><strong>{v.pilot_valid ?? "—"}/{v.total}</strong><small>{v.pilot_valid !== null ? pct(v.pilot_valid, v.total) : t("cần esmini")} · baseline {pct(v.baseline_valid, v.total)}</small></div>
-            <div className="metrics-card"><span>{t("Tình huống hiếm (Topeye)")}</span><strong>{m.rare.pilot ?? "—"}</strong><small>{t("bản gốc: {n}", { n: m.rare.original })}</small></div>
+            <div className="metrics-card"><span>{t("Biến thể hợp lệ (Recast)")}</span><strong>{v.pilot_valid ?? "—"}/{v.total}</strong><small>{v.pilot_valid !== null ? pct(v.pilot_valid, v.total) : t("cần esmini")} · baseline {pct(v.baseline_valid, v.total)}</small></div>
+            <div className="metrics-card"><span>{t("Tình huống hiếm (Recast)")}</span><strong>{m.rare.pilot ?? "—"}</strong><small>{t("bản gốc: {n}", { n: m.rare.original })}</small></div>
         </div>
-        <p className="metrics-def">{t("Topeye: kịch bản OpenSCENARIO này phát lại bằng esmini, so với các mốc quỹ đạo của nó. Baseline: vận tốc không đổi từ mốc đầu. Hiếm: TTC < 1,5 s với ego đang chạy ≥ 5 m/s.")}</p>
+        <p className="metrics-def">{t("Recast: kịch bản OpenSCENARIO này phát lại bằng esmini, so với các mốc quỹ đạo của nó. Baseline: vận tốc không đổi từ mốc đầu. Hiếm: TTC < 1,5 s với ego đang chạy ≥ 5 m/s.")}</p>
         {m.notes.slice(1).map((n, k) => <p className="metrics-def" key={k}>{n}</p>)}
         {o && <>
             <h3>{t("Vật thể đang chọn")}</h3>
@@ -79,19 +79,19 @@ export function MetricsPanel({ state, time }: { state: MetricsState | null; time
             <div className="metrics-box">
                 <p className="metrics-caption">{i !== null ? t("Độ lệch so với vị trí thật lúc {t} s", { t: num(o.grid_t[i], 1) }) : t("Thời điểm đang xem nằm ngoài khoảng có nhãn")}</p>
                 <dl className="kv">
-                    <dt>Topeye</dt><dd>{i !== null && o.pilot_err?.[i] != null ? `${num(o.pilot_err[i]!, 2)} m` : "—"}</dd>
+                    <dt>Recast</dt><dd>{i !== null && o.pilot_err?.[i] != null ? `${num(o.pilot_err[i]!, 2)} m` : "—"}</dd>
                     <dt>Baseline</dt><dd>{i !== null ? `${num(o.baseline_err[i], 2)} m` : "—"}</dd>
                 </dl>
                 {i !== null && <p className="metrics-caption right">{describe(o.baseline_lon_lat[i], t)}</p>}
                 <ErrorChart o={o} time={time}/>
-                <p className="metrics-legend"><i className="lg-pilot"/>Topeye <i className="lg-baseline"/>baseline <i className="lg-now"/>{t("đang xem")}</p>
+                <p className="metrics-legend"><i className="lg-pilot"/>Recast <i className="lg-baseline"/>baseline <i className="lg-now"/>{t("đang xem")}</p>
                 <p className="metrics-def">{t("Giữa hai mốc, vị trí thật được nội suy thẳng.")}</p>
             </div>
             <dl className="kv metrics-facts">
                 <dt>{t("Loại")}</dt><dd>{o.category}</dd>
                 <dt>{t("Kích thước (dài × rộng × cao)")}</dt><dd>{num(o.length_m, 1)} × {num(o.width_m, 1)} × {o.height_m ? num(o.height_m, 1) : "—"} m</dd>
                 <dt>{t("Có dữ liệu")}</dt><dd>{t("{n} mốc", { n: o.keyframes })} · {num(o.span_s, 1)} s</dd>
-                <dt>{t("Sai số Topeye (trung bình · tối đa)")}</dt><dd>{o.pilot_ade_m !== null ? `${num(o.pilot_ade_m, 3)} · ${num(o.pilot_max_m!, 3)} m` : "—"}</dd>
+                <dt>{t("Sai số Recast (trung bình · tối đa)")}</dt><dd>{o.pilot_ade_m !== null ? `${num(o.pilot_ade_m, 3)} · ${num(o.pilot_max_m!, 3)} m` : "—"}</dd>
                 <dt>{t("Sai số baseline (trung bình · tối đa)")}</dt><dd>{num(o.baseline_ade_m, 2)} · {num(o.baseline_max_m, 2)} m</dd>
             </dl>
         </>}

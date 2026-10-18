@@ -1,5 +1,5 @@
 {
-  "current_version": "0.43.3",
+  "current_version": "0.43.4",
   "brain_template_version": "1.7.1",
   "system_status": "healthy_and_runtime_verified",
   "last_verification": {
@@ -1379,7 +1379,7 @@
     "broken_links": 0,
     "evidence": "docs/submission/evidence/verification-summary.json",
     "public_live_url_verified": false,
-    "published_to_github": false,
+    "published_to_github": true,
     "product_logic_changed": false
   },
   "pitch_deck": {
@@ -1397,5 +1397,19 @@
     "design_guide": "frontend/DESIGN-ferrari.md",
     "product_logic_changed": false,
     "remote_jobs_started": false
+  },
+  "app_display_name": {
+    "name": "Recast",
+    "former": "Topeye",
+    "version": "0.43.4",
+    "updated_at": "2026-10-18T20:19:23+07:00",
+    "technical_ids_kept": [
+      "python package topeye",
+      "topeye-* CLI",
+      "TOPEYE_* env",
+      "X-Topeye-Token header",
+      "TopeyeDeckSans font"
+    ],
+    "legacy_data_dirs_reused": true
   }
 }

@@ -25,7 +25,7 @@ afterEach(cleanup);
 describe("MetricsPanel", () => {
     it("shows the four scene cards and the selected object's deviation at the current time", () => {
         render(<MetricsPanel state={{ key: "k", status: "ready", data }} time={0.1}/>);
-        expect(screen.getByText("Sai số phát lại (Topeye)").nextElementSibling?.textContent).toBe("0,000 m");
+        expect(screen.getByText("Sai số phát lại (Recast)").nextElementSibling?.textContent).toBe("0,000 m");
         expect(screen.getByText("baseline 3,209 m")).toBeTruthy();
         expect(screen.getByText("trên 228 vật thể")).toBeTruthy();
         expect(screen.getByText("63/112")).toBeTruthy();

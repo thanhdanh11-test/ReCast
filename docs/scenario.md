@@ -1,4 +1,4 @@
-# Topeye Scenario — N3-09B, v0.22.0
+# Recast Scenario (trước đây là Topeye) — N3-09B, v0.22.0
 
 > Hồ sơ nộp sản phẩm hiện tại (`0.43.3`, 18/10/2026): bắt đầu tại [README](../README.md), [kiến trúc](submission/architecture.md), [đặc tả/thiết kế](submission/specification-design.md), [kiểm thử](submission/testing.md) và [nhật ký tuần](submission/weekly-logs.md). Các mục phiên bản cũ bên dưới là tài liệu vận hành/lịch sử, không phải toàn bộ cam kết của bản hiện tại.
 

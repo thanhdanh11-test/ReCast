@@ -2,7 +2,7 @@
 
 Ported from replay-forge (phanhieunghia353) @ d36205b,
 real2sim/abstraction.py, real2sim/metrics.py, real2sim/holdout.py and
-real2sim/pipeline.py. Esmini runs in the existing isolated Topeye child.
+real2sim/pipeline.py. Esmini runs in the existing isolated Recast child.
 """
 
 import tempfile

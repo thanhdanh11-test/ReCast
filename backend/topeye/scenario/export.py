@@ -42,8 +42,8 @@ def trajectory_xml(scenario):
         revMajor=1,
         revMinor=0,
         date="2026-10-09T00:00:00",
-        description="Topeye N3-09B measured trajectory replay",
-        author="Topeye",
+        description="Recast N3-09B measured trajectory replay",
+        author="Recast",
     )
     node(root, "ParameterDeclarations")
     node(root, "CatalogLocations")

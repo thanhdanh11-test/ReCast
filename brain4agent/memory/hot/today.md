@@ -90,3 +90,8 @@ Chủ xác nhận “xoá cả thư mục intake” 2026-10-17T19:43:46+07:00: �
 - Kiểm PDFthực9trang16:9,0overflow,fontsnhúng400/500/700,UnicodeVNđạt; render+ràcontactsheet vàtrang1/3/7/8. Sửa overlayalpha ReportLab tránh ảnhfullbleed bịcheđặc; đặt têninstanceTTF riêng đểfontweight khôngdedup. Evidence/provenance trong presentation/evidence/.
 - Dùngvenv/tmp riêng vớiReportLab/PyMuPDF/Pillow,khôngđổiappdependencies. Số đo1487tests/4of4esmini làtừhồsơ0.43.2; khôngchạylạibộtest vì chỉđổiartifact/docs. Khôngvideo cuốiđượcchỉđịnh,khôngnhúng/chạyv mới/remote/commit/push.
 - Hoàn tất 2026-10-18T18:24:34+07:00: PDF9trang,3fontfacesnhúng,0overflow; 38linklocal0broken; scriptASTvalid,PDFhashkhớp; lời dẫn776đơnvị từ/tổng255s lời+45s video. Có inlinepreviewnhẹ trongchat, artifactbền trongrepo. Chưaclipdemo cuối/commit/push.
+
+## 2026-10-18T20:19:23+07:00 — Đổi tên app thành Recast / v0.43.4
+- Chủ yêu cầu “đổi toàn bộ tên app là recast”. Tự quyết (Luật L.2): đổi mọi chuỗi hiển thị + docs nộp + PDF; giữ định danh kỹ thuật `topeye`; thư mục dữ liệu mới Recast, có Topeye cũ thì dùng tiếp.
+- Trước đó trong phiên: commit 39b638e (v0.43.3), push origin release/v0.15.0, sync P-056 main aafb5f0; mời phanhieunghia353 (write) vào thanhdanh11-test/topeye.
+- Đo: FE578/server67 pass, typecheck/build exit0, BE363 pass (lọc), ruff exit0, PDF 9 trang 0 “Topeye”.

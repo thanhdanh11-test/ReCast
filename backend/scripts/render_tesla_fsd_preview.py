@@ -263,7 +263,7 @@ def setup_tesla_fsd_scene(output_path: str):
         b_obj.data.materials.append(mat_lidar_bldg)
 
     # 8. LiDAR-Derived Trees (Procedural Cylinder Trunk + Icosahedron Crown, 100% Uncolored Clay)
-    # Strictly adhering to Topeye's sourceEnvironment.ts geometry
+    # Strictly adhering to Recast's sourceEnvironment.ts geometry
     tree_instances = [
         # (x, y, z, height, crown_radius)
         (left_edge_x - 3.2, 18.0, 0.0, 6.2, 2.1),
