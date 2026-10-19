@@ -1,0 +1,9 @@
+# plan61: replace the domain, then: sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+# The domain must equal TOPEYE_PUBLIC_ORIGIN in recast.service (https://<this domain>).
+recast.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:5180 {
+		# /api/events is server-sent events; stream it without buffering.
+		flush_interval -1
+	}
+}

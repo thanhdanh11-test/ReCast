@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="vi" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'"
+    />
+    <link rel="icon" href="data:," />
+    <title>ReCast · Bản demo</title>
+    <style>
+      .demo-ribbon { position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:1000; pointer-events:none; padding:5px 12px; border:1px solid #e10600; background:rgba(225,6,0,.12); color:#ff4d47; font:600 11px/1.3 Inter,system-ui,sans-serif; letter-spacing:.8px; text-transform:uppercase; white-space:nowrap; max-width:calc(100vw - 32px); overflow:hidden; text-overflow:ellipsis; }
+    </style>
+  </head>
+  <body class="m-0 p-0 overflow-hidden bg-background text-foreground font-sans antialiased">
+    <div class="demo-ribbon" role="note">Bản demo · dữ liệu ghi sẵn, không chạy mô phỏng mới</div>
+    <div id="root"></div>
+    <script type="module" src="/src/scenario/demoMain.tsx"></script>
+  </body>
+</html>

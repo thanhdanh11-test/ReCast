@@ -8,9 +8,9 @@ const HOURS = [1, 8, 24, 168];
 const HOUR = 60 * 60 * 1000;
 const WINDOW = 15 * 60 * 1000;
 const error = (code, message) => Object.assign(new Error(message), { code });
-const cookie = (value, age) => `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}`;
-
-export function createAuth({ path, now = Date.now }) {
+// secure: served over HTTPS behind a proxy. allowSetup=false: the account is made on the host (create-account.mjs).
+export function createAuth({ path, now = Date.now, secure = false, allowSetup = true }) {
+  const cookie = (value, age) => `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure ? "; Secure" : ""}`;
   let account = null;
   try {
     account = JSON.parse(fs.readFileSync(path, "utf8"));
@@ -67,6 +67,7 @@ export function createAuth({ path, now = Date.now }) {
     authenticated, status,
     async setup(args, res) {
       if (account || settingUp) throw error("ACCOUNT_EXISTS", "Tài khoản đã được tạo. Hãy đăng nhập.");
+      if (!allowSetup) throw error("SETUP_DISABLED", "Tài khoản do quản trị viên tạo trên máy chủ.");
       const { username, password } = credentials(args);
       settingUp = true;
       try {

@@ -1,0 +1,19 @@
+# plan61: sudo cp deploy/recast.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now recast
+[Unit]
+Description=ReCast Scenario Studio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=recast
+WorkingDirectory=/home/recast/recast/frontend
+Environment=TOPEYE_PUBLIC_ORIGIN=https://recast.example.com
+Environment=TOPEYE_NO_OPEN=1
+ExecStart=/usr/local/bin/node server/local-server.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

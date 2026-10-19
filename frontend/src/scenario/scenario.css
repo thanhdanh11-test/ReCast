@@ -15,6 +15,7 @@
 .studio h1 { margin:0; font-size:17px; font-weight:500; letter-spacing:-.5px; }
 .studio h1 span { color:var(--muted); font-weight:400; margin-left:8px; }
 .studio-brand small { color:var(--muted); font-size:11px; }
+.studio-demo-badge { padding:3px 8px; border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; white-space:nowrap; }
 .header-actions { display:flex; align-items:center; gap:10px; min-width:0; }
 
 .studio-body { flex:1; display:flex; min-height:0; }

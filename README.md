@@ -114,6 +114,10 @@ Không chép đường dẫn dataset của máy phát triển sang máy người
 
 Một số cảnh xem được nhưng không qua cổng map để tạo kịch bản. Đây là từ chối có lý do, không phải quyền bỏ qua kiểm định.
 
+### 5. Đưa lên máy chủ (tùy chọn)
+
+Chạy trên VPS Linux sau Caddy (HTTPS), app vẫn chỉ nghe `127.0.0.1`; tài khoản tạo bằng lệnh trên máy chủ. Hướng dẫn: [deploy/README.md](deploy/README.md).
+
 ## Kiểm thử
 
 ```sh

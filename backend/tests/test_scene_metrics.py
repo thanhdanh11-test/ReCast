@@ -1,5 +1,6 @@
 import math
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,7 @@ from topeye.scenario.worker import Service
 
 ENGINE = (
     Path(__file__).resolve().parents[1]
-    / ".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib.dylib"
+    / (".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib" + (".dylib" if sys.platform == "darwin" else ".so"))
 )
 DATA = Path.home() / "cvat-day2/tools/traffic_pipeline/data"
 

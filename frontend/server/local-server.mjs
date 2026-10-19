@@ -133,7 +133,7 @@ export function validateArgs(name, args) {
 // the worker themselves are 500.
 const SERVER_FAILURES = ["INTERNAL", "IO_ERROR", "ENGINE_FAILED", "ENGINE_MISSING", "ESMINI_FAILED", "ESMINI_MISSING", "ESMINI_BUILD_VERSION", "TIMEOUT", "HASH_MISMATCH", "LIDAR_UNAVAILABLE"];
 export const statusFor = (code) =>
-  code === "UNAUTHENTICATED" || code === "INVALID_CREDENTIALS" ? 401 : code === "RATE_LIMITED" ? 429 : code === "ACCOUNT_EXISTS" ? 409 : code === "FORBIDDEN" ? 403 : ["BUSY", "CANCELLED"].includes(code) ? 409 :
+  code === "UNAUTHENTICATED" || code === "INVALID_CREDENTIALS" ? 401 : code === "RATE_LIMITED" ? 429 : code === "ACCOUNT_EXISTS" ? 409 : code === "FORBIDDEN" || code === "SETUP_DISABLED" ? 403 : ["BUSY", "CANCELLED"].includes(code) ? 409 :
   !code || SERVER_FAILURES.includes(code) || !/^[A-Z][A-Z0-9_]+$/.test(code) ? 500 : 400;
 
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
@@ -149,21 +149,36 @@ function brandDir(parent, name, legacyName) {
   return !fs.existsSync(join(parent, name)) && fs.existsSync(legacy) ? legacy : join(parent, name);
 }
 
+export const defaultUserData = () =>
+  process.env.TOPEYE_USER_DATA || brandDir(join(os.homedir(), "Library", "Application Support"), "ReCast", "Topeye");
+
+// plan61: the one https origin a reverse proxy serves this host on; "" keeps loopback-only behaviour.
+function checkedPublicOrigin(value) {
+  if (!value) return "";
+  let url;
+  try { url = new URL(value); } catch { url = null; }
+  if (!url || url.protocol !== "https:" || url.username || url.password || value !== url.origin)
+    throw new Error("TOPEYE_PUBLIC_ORIGIN must be an https origin, e.g. https://example.com");
+  return value;
+}
+
 export function createLocalServer({
   staticDir = join(root, "frontend", "dist-local"),
-  userData = brandDir(join(os.homedir(), "Library", "Application Support"), "ReCast", "Topeye"),
+  userData = defaultUserData(),
   python = join(root, "backend", ".venv", "bin", "python"),
-  engine = join(root, "backend", ".tools", "esmini", "build", "EnvironmentSimulator", "Libraries", "esminiLib", "libesminiLib.dylib"),
+  engine = join(root, "backend", ".tools", "esmini", "build", "EnvironmentSimulator", "Libraries", "esminiLib", process.platform === "darwin" ? "libesminiLib.dylib" : "libesminiLib.so"),
   version = JSON.parse(fs.readFileSync(join(root, "frontend", "package.json"), "utf8")).version,
   bridgeFactory = createWorkerBridge,
   catalogSeeds = fs.existsSync(join(root, "backend/data/dataset-library.json")) ? JSON.parse(fs.readFileSync(join(root, "backend/data/dataset-library.json"), "utf8")) : [],
   // plan57: machine-local CARLA VM settings (absent = “Xem trên CARLA” disabled) and the Brev runner.
   carlaConfig = () => { try { return JSON.parse(fs.readFileSync(join(root, "backend/data/carla-render.json"), "utf8")); } catch { return null; } },
   carlaRun = brevRunner(),
+  publicOrigin = process.env.TOPEYE_PUBLIC_ORIGIN || "",
 } = {}) {
+  publicOrigin = checkedPublicOrigin(publicOrigin);
   const token = randomBytes(32).toString("hex");
   fs.mkdirSync(userData, { recursive: true });
-  const auth = createAuth({ path: join(userData, "local-account.json") });
+  const auth = createAuth({ path: join(userData, "local-account.json"), secure: !!publicOrigin, allowSetup: !publicOrigin });
   const feedback = createFeedback({ dir: join(userData, "feedback") });
   const settingsPath = join(userData, "scenario-settings.json");
   let settings;
@@ -340,9 +355,9 @@ export function createLocalServer({
     const port = server.address()?.port;
     if (!port) { res.writeHead(503, { Connection: "close" }).end(); return; }
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
-    const hostOk = [`127.0.0.1:${port}`, `localhost:${port}`].includes(req.headers.host || "");
+    const hostOk = [`127.0.0.1:${port}`, `localhost:${port}`, ...(publicOrigin ? [new URL(publicOrigin).host] : [])].includes(req.headers.host || "");
     const origin = req.headers.origin;
-    const originOk = !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}`;
+    const originOk = !origin || [`http://127.0.0.1:${port}`, `http://localhost:${port}`, ...(publicOrigin ? [publicOrigin] : [])].includes(origin);
     const send = (status, value) => {
       res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
       res.end(JSON.stringify(value));
@@ -495,7 +510,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   host.listen(requested).then((port) => {
     const url = `http://127.0.0.1:${port}/`;
     console.log(`ReCast local web: ${url}`);
-    if (!process.env.TOPEYE_NO_OPEN) spawn("open", [url], { stdio: "ignore", detached: true }).unref();
+    if (process.platform === "darwin" && !process.env.TOPEYE_NO_OPEN) spawn("open", [url], { stdio: "ignore", detached: true }).unref();
   }).catch((e) => {
     console.error(e.code === "EADDRINUSE" ? `Cổng ${requested} đang bận; đặt TOPEYE_PORT khác.` : e);
     process.exit(1);

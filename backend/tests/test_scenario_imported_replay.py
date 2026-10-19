@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,7 @@ def test_real_roadless_engine_and_roundtrip(tmp_path):
     assert load_imported(p, c, tmp_path / "dataset")["id"] == s["id"]
     engine = (
         Path(__file__).resolve().parents[1]
-        / ".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib.dylib"
+        / (".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib" + (".dylib" if sys.platform == "darwin" else ".so"))
     )
     assert engine.is_file(), "Required actual esmini engine missing"
     result = run_imported_replay(s, c, engine, tmp_path / "run")
@@ -119,7 +120,7 @@ def test_real_rotating_reference_center_arc(tmp_path):
     s["package_path"] = str(persist_import(s, xml, c, tmp_path / "workspace", tmp_path / "dataset"))
     engine = (
         Path(__file__).resolve().parents[1]
-        / ".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib.dylib"
+        / (".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib" + (".dylib" if sys.platform == "darwin" else ".so"))
     )
     result = run_imported_replay(s, c, engine, tmp_path / "run")
     assert result["report"]["execution"] == "pass"

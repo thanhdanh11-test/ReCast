@@ -411,6 +411,8 @@ export const EN: Record<string, string> = {
     "Thư mục lưu kịch bản": "Scenario save folder",
     "Thư viện kịch bản": "Scenario library",
     "Thư viện map": "Map library",
+    "Bản demo": "Demo",
+    "Bản demo: dữ liệu và kết quả mô phỏng được tính sẵn, không chạy mô phỏng mới.": "Demo: data and simulation results are precomputed; no new simulation runs.",
     "Thời gian mô phỏng": "Simulation time",
     "Thời điểm đang xem nằm ngoài khoảng có nhãn": "The current time is outside the labelled range",
     "Thử lại": "Retry",

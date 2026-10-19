@@ -671,6 +671,7 @@ describe('static web demo shell', () => {
  it('loads without a picker and hides full-version-only actions, retaining shared views and credits', async () => {
   render(<ScenarioApp/>);
   await screen.findByText('Đã đọc 1 cảnh');
+  expect(screen.getByText('Bản demo')).toBeTruthy();
   for (const name of ['OpenSCENARIO','Góp ý']) expect(screen.queryByRole('button',{name})).toBeNull();
   tool('Cài đặt');
   const nav = within(screen.getByRole('navigation',{name:'Mục cài đặt'}));

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "recast"
-version = "0.43.4"
+version = "0.44.0"
 description = "ReCast: LiDAR and surround-camera annotation processing core"
 requires-python = ">=3.12"
 dependencies = [

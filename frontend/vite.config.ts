@@ -14,6 +14,8 @@ const browserIndex = (entry: string) => ({
 const browserBuilds: Record<string, { mode: string; entry: string; outDir: string; publicDir: string | false }> = {
   web: { mode: 'web', entry: 'web.html', outDir: 'dist-web', publicDir: 'public-web' },
   localweb: { mode: 'localweb', entry: 'local.html', outDir: 'dist-local', publicDir: false },
+  // Recorded demo: full app over responses captured by scripts/record-demo.mjs into public-demo/.
+  demo: { mode: 'demo', entry: 'demo.html', outDir: 'dist-demo', publicDir: 'public-demo' },
 };
 
 export default defineConfig(({ mode }) => {

@@ -1,12 +1,14 @@
 {
   "name": "recast-frontend",
   "private": true,
-  "version": "0.43.4",
+  "version": "0.44.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build --mode localweb",
     "build:web": "tsc && vite build --mode web",
+    "build:demo": "tsc && vite build --mode demo",
+    "record:demo": "node scripts/record-demo.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "web:local": "npm run build && node server/local-server.mjs",

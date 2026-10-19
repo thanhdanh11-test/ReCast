@@ -488,3 +488,21 @@ Authenticated group APIs store `.scenario-groups.json` separately from immutable
 
 ## Pitch deck — v0.43.3 (Plan60)
 Bộ [PDF 9 trang](submission/presentation/topeye-pitch-5min.pdf) cho ban giám khảo: 5 phút gồm 45 giây video riêng, trọng tâm thiếu dữ liệu tình huống hiếm, ví dụ trẻ em từ sau xe đỗ và xe trước phanh gấp. Có [lời dẫn](submission/presentation/speaker-notes.md), ảnh xem nhanh, nguồn dựng PDF và kiểm tra artifact. Thiết kế theo frontend/DESIGN-ferrari.md, Inter thay FerrariSans. Không nhúng video, không tạo job CARLA hoặc đổi logic sản phẩm.
+
+## Deploy VPS 0.44.0 (plan61)
+- Mô hình: VPS Linux → Caddy (HTTPS) → `node server/local-server.mjs` vẫn bind `127.0.0.1:5180`. Runbook + file mẫu: [deploy/README.md](../deploy/README.md).
+- `TOPEYE_PUBLIC_ORIGIN=https://<tên-miền>` (đúng một origin https, không `/` cuối; sai ⇒ server không khởi động): nhận thêm đúng Host/Origin đó, cookie phiên có `Secure`, **web không cho tạo tài khoản** (`SETUP_DISABLED`, 403). Không tin `X-Forwarded-*`.
+- Tạo tài khoản trên máy chủ: `printf '%s\n' "$P" | node frontend/server/create-account.mjs <user>` (mật khẩu qua stdin; exit 0/1 sai đầu vào/2 đã có/3 lỗi khác). `TOPEYE_USER_DATA` ghi đè thư mục tài khoản.
+- esmini: server chọn `libesminiLib.dylib` (macOS) hoặc `libesminiLib.so` (Linux); test backend dùng esmini cũng chọn theo nền tảng. Build lại engine trên chính VPS (không chép giữa kiến trúc CPU).
+- Kiểm Linux trên máy dev: `deploy/Dockerfile.linux-check` (Ubuntu 24.04).
+
+## Web demo ghi sẵn (Cloudflare Pages)
+
+App đầy đủ chạy trên host tĩnh: `src/scenario/demoFetch.ts` chặn mọi `fetch` tới `/api/*` cùng origin và trả phản hồi đã ghi tại `demo-api/rpc/<sha256("<METHOD> <path>\n<body>")>.json`; lệnh chưa ghi ⇒ 409 `DEMO_ONLY` (kể cả khi host trả trang HTML dự phòng). Entry `demo.html` (nhãn cố định "Bản demo · dữ liệu ghi sẵn"), mode Vite `demo` → `dist-demo/`.
+
+```sh
+cd frontend && npm run record:demo -- <workspace-đã-chọn-lọc> "CARLA Town10HD"   # → public-demo/demo-api + public-demo/api (video CARLA)
+npm run build:demo && npx wrangler pages deploy dist-demo --project-name recast-demo --branch main
+```
+
+Script ghi chạy server cục bộ trên BẢN SAO workspace, mở bộ dữ liệu, mở + phân tích từng kịch bản, mở trang Đã xuất; `sourceScene` giữ id lần đầu (id sau được đổi về id đầu). Video `<video>` không qua fetch nên được chép thành file `api/exports/<id>/carla-<view>.mp4`. LiDAR theo thời điểm phát và mọi thao tác ghi/sửa không có trong bản demo. Bản 2026-10-18: https://recast-demo.pages.dev (5 kịch bản Town10HD, 7 bản xuất, 3 video CARLA thật); `noindex`.

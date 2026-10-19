@@ -2,6 +2,7 @@
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +12,7 @@ from test_scenario_reactive import NUSC, service  # noqa: F401  (fixture)
 from topeye.scenario import esmini_check as ec
 from topeye.scenario.models import ScenarioError
 
-ENGINE = Path(__file__).resolve().parents[1] / ".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib.dylib"
+ENGINE = Path(__file__).resolve().parents[1] / (".tools/esmini/build/EnvironmentSimulator/Libraries/esminiLib/libesminiLib" + (".dylib" if sys.platform == "darwin" else ".so"))
 SAMPLE = Path.home() / "Downloads/car_013_t01.0_stop_d3_a8"
 needs_engine = pytest.mark.skipif(not ENGINE.is_file(), reason="bundled esmini library not built on this machine")
 

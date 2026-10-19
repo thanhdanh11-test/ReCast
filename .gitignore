@@ -11,3 +11,6 @@ backend/assets/env/
 frontend/public-web/data/
 frontend/dist-web/
 frontend/dist-local/
+frontend/public-demo/demo-api/
+frontend/public-demo/api/
+frontend/dist-demo/
